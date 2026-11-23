@@ -390,6 +390,23 @@ export const printInsuranceReport = (elementOrId, options = {}) => {
     );
     elementsToRemove.forEach((el) => el.remove());
 
+    // Sanitize any existing signature blocks to strictly use designation only
+    const sigNames = clone.querySelectorAll(".sig-name");
+    sigNames.forEach((el) => el.remove());
+    const sigBlocks = clone.querySelectorAll(".signatures-block");
+    sigBlocks.forEach((sb) => {
+        sb.innerHTML = `
+            <div style="text-align: left; font-size: 10pt; font-weight: bold; color: #000000;">
+                <div style="border-top: 1px solid #000000; width: 180px; margin-bottom: 6px;"></div>
+                Insurance Executive
+            </div>
+            <div style="text-align: right; font-size: 10pt; font-weight: bold; color: #000000;">
+                <div style="border-top: 1px solid #000000; width: 220px; margin-bottom: 6px; margin-left: auto;"></div>
+                General Manager - Insurance
+            </div>
+        `;
+    });
+
     // 4. Identify options
     const hospitalName =
         options.hospitalName ||
@@ -525,6 +542,18 @@ export const printInsuranceReport = (elementOrId, options = {}) => {
                 <div class="report-content-body">
                     ${clone.innerHTML}
                 </div>
+
+                ${!clone.querySelector('.signatures-block') ? `
+                <div class="print-signatures-block" style="display: flex; justify-content: space-between; margin-top: 45px; padding: 15px 10px 10px 10px; page-break-inside: avoid;">
+                    <div style="text-align: left; font-size: 10pt; font-weight: bold; color: #000000;">
+                        <div style="border-top: 1px solid #000000; width: 180px; margin-bottom: 6px;"></div>
+                        Insurance Executive
+                    </div>
+                    <div style="text-align: right; font-size: 10pt; font-weight: bold; color: #000000;">
+                        <div style="border-top: 1px solid #000000; width: 220px; margin-bottom: 6px; margin-left: auto;"></div>
+                        General Manager - Insurance
+                    </div>
+                </div>` : ''}
 
                 <div class="report-footer">
                     <div>Generated: ${printTimeStr} | Printed By: ${printedBy}</div>

@@ -23,6 +23,7 @@ import {
 } from '../GlobalStyles';
 import SearchSelect from '../Common/SearchSelect';
 import { SCOPE_OPTIONS, getStoredScope, setStoredScope, printDrugReport } from './drugReportHelper';
+import { printStoresReport } from '../Stores/printStoresReport';
 
 const DrugSupplierGrnReport = () => {
     const navigate = useNavigate();
@@ -42,9 +43,12 @@ const DrugSupplierGrnReport = () => {
     const [summary, setSummary] = useState({
         total_suppliers: 0,
         total_grns: 0,
+        total_returns: 0,
         grand_taxable_amount: 0,
         grand_tax_amount: 0,
-        grand_total_amount: 0
+        grand_total_amount: 0,
+        grand_return_amount: 0,
+        grand_net_amount: 0
     });
     const [reportData, setReportData] = useState([]);
 
@@ -111,13 +115,17 @@ const DrugSupplierGrnReport = () => {
             "Supplier Name": s.vendor_name,
             "GSTIN": s.vendor_gstin || '',
             "Total GRNs": s.total_grns,
+            "Total Purchases (₹)": s.total_amount,
+            "Total Returns": s.total_returns || (s.returns ? s.returns.length : 0),
+            "Return Amount (₹)": s.return_amount || 0,
+            "Net Purchases (₹)": s.net_amount != null ? s.net_amount : (s.total_amount || 0) - (s.return_amount || 0),
             "Taxable Amount (₹)": s.taxable_amount,
             "Tax Paid (₹)": s.tax_amount,
-            "Total Invoice Amount (₹)": s.total_amount,
             "Items Received Qty": s.total_items_qty
         }));
 
         const grnRows = [];
+        const returnRows = [];
         reportData.forEach(s => {
             if (Array.isArray(s.grns)) {
                 s.grns.forEach(g => {
@@ -138,6 +146,21 @@ const DrugSupplierGrnReport = () => {
                     });
                 });
             }
+            if (Array.isArray(s.returns)) {
+                s.returns.forEach(r => {
+                    returnRows.push({
+                        "Vendor ID": s.vendor_id,
+                        "Supplier Name": s.vendor_name,
+                        "Debit Note No": r.debit_note_no || '',
+                        "Return ID": r.return_id || '',
+                        "Return Date": r.return_date || '',
+                        "Against GRN": r.grn_number || '',
+                        "Return Amount (₹)": r.total_amount || 0,
+                        "Reason": r.reason_for_return || '',
+                        "Status": r.status || ''
+                    });
+                });
+            }
         });
 
         const wb = XLSX.utils.book_new();
@@ -146,26 +169,22 @@ const DrugSupplierGrnReport = () => {
 
         XLSX.utils.book_append_sheet(wb, wsSupplier, "Supplier Summary");
         XLSX.utils.book_append_sheet(wb, wsGrns, "Detailed GRN Invoices");
+        if (returnRows.length > 0) {
+            const wsReturns = XLSX.utils.json_to_sheet(returnRows);
+            XLSX.utils.book_append_sheet(wb, wsReturns, "Purchase Returns (Debit Notes)");
+        }
 
         XLSX.writeFile(wb, `Drug_Supplier_GRN_Report_${scope.replace(/\s+/g, '_')}_${today}.xlsx`);
     };
 
     const handlePrint = () => {
-        printDrugReport({
-            title: `SUPPLIER-BASED DRUG GRN REPORT (${scope})`,
+        printStoresReport(reportData, {
+            isSupplierPurchaseFormat: true,
             fromDate,
             toDate,
-            scope,
-            columns: [
-                { key: 'vendor_name', label: 'Supplier / Vendor', width: '220px' },
-                { key: 'total_grns', label: 'Total GRNs', width: '90px', align: 'center' },
-                { key: 'taxable_amount', label: 'Taxable (₹)', width: '120px', align: 'right' },
-                { key: 'tax_amount', label: 'Tax Paid (₹)', width: '110px', align: 'right' },
-                { key: 'total_amount', label: 'Net Total (₹)', width: '130px', align: 'right' },
-                { key: 'total_items_qty', label: 'Units Recd', width: '90px', align: 'center' }
-            ],
-            data: reportData,
-            summary
+            summary,
+            hospitalName: 'SHANMUGA HOSPITAL LIMITED',
+            department: scope || 'ALL (IP PHARMACY, OP PHARMACY, DRUG PURCHASE)'
         });
     };
 
@@ -183,7 +202,7 @@ const DrugSupplierGrnReport = () => {
                                 <ArrowLeft size={16} /> Back
                             </Button>
                             <h1 style={{ margin: 0, color: colors.primary, fontSize: '1.75rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <ShieldCheck size={28} color={colors.primary} /> Supplier-Based Drug GRN Report
+                                <ShieldCheck size={28} color={colors.primary} /> Supplier-Based GRN Report ({scope})
                             </h1>
                         </div>
                         <p style={{ margin: '6px 0 0 0', color: colors.textMuted, fontSize: '0.9rem' }}>
@@ -207,8 +226,44 @@ const DrugSupplierGrnReport = () => {
                     </div>
                 </div>
 
-                {/* Key Metrics Cards - 3 cards without Total Paid / Pending Balance */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+                {/* SCOPE TOGGLE BUTTONS: ALL / IP / OP / DRUG */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 18px', background: '#ffffff', borderRadius: '12px', border: `1px solid ${colors.border}`, marginBottom: '20px', flexWrap: 'wrap', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+                    <span style={{ fontSize: '0.82rem', fontWeight: '800', color: '#334155', display: 'flex', alignItems: 'center', gap: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        <Filter size={16} color="#059669" /> Scope Filter:
+                    </span>
+                    {[
+                        { id: 'ALL (IP PHARMACY, OP PHARMACY, DRUG PURCHASE)', label: 'ALL (IP, OP, DRUG)' },
+                        { id: 'IP PHARMACY', label: 'IP PHARMACY' },
+                        { id: 'OP PHARMACY', label: 'OP PHARMACY' },
+                        { id: 'DRUG PURCHASE', label: 'DRUG PURCHASE' }
+                    ].map(btn => {
+                        const isActive = scope === btn.id || (btn.id.includes('ALL') && (scope?.includes('ALL') || scope?.includes('CONSOLIDATED')));
+                        return (
+                            <button
+                                key={btn.id}
+                                type="button"
+                                onClick={() => handleScopeChange(btn.id)}
+                                style={{
+                                    padding: '7px 18px',
+                                    borderRadius: '20px',
+                                    border: isActive ? '2px solid #059669' : '1.5px solid #cbd5e1',
+                                    background: isActive ? '#059669' : '#ffffff',
+                                    color: isActive ? '#ffffff' : '#334155',
+                                    fontWeight: isActive ? '800' : '600',
+                                    fontSize: '0.82rem',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.15s ease',
+                                    boxShadow: isActive ? '0 2px 8px rgba(5, 150, 105, 0.25)' : 'none'
+                                }}
+                            >
+                                {btn.label}
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {/* Key Metrics Cards - 5 cards with Purchases, Returns, and Net */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '16px', marginBottom: '24px' }}>
                     <div style={{ background: '#ffffff', borderRadius: '12px', padding: '20px', border: `1px solid ${colors.border}`, borderLeft: '4px solid #0891b2', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
                         <span style={{ color: colors.textMuted, fontSize: '0.85rem', fontWeight: '600' }}>TOTAL SUPPLIERS</span>
                         <h2 style={{ margin: '8px 0 0 0', fontSize: '1.6rem', color: '#0891b2', fontWeight: '700' }}>{summary.total_suppliers || reportData.length || 0}</h2>
@@ -221,12 +276,28 @@ const DrugSupplierGrnReport = () => {
                         <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Invoices Received</span>
                     </div>
 
-                    <div style={{ background: '#ffffff', borderRadius: '12px', padding: '20px', border: `1px solid ${colors.border}`, borderLeft: '4px solid #059669', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-                        <span style={{ color: colors.textMuted, fontSize: '0.85rem', fontWeight: '600' }}>GRAND TOTAL GRN VALUE</span>
-                        <h2 style={{ margin: '8px 0 0 0', fontSize: '1.6rem', color: '#059669', fontWeight: '700' }}>
+                    <div style={{ background: '#ffffff', borderRadius: '12px', padding: '20px', border: `1px solid ${colors.border}`, borderLeft: '4px solid #475569', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                        <span style={{ color: colors.textMuted, fontSize: '0.85rem', fontWeight: '600' }}>TOTAL PURCHASES (GRN)</span>
+                        <h2 style={{ margin: '8px 0 0 0', fontSize: '1.5rem', color: '#1e293b', fontWeight: '700' }}>
                             ₹{Number(summary.grand_total_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         </h2>
-                        <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Taxable + Taxes</span>
+                        <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Gross Invoiced Amount</span>
+                    </div>
+
+                    <div style={{ background: '#ffffff', borderRadius: '12px', padding: '20px', border: `1px solid ${colors.border}`, borderLeft: '4px solid #dc2626', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                        <span style={{ color: colors.textMuted, fontSize: '0.85rem', fontWeight: '600' }}>TOTAL RETURNS (DEBIT NOTES)</span>
+                        <h2 style={{ margin: '8px 0 0 0', fontSize: '1.5rem', color: '#dc2626', fontWeight: '700' }}>
+                            -₹{Number(summary.grand_return_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </h2>
+                        <span style={{ fontSize: '0.75rem', color: '#dc2626', fontWeight: '600' }}>{summary.total_returns || 0} Debit Notes</span>
+                    </div>
+
+                    <div style={{ background: '#ffffff', borderRadius: '12px', padding: '20px', border: `1px solid ${colors.border}`, borderLeft: '4px solid #059669', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                        <span style={{ color: colors.textMuted, fontSize: '0.85rem', fontWeight: '600' }}>NET PURCHASES</span>
+                        <h2 style={{ margin: '8px 0 0 0', fontSize: '1.6rem', color: '#059669', fontWeight: '800' }}>
+                            ₹{Number(summary.grand_net_amount != null ? summary.grand_net_amount : (summary.grand_total_amount || 0) - (summary.grand_return_amount || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </h2>
+                        <span style={{ fontSize: '0.75rem', color: '#059669', fontWeight: '600' }}>Purchases Minus Returns</span>
                     </div>
                 </div>
 
@@ -327,22 +398,27 @@ const DrugSupplierGrnReport = () => {
                                         <Th style={{ width: '40px' }}></Th>
                                         <Th>Drug Supplier / Vendor</Th>
                                         <Th style={{ textAlign: 'center' }}>Total GRNs</Th>
-                                        <Th style={{ textAlign: 'right' }}>Taxable Amount</Th>
-                                        <Th style={{ textAlign: 'right' }}>Tax Paid</Th>
-                                        <Th style={{ textAlign: 'right' }}>Total Invoice Amount</Th>
+                                        <Th style={{ textAlign: 'right' }}>Total Purchases</Th>
+                                        <Th style={{ textAlign: 'center' }}>Returns</Th>
+                                        <Th style={{ textAlign: 'right' }}>Return Amount</Th>
+                                        <Th style={{ textAlign: 'right' }}>Net Purchases</Th>
                                         <Th style={{ textAlign: 'center' }}>Items Recd</Th>
                                     </Tr>
                                 </thead>
                                 <tbody>
                                     {!Array.isArray(reportData) || reportData.length === 0 ? (
                                         <Tr>
-                                            <Td colSpan={7} style={{ textAlign: 'center', padding: '30px', color: colors.textMuted }}>
+                                            <Td colSpan={8} style={{ textAlign: 'center', padding: '30px', color: colors.textMuted }}>
                                                 No Drug Supplier GRN records found for the selected period.
                                             </Td>
                                         </Tr>
                                     ) : (
                                         reportData.map((supplier) => {
                                             const isExpanded = expandedSupplier === supplier.vendor_id;
+                                            const returnCount = supplier.total_returns || (supplier.returns ? supplier.returns.length : 0);
+                                            const returnAmount = Number(supplier.return_amount || 0);
+                                            const netAmount = Number(supplier.net_amount != null ? supplier.net_amount : (supplier.total_amount || 0) - returnAmount);
+
                                             return (
                                                 <React.Fragment key={supplier.vendor_id}>
                                                     <Tr
@@ -361,29 +437,32 @@ const DrugSupplierGrnReport = () => {
                                                         <Td style={{ textAlign: 'center', fontWeight: '700', color: '#2563eb' }}>
                                                             {supplier.total_grns}
                                                         </Td>
-                                                        <Td style={{ textAlign: 'right', fontWeight: '600' }}>
-                                                            ₹{Number(supplier.taxable_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                                        </Td>
-                                                        <Td style={{ textAlign: 'right', color: '#d97706', fontWeight: '600' }}>
-                                                            ₹{Number(supplier.tax_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                                        </Td>
                                                         <Td style={{ textAlign: 'right', fontWeight: '700', color: colors.textMain }}>
                                                             ₹{Number(supplier.total_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                        </Td>
+                                                        <Td style={{ textAlign: 'center', fontWeight: '700', color: returnCount > 0 ? '#dc2626' : colors.textMuted }}>
+                                                            {returnCount > 0 ? `${returnCount} DBN` : '0'}
+                                                        </Td>
+                                                        <Td style={{ textAlign: 'right', fontWeight: '600', color: returnAmount > 0 ? '#dc2626' : colors.textMuted }}>
+                                                            {returnAmount > 0 ? `-₹${returnAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '₹0.00'}
+                                                        </Td>
+                                                        <Td style={{ textAlign: 'right', fontWeight: '800', color: '#059669' }}>
+                                                            ₹{netAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                                         </Td>
                                                         <Td style={{ textAlign: 'center', fontWeight: '600' }}>
                                                             {supplier.total_items_qty} units
                                                         </Td>
                                                     </Tr>
 
-                                                    {/* Expanded Sub-Table for GRNs */}
+                                                    {/* Expanded Sub-Table for GRNs and Returns */}
                                                     {isExpanded && (
                                                         <Tr>
-                                                            <Td colSpan={7} style={{ background: '#f8fafc', padding: '16px 24px' }}>
+                                                            <Td colSpan={8} style={{ background: '#f8fafc', padding: '16px 24px' }}>
                                                                 <div style={{ marginBottom: '10px', fontWeight: '700', color: colors.primary, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                                     <FileText size={16} /> GRNs from {supplier.vendor_name} ({supplier.grns?.length || 0} Invoices)
                                                                 </div>
 
-                                                                <Table style={{ background: '#ffffff', borderRadius: '8px', border: `1px solid ${colors.border}`, overflow: 'hidden' }}>
+                                                                <Table style={{ background: '#ffffff', borderRadius: '8px', border: `1px solid ${colors.border}`, overflow: 'hidden', marginBottom: (supplier.returns && supplier.returns.length > 0) ? '18px' : '0' }}>
                                                                     <thead>
                                                                         <Tr style={{ background: '#e2e8f0' }}>
                                                                             <Th style={{ fontSize: '0.8rem' }}>GRN Number</Th>
@@ -432,6 +511,56 @@ const DrugSupplierGrnReport = () => {
                                                                         ))}
                                                                     </tbody>
                                                                 </Table>
+
+                                                                {/* Purchase Returns / Debit Notes Sub-table */}
+                                                                {Array.isArray(supplier.returns) && supplier.returns.length > 0 && (
+                                                                    <div>
+                                                                        <div style={{ marginBottom: '10px', fontWeight: '700', color: '#dc2626', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                            <FileText size={16} /> Purchase Returns (Debit Notes) from {supplier.vendor_name} ({supplier.returns.length} Returns)
+                                                                        </div>
+                                                                        <Table style={{ background: '#ffffff', borderRadius: '8px', border: '1px solid #fecaca', overflow: 'hidden' }}>
+                                                                            <thead>
+                                                                                <Tr style={{ background: '#fee2e2' }}>
+                                                                                    <Th style={{ fontSize: '0.8rem', color: '#991b1b' }}>Debit Note / Return ID</Th>
+                                                                                    <Th style={{ fontSize: '0.8rem', color: '#991b1b' }}>Return Date</Th>
+                                                                                    <Th style={{ fontSize: '0.8rem', color: '#991b1b' }}>Against GRN</Th>
+                                                                                    <Th style={{ fontSize: '0.8rem', color: '#991b1b' }}>Reason</Th>
+                                                                                    <Th style={{ fontSize: '0.8rem', color: '#991b1b', textAlign: 'center' }}>Items Count</Th>
+                                                                                    <Th style={{ fontSize: '0.8rem', color: '#991b1b', textAlign: 'right' }}>Return Value</Th>
+                                                                                    <Th style={{ fontSize: '0.8rem', color: '#991b1b', textAlign: 'center' }}>Status</Th>
+                                                                                </Tr>
+                                                                            </thead>
+                                                                            <tbody>
+                                                                                {supplier.returns.map((ret, rIdx) => (
+                                                                                    <Tr key={rIdx}>
+                                                                                        <Td style={{ fontWeight: '700', color: '#dc2626', fontSize: '0.85rem' }}>
+                                                                                            <div>{ret.debit_note_no || ret.return_id}</div>
+                                                                                            {ret.debit_note_no && ret.return_id && ret.debit_note_no !== ret.return_id && (
+                                                                                                <span style={{ fontSize: '0.72rem', color: '#64748b' }}>({ret.return_id})</span>
+                                                                                            )}
+                                                                                        </Td>
+                                                                                        <Td style={{ fontSize: '0.85rem' }}>{ret.return_date || '-'}</Td>
+                                                                                        <Td style={{ fontSize: '0.85rem', fontWeight: '600', color: '#2563eb' }}>{ret.grn_number || '-'}</Td>
+                                                                                        <Td style={{ fontSize: '0.8rem' }}>
+                                                                                            <div>{ret.reason_for_return || ret.return_type || '-'}</div>
+                                                                                        </Td>
+                                                                                        <Td style={{ textAlign: 'center', fontSize: '0.85rem', fontWeight: '600' }}>
+                                                                                            {ret.items_count || 0}
+                                                                                        </Td>
+                                                                                        <Td style={{ textAlign: 'right', fontWeight: '700', color: '#dc2626', fontSize: '0.85rem' }}>
+                                                                                            -₹{Number(ret.total_amount || 0).toFixed(2)}
+                                                                                        </Td>
+                                                                                        <Td style={{ textAlign: 'center', fontSize: '0.8rem' }}>
+                                                                                            <span style={{ padding: '2px 8px', borderRadius: '4px', background: ret.status === 'Completed' || ret.status === 'Approved' ? '#dcfce7' : '#fef3c7', color: ret.status === 'Completed' || ret.status === 'Approved' ? '#166534' : '#92400e', fontWeight: '600' }}>
+                                                                                                {ret.status || 'Processed'}
+                                                                                            </span>
+                                                                                        </Td>
+                                                                                    </Tr>
+                                                                                ))}
+                                                                            </tbody>
+                                                                        </Table>
+                                                                    </div>
+                                                                )}
                                                             </Td>
                                                         </Tr>
                                                     )}

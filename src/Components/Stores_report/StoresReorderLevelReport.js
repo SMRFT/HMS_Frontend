@@ -3,6 +3,8 @@ import React, { useState, useEffect } from 'react';
 import dayjs from 'dayjs';
 import apiRequest from '../../Auth/apiRequest';
 import * as XLSX from 'xlsx';
+import { getSelectedStoreDepartment, getSelectedStoreDepartmentName, setSelectedStoreDepartment, useStoresDepartment } from '../Stores/storesDepartmentHelper';
+import { DepartmentFilterControl } from '../Stores/DepartmentSelectionModal';
 import { 
     AlertCircle, Download, Printer, Search, RefreshCw, 
     CheckCircle, Package, ArrowUpRight, DollarSign, ShoppingCart
@@ -22,7 +24,7 @@ import {
     colors
 } from '../GlobalStyles';
 
-const StoresReorderLevelReport = () => {
+const StoresReorderLevelReport = ({ department: propDepartment = '', departmentName: propDepartmentName = '', isModalView = false, onClose }) => {
     const today = dayjs().format('YYYY-MM-DD');
     const getBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || '';
 
@@ -30,6 +32,9 @@ const StoresReorderLevelReport = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(false);
     const [reorderItems, setReorderItems] = useState([]);
+    const [departments, setDepartments] = useState([]);
+    const [selectedDepartment, setSelectedDepartment] = useState(propDepartment || getSelectedStoreDepartment());
+    const [selectedDepartmentName, setSelectedDepartmentName] = useState(propDepartmentName || getSelectedStoreDepartmentName());
     const [summary, setSummary] = useState({
         total_items_tracked: 0,
         out_of_stock_count: 0,
@@ -39,20 +44,47 @@ const StoresReorderLevelReport = () => {
     });
 
     useEffect(() => {
+        setSelectedDepartment(propDepartment || '');
+        setSelectedDepartmentName(propDepartmentName || '');
+    }, [propDepartment, propDepartmentName]);
+
+    useStoresDepartment((newDept, newName) => {
+        setSelectedDepartment(newDept || '');
+        setSelectedDepartmentName(newName || '');
+    });
+
+    useEffect(() => {
+        const fetchDepts = async () => {
+            try {
+                const res = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/department-master/`);
+                if (res && res.success && Array.isArray(res.data)) {
+                    setDepartments(res.data);
+                }
+            } catch (err) {
+                console.error("Error fetching departments:", err);
+            }
+        };
+        fetchDepts();
+    }, [getBaseUrl]);
+
+    useEffect(() => {
         fetchReport();
-    }, [statusFilter]);
+    }, [statusFilter, selectedDepartment]);
 
     const fetchReport = async () => {
         try {
             setLoading(true);
             let query = [];
             if (statusFilter) query.push(`status=${statusFilter}`);
+            if (selectedDepartment && selectedDepartment !== 'ALL') query.push(`department=${encodeURIComponent(selectedDepartment)}`);
             if (searchTerm) query.push(`search=${encodeURIComponent(searchTerm)}`);
 
             const queryString = query.length > 0 ? `?${query.join('&')}` : '';
             const res = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/stores-reorder-level-report/${queryString}`);
             if (res && res.success) {
-                setReorderItems(res.data.data || []);
+                const list = res.data.data || [];
+                const sortedList = [...list].sort((a, b) => String(a.item_name || '').localeCompare(String(b.item_name || ''), undefined, { sensitivity: 'base' }));
+                setReorderItems(sortedList);
                 setSummary(res.data.summary || {});
             } else {
                 setReorderItems([]);
@@ -129,6 +161,16 @@ const StoresReorderLevelReport = () => {
                             <option value="LOW_STOCK">⚠️ Below Reorder Level (Low Stock)</option>
                             <option value="ADEQUATE">✅ Adequate Stock</option>
                         </Select>
+                    </div>
+                    <div style={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <label style={{ fontSize: '0.8rem', fontWeight: '600', color: colors.textMuted, display: 'block' }}>Department</label>
+                        <DepartmentFilterControl
+                            departments={departments}
+                            onDepartmentChange={(dept, name) => {
+                                setSelectedDepartment(dept || '');
+                                setSelectedDepartmentName(name || '');
+                            }}
+                        />
                     </div>
                     <div style={{ flex: '1 1 250px', minWidth: '200px' }}>
                         <label style={{ fontSize: '0.8rem', fontWeight: '600', color: colors.textMuted, display: 'block', marginBottom: '4px' }}>Search Item Name / Code</label>

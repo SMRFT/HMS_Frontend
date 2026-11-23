@@ -25,6 +25,7 @@ import {
     Inbox,
     Package,
     Download,
+    CalendarDays,
     ChevronLeft,
     ChevronRight,
     ChevronDown
@@ -36,6 +37,7 @@ import apiRequest from '../../Auth/apiRequest';
 import SearchSelect from '../Common/SearchSelect';
 import { colors, PageWrapper, fadeIn } from '../GlobalStyles';
 import { getSelectedStoreDepartment, setSelectedStoreDepartment, useStoresDepartment } from '../Stores/storesDepartmentHelper';
+import { printStoresReport } from '../Stores/printStoresReport';
 
 const Container = styled(PageWrapper)`
   min-height: 100vh;
@@ -689,11 +691,21 @@ export const DRUG_PURCHASE_REPORTS = [
     {
         id: 'DrugSupplierGrnReport',
         key: 'supplier_grn',
-        title: 'Supplier-Based GRN Report',
+        title: 'Supplier-Based GRN Report (ALL (IP PHARMACY, OP PHARMACY, DRUG PURCHASE))',
         description: 'Goods Received Note (GRN) report categorized by Drug Supplier / Vendor with tax details and invoice net totals from hospital_grn and hospital_vendor.',
         route: '/DrugSupplierGrnReport',
         icon: ShieldCheck,
         color: '#0891b2',
+        category: 'Purchases & GRN'
+    },
+    {
+        id: 'DrugDateGrnReport',
+        key: 'date_grn',
+        title: 'Date-Wise / Date-Based GRN Report (ALL (IP PHARMACY, OP PHARMACY, DRUG PURCHASE))',
+        description: 'Goods Received Note (GRN) report categorized by Date with day of week, supplier count, gross purchases, returns, and net purchases from hospital_grn and hospital_vendor.',
+        route: '/DrugDateGrnReport',
+        icon: CalendarDays,
+        color: '#059669',
         category: 'Purchases & GRN'
     },
     {
@@ -857,20 +869,28 @@ const DrugPurchaseReportsDashboard = () => {
         setExpandedSupplierModal(null);
     };
 
-    // Filter cards for dashboard
+    // Filter cards for dashboard, sorted alphabetically
     const filteredReports = useMemo(() => {
-        return DRUG_PURCHASE_REPORTS.filter((rep) => {
-            const matchesCat = selectedCategory === 'All' || rep.category === selectedCategory;
-            const query = searchTerm.toLowerCase().trim();
-            const matchesSearch = !query || 
-                rep.title.toLowerCase().includes(query) || 
-                rep.description.toLowerCase().includes(query) ||
-                rep.category.toLowerCase().includes(query);
-            return matchesCat && matchesSearch;
-        });
+        return DRUG_PURCHASE_REPORTS
+            .filter((rep) => {
+                const matchesCat = selectedCategory === 'All' || rep.category === selectedCategory;
+                const query = searchTerm.toLowerCase().trim();
+                if (!matchesCat) return false;
+                if (!query) return true;
+
+                const cleanTerm = query.replace(/[-_]/g, ' ');
+                const words = cleanTerm.split(/\s+/).filter(Boolean);
+                const repText = `${rep.title || ''} ${rep.description || ''} ${rep.category || ''} ${rep.route || ''}`.toLowerCase().replace(/[-_]/g, ' ');
+
+                return words.every(w => {
+                    const altW = w === 'wise' ? 'based' : (w === 'based' ? 'wise' : w);
+                    return repText.includes(w) || repText.includes(altW);
+                });
+            })
+            .sort((a, b) => (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' }));
     }, [selectedCategory, searchTerm]);
 
-    // Filter table rows inside modal
+    // Filter table rows inside modal, sorted alphabetically
     const filteredTableRows = useMemo(() => {
         if (!reportData.data || !Array.isArray(reportData.data)) return [];
         let rows = reportData.data;
@@ -901,7 +921,12 @@ const DrugPurchaseReportsDashboard = () => {
             });
         }
 
-        return rows;
+        // Sort data rows alphabetically by primary text column
+        return [...rows].sort((a, b) => {
+            const nameA = String(a.vendor_name || a.item_name || a.itemName || a.name || a.particulars || a.department_name || a.title || Object.values(a).find(v => typeof v === 'string') || '').trim();
+            const nameB = String(b.vendor_name || b.item_name || b.itemName || b.name || b.particulars || b.department_name || b.title || Object.values(b).find(v => typeof v === 'string') || '').trim();
+            return nameA.localeCompare(nameB, undefined, { sensitivity: 'base', numeric: true });
+        });
     }, [reportData.data, selectedVendor, modalSearch]);
 
     // Paginated rows
@@ -916,19 +941,95 @@ const DrugPurchaseReportsDashboard = () => {
     const handleExportExcel = () => {
         if (!filteredTableRows || filteredTableRows.length === 0) return;
         try {
+            if (activeModalReport?.key === 'date_grn') {
+                const dateRows = filteredTableRows.map(d => ({
+                    "Date": d.date,
+                    "Day of Week": d.day_of_week || '',
+                    "Scope": selectedScope,
+                    "Total GRNs": d.total_grns,
+                    "Suppliers Count": d.suppliers_count || 0,
+                    "Suppliers List": Array.isArray(d.suppliers) ? d.suppliers.join(', ') : '',
+                    "Taxable Amount (₹)": d.taxable_amount,
+                    "Tax Amount (₹)": d.tax_amount,
+                    "Total Purchases (₹)": d.total_amount,
+                    "Total Returns": d.total_returns || (d.returns ? d.returns.length : 0),
+                    "Return Amount (₹)": d.return_amount || 0,
+                    "Net Purchases (₹)": d.net_amount != null ? d.net_amount : (d.total_amount || 0) - (d.return_amount || 0),
+                    "Items Received Qty": d.total_items_qty
+                }));
+
+                const grnRows = [];
+                const returnRows = [];
+                filteredTableRows.forEach(d => {
+                    if (Array.isArray(d.grns)) {
+                        d.grns.forEach(g => {
+                            grnRows.push({
+                                "GRN Date": d.date,
+                                "Day": d.day_of_week || '',
+                                "GRN Number": g.grn_number,
+                                "Invoice No": g.invoice_no || '',
+                                "Invoice Date": g.invoice_date || '',
+                                "Supplier Name": g.vendor_name || '',
+                                "Supplier ID": g.vendor_id || '',
+                                "Taxable Value (₹)": g.taxable_amount,
+                                "CGST (₹)": g.cgst,
+                                "SGST (₹)": g.sgst,
+                                "Total Amount (₹)": g.total_amount,
+                                "Payment Mode": g.payment_mode || 'Credit',
+                                "Approval Status": g.is_approved ? 'Approved' : 'Pending',
+                                "Items Summary": Array.isArray(g.items) ? g.items.map(it => `${it.name || it.itemName || 'Item'} (${it.quantity || 0} Qty)`).join(', ') : ''
+                            });
+                        });
+                    }
+                    if (Array.isArray(d.returns)) {
+                        d.returns.forEach(r => {
+                            returnRows.push({
+                                "Return Date": d.date,
+                                "Day": d.day_of_week || '',
+                                "Debit Note No": r.debit_note_no || '',
+                                "Return ID": r.return_id || '',
+                                "Supplier Name": r.vendor_name || '',
+                                "Supplier ID": r.vendor_id || '',
+                                "Against GRN": r.grn_number || '',
+                                "Return Amount (₹)": r.total_amount || 0,
+                                "Reason": r.reason || r.reason_for_return || '',
+                                "Items Count": r.items_count || (r.items ? r.items.length : 0)
+                            });
+                        });
+                    }
+                });
+
+                const wb = XLSX.utils.book_new();
+                const wsDate = XLSX.utils.json_to_sheet(dateRows);
+                const wsGrns = XLSX.utils.json_to_sheet(grnRows);
+                XLSX.utils.book_append_sheet(wb, wsDate, "Date Summary");
+                XLSX.utils.book_append_sheet(wb, wsGrns, "Detailed GRN Invoices");
+                if (returnRows.length > 0) {
+                    const wsReturns = XLSX.utils.json_to_sheet(returnRows);
+                    XLSX.utils.book_append_sheet(wb, wsReturns, "Purchase Returns (Debit Notes)");
+                }
+                const filename = `Drug_Date_GRN_Report_${selectedScope.replace(/\s+/g, '_')}_${dayjs().format('YYYYMMDD')}.xlsx`;
+                XLSX.writeFile(wb, filename);
+                return;
+            }
+
             if (activeModalReport?.key === 'supplier_grn') {
                 const supplierRows = filteredTableRows.map(s => ({
                     "Vendor ID": s.vendor_id,
                     "Supplier Name": s.vendor_name,
                     "GSTIN": s.vendor_gstin || '',
                     "Total GRNs": s.total_grns,
+                    "Total Purchases (₹)": s.total_amount,
+                    "Total Returns": s.total_returns || (s.returns ? s.returns.length : 0),
+                    "Return Amount (₹)": s.return_amount || 0,
+                    "Net Purchases (₹)": s.net_amount != null ? s.net_amount : (s.total_amount || 0) - (s.return_amount || 0),
                     "Taxable Amount (₹)": s.taxable_amount,
                     "Tax Paid (₹)": s.tax_amount,
-                    "Total Invoice Amount (₹)": s.total_amount,
                     "Items Received Qty": s.total_items_qty
                 }));
 
                 const grnRows = [];
+                const returnRows = [];
                 filteredTableRows.forEach(s => {
                     if (Array.isArray(s.grns)) {
                         s.grns.forEach(g => {
@@ -949,6 +1050,21 @@ const DrugPurchaseReportsDashboard = () => {
                             });
                         });
                     }
+                    if (Array.isArray(s.returns)) {
+                        s.returns.forEach(r => {
+                            returnRows.push({
+                                "Vendor ID": s.vendor_id,
+                                "Supplier Name": s.vendor_name,
+                                "Debit Note No": r.debit_note_no || '',
+                                "Return ID": r.return_id || '',
+                                "Return Date": r.return_date || '',
+                                "Against GRN": r.grn_number || '',
+                                "Return Amount (₹)": r.total_amount || 0,
+                                "Reason": r.reason_for_return || '',
+                                "Status": r.status || ''
+                            });
+                        });
+                    }
                 });
 
                 const wb = XLSX.utils.book_new();
@@ -956,6 +1072,10 @@ const DrugPurchaseReportsDashboard = () => {
                 const wsGrns = XLSX.utils.json_to_sheet(grnRows);
                 XLSX.utils.book_append_sheet(wb, wsSupplier, "Supplier Summary");
                 XLSX.utils.book_append_sheet(wb, wsGrns, "Detailed GRN Invoices");
+                if (returnRows.length > 0) {
+                    const wsReturns = XLSX.utils.json_to_sheet(returnRows);
+                    XLSX.utils.book_append_sheet(wb, wsReturns, "Purchase Returns (Debit Notes)");
+                }
                 const filename = `Drug_Supplier_GRN_Report_${selectedScope.replace(/\s+/g, '_')}_${dayjs().format('YYYYMMDD')}.xlsx`;
                 XLSX.writeFile(wb, filename);
                 return;
@@ -981,6 +1101,52 @@ const DrugPurchaseReportsDashboard = () => {
 
     // Print Report
     const handlePrint = () => {
+        const isDateGrn = activeModalReport?.id === 'DrugDateGrnReport' || 
+                          activeModalReport?.key === 'date_grn' || 
+                          activeModalReport?.route?.includes('drug-date-grn-report') ||
+                          (activeModalReport?.title || '').toLowerCase().includes('date-based');
+
+        if (isDateGrn) {
+            const fmtDate = (d) => {
+                if (!d) return '';
+                if (typeof d.format === 'function') return d.format('DD/MM/YYYY');
+                const parsed = dayjs(d);
+                return parsed.isValid() ? parsed.format('DD/MM/YYYY') : String(d);
+            };
+            printStoresReport(reportData.data || filteredTableRows, {
+                isDatePurchaseFormat: true,
+                fromDate: fmtDate(modalFromDate),
+                toDate: fmtDate(modalToDate),
+                summary: reportData.summary || {},
+                hospitalName: 'SHANMUGA HOSPITAL LIMITED',
+                department: selectedScope || 'DRUG PURCHASE'
+            });
+            return;
+        }
+
+        const isSupplierGrn = activeModalReport?.id === 'DrugSupplierGrnReport' || 
+                              activeModalReport?.key === 'supplier_grn' || 
+                              activeModalReport?.route?.includes('drug-supplier-grn-report') ||
+                              (activeModalReport?.title || '').toLowerCase().includes('supplier-based');
+
+        if (isSupplierGrn) {
+            const fmtDate = (d) => {
+                if (!d) return '';
+                if (typeof d.format === 'function') return d.format('DD/MM/YYYY');
+                const parsed = dayjs(d);
+                return parsed.isValid() ? parsed.format('DD/MM/YYYY') : String(d);
+            };
+            printStoresReport(reportData.data || filteredTableRows, {
+                isSupplierPurchaseFormat: true,
+                fromDate: fmtDate(modalFromDate),
+                toDate: fmtDate(modalToDate),
+                summary: reportData.summary || {},
+                hospitalName: 'SHANMUGA HOSPITAL LIMITED',
+                department: selectedScope || 'DRUG PURCHASE'
+            });
+            return;
+        }
+
         const printWindow = window.open('', '_blank', 'width=1100,height=850');
         if (!printWindow) return;
 
@@ -1163,7 +1329,13 @@ const DrugPurchaseReportsDashboard = () => {
                         <ModalHeader>
                             <div className="left-part">
                                 {React.createElement(activeModalReport.icon || Package, { size: 22, color: activeModalReport.color })}
-                                <h2 className="modal-title">{reportData.title || activeModalReport.title}</h2>
+                                <h2 className="modal-title">
+                                    {activeModalReport.key === 'supplier_grn' 
+                                        ? `Supplier-Based GRN Report (${selectedScope})` 
+                                        : activeModalReport.key === 'date_grn'
+                                        ? `Date-Based GRN Report (${selectedScope})`
+                                        : (reportData.title || activeModalReport.title)}
+                                </h2>
                                 <span className="modal-scope-tag">{selectedScope}</span>
                             </div>
 
@@ -1184,6 +1356,45 @@ const DrugPurchaseReportsDashboard = () => {
                         </ModalHeader>
 
                         <ModalBody id="drug-purchase-modal-report-content">
+                            {/* SCOPE TOGGLE BUTTON BAR INSIDE MODAL */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '16px', flexWrap: 'wrap' }}>
+                                <span style={{ fontSize: '0.8rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <Filter size={14} color="#059669" /> Scope Filter:
+                                </span>
+                                {[
+                                    { id: 'ALL (IP PHARMACY, OP PHARMACY, DRUG PURCHASE)', label: 'ALL (IP, OP, DRUG)' },
+                                    { id: 'IP PHARMACY', label: 'IP PHARMACY' },
+                                    { id: 'OP PHARMACY', label: 'OP PHARMACY' },
+                                    { id: 'DRUG PURCHASE', label: 'DRUG PURCHASE' }
+                                ].map(btn => {
+                                    const isActive = selectedScope === btn.id || (btn.id.includes('ALL') && (selectedScope?.includes('ALL') || selectedScope?.includes('CONSOLIDATED')));
+                                    return (
+                                        <button
+                                            key={btn.id}
+                                            type="button"
+                                            onClick={() => {
+                                                handleScopeChange(btn.id);
+                                                fetchReportData(activeModalReport, btn.id, selectedVendor, modalFromDate, modalToDate);
+                                            }}
+                                            style={{
+                                                padding: '6px 14px',
+                                                borderRadius: '20px',
+                                                border: isActive ? '1.5px solid #059669' : '1.5px solid #cbd5e1',
+                                                background: isActive ? '#059669' : '#ffffff',
+                                                color: isActive ? '#ffffff' : '#334155',
+                                                fontWeight: isActive ? '800' : '600',
+                                                fontSize: '0.8rem',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.15s ease',
+                                                boxShadow: isActive ? '0 2px 6px rgba(5, 150, 105, 0.25)' : 'none'
+                                            }}
+                                        >
+                                            {btn.label}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
                             {/* Summary KPI Cards */}
                             {reportData.summary && Object.keys(reportData.summary).length > 0 && (
                                 <StatsGrid>
@@ -1288,22 +1499,27 @@ const DrugPurchaseReportsDashboard = () => {
                                                 <th style={{ width: '40px' }}></th>
                                                 <th>Drug Supplier / Vendor</th>
                                                 <th style={{ textAlign: 'center' }}>Total GRNs</th>
-                                                <th style={{ textAlign: 'right' }}>Taxable Amount</th>
-                                                <th style={{ textAlign: 'right' }}>Tax Paid</th>
-                                                <th style={{ textAlign: 'right' }}>Total Invoice Amount</th>
+                                                <th style={{ textAlign: 'right' }}>Total Purchases</th>
+                                                <th style={{ textAlign: 'center' }}>Returns</th>
+                                                <th style={{ textAlign: 'right' }}>Return Amount</th>
+                                                <th style={{ textAlign: 'right' }}>Net Purchases</th>
                                                 <th style={{ textAlign: 'center' }}>Items Recd</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {paginatedRows.length === 0 ? (
                                                 <tr>
-                                                    <td colSpan={7} style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
+                                                    <td colSpan={8} style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
                                                         No Drug Supplier GRN records found for the selected criteria in {selectedScope}.
                                                     </td>
                                                 </tr>
                                             ) : (
                                                 paginatedRows.map((supplier) => {
                                                     const isExpanded = expandedSupplierModal === supplier.vendor_id;
+                                                    const returnCount = supplier.total_returns || (supplier.returns ? supplier.returns.length : 0);
+                                                    const returnAmount = Number(supplier.return_amount || 0);
+                                                    const netAmount = Number(supplier.net_amount != null ? supplier.net_amount : (supplier.total_amount || 0) - returnAmount);
+
                                                     return (
                                                         <React.Fragment key={supplier.vendor_id}>
                                                             <tr 
@@ -1322,29 +1538,32 @@ const DrugPurchaseReportsDashboard = () => {
                                                                 <td style={{ textAlign: 'center', fontWeight: '700', color: '#2563eb' }}>
                                                                     {supplier.total_grns}
                                                                 </td>
-                                                                <td style={{ textAlign: 'right', fontWeight: '600' }}>
-                                                                    ₹{Number(supplier.taxable_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                                                </td>
-                                                                <td style={{ textAlign: 'right', color: '#d97706', fontWeight: '600' }}>
-                                                                    ₹{Number(supplier.tax_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                                                </td>
                                                                 <td style={{ textAlign: 'right', fontWeight: '700', color: '#1e293b' }}>
                                                                     ₹{Number(supplier.total_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                                </td>
+                                                                <td style={{ textAlign: 'center', fontWeight: '700', color: returnCount > 0 ? '#dc2626' : '#64748b' }}>
+                                                                    {returnCount > 0 ? `${returnCount} DBN` : '0'}
+                                                                </td>
+                                                                <td style={{ textAlign: 'right', fontWeight: '600', color: returnAmount > 0 ? '#dc2626' : '#64748b' }}>
+                                                                    {returnAmount > 0 ? `-₹${returnAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '₹0.00'}
+                                                                </td>
+                                                                <td style={{ textAlign: 'right', fontWeight: '800', color: '#059669' }}>
+                                                                    ₹{netAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                                                 </td>
                                                                 <td style={{ textAlign: 'center', fontWeight: '600' }}>
                                                                     {supplier.total_items_qty} units
                                                                 </td>
                                                             </tr>
 
-                                                            {/* Expanded Sub-Table for GRNs */}
+                                                            {/* Expanded Sub-Tables */}
                                                             {isExpanded && (
                                                                 <tr>
-                                                                    <td colSpan={7} style={{ background: '#f8fafc', padding: '16px 20px' }}>
+                                                                    <td colSpan={8} style={{ background: '#f8fafc', padding: '16px 20px' }}>
                                                                         <div style={{ marginBottom: '10px', fontWeight: '700', color: '#059669', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                                             <FileText size={16} /> GRNs from {supplier.vendor_name} ({supplier.grns?.length || 0} Invoices)
                                                                         </div>
 
-                                                                        <table style={{ width: '100%', background: '#ffffff', borderRadius: '8px', border: '1px solid #cbd5e1', borderCollapse: 'collapse', overflow: 'hidden' }}>
+                                                                        <table style={{ width: '100%', background: '#ffffff', borderRadius: '8px', border: '1px solid #cbd5e1', borderCollapse: 'collapse', overflow: 'hidden', marginBottom: (supplier.returns && supplier.returns.length > 0) ? '16px' : '0' }}>
                                                                             <thead>
                                                                                 <tr style={{ background: '#e2e8f0', color: '#334155' }}>
                                                                                     <th style={{ padding: '8px 12px', fontSize: '0.8rem', textAlign: 'left' }}>GRN Number</th>
@@ -1393,6 +1612,229 @@ const DrugPurchaseReportsDashboard = () => {
                                                                                 ))}
                                                                             </tbody>
                                                                         </table>
+
+                                                                        {/* Purchase Returns / Debit Notes Sub-table */}
+                                                                        {Array.isArray(supplier.returns) && supplier.returns.length > 0 && (
+                                                                            <div>
+                                                                                <div style={{ marginBottom: '10px', fontWeight: '700', color: '#dc2626', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                                    <FileText size={16} /> Purchase Returns (Debit Notes) from {supplier.vendor_name} ({supplier.returns.length} Returns)
+                                                                                </div>
+                                                                                <table style={{ width: '100%', background: '#ffffff', borderRadius: '8px', border: '1px solid #fecaca', borderCollapse: 'collapse', overflow: 'hidden' }}>
+                                                                                    <thead>
+                                                                                        <tr style={{ background: '#fee2e2', color: '#991b1b' }}>
+                                                                                            <th style={{ padding: '8px 12px', fontSize: '0.8rem', textAlign: 'left' }}>Debit Note / Return ID</th>
+                                                                                            <th style={{ padding: '8px 12px', fontSize: '0.8rem', textAlign: 'left' }}>Return Date</th>
+                                                                                            <th style={{ padding: '8px 12px', fontSize: '0.8rem', textAlign: 'left' }}>Against GRN</th>
+                                                                                            <th style={{ padding: '8px 12px', fontSize: '0.8rem', textAlign: 'left' }}>Reason</th>
+                                                                                            <th style={{ padding: '8px 12px', fontSize: '0.8rem', textAlign: 'center' }}>Items Count</th>
+                                                                                            <th style={{ padding: '8px 12px', fontSize: '0.8rem', textAlign: 'right' }}>Return Value</th>
+                                                                                            <th style={{ padding: '8px 12px', fontSize: '0.8rem', textAlign: 'center' }}>Status</th>
+                                                                                        </tr>
+                                                                                    </thead>
+                                                                                    <tbody>
+                                                                                        {supplier.returns.map((ret, rIdx) => (
+                                                                                            <tr key={rIdx} style={{ borderBottom: '1px solid #fef2f2' }}>
+                                                                                                <td style={{ padding: '8px 12px', fontWeight: '700', color: '#dc2626', fontSize: '0.85rem' }}>
+                                                                                                    <div>{ret.debit_note_no || ret.return_id}</div>
+                                                                                                    {ret.debit_note_no && ret.return_id && ret.debit_note_no !== ret.return_id && (
+                                                                                                        <span style={{ fontSize: '0.72rem', color: '#64748b' }}>({ret.return_id})</span>
+                                                                                                    )}
+                                                                                                </td>
+                                                                                                <td style={{ padding: '8px 12px', fontSize: '0.85rem', color: '#475569' }}>{ret.return_date || '-'}</td>
+                                                                                                <td style={{ padding: '8px 12px', fontSize: '0.85rem', fontWeight: '600', color: '#2563eb' }}>{ret.grn_number || '-'}</td>
+                                                                                                <td style={{ padding: '8px 12px', fontSize: '0.8rem' }}>
+                                                                                                    <div>{ret.reason_for_return || ret.return_type || '-'}</div>
+                                                                                                </td>
+                                                                                                <td style={{ padding: '8px 12px', textAlign: 'center', fontSize: '0.85rem', fontWeight: '600' }}>
+                                                                                                    {ret.items_count || 0}
+                                                                                                </td>
+                                                                                                <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: '700', color: '#dc2626', fontSize: '0.85rem' }}>
+                                                                                                    -₹{Number(ret.total_amount || 0).toFixed(2)}
+                                                                                                </td>
+                                                                                                <td style={{ padding: '8px 12px', textAlign: 'center', fontSize: '0.8rem' }}>
+                                                                                                    <span style={{ padding: '2px 8px', borderRadius: '4px', background: ret.status === 'Completed' || ret.status === 'Approved' ? '#dcfce7' : '#fef3c7', color: ret.status === 'Completed' || ret.status === 'Approved' ? '#166534' : '#92400e', fontWeight: '600' }}>
+                                                                                                        {ret.status || 'Processed'}
+                                                                                                    </span>
+                                                                                                </td>
+                                                                                            </tr>
+                                                                                        ))}
+                                                                                    </tbody>
+                                                                                </table>
+                                                                            </div>
+                                                                        )}
+                                                                    </td>
+                                                                </tr>
+                                                            )}
+                                                        </React.Fragment>
+                                                    );
+                                                })
+                                            )}
+                                        </tbody>
+                                    </StyledTable>
+                                </ReportTableWrapper>
+                            ) : activeModalReport?.key === 'date_grn' ? (
+                                <ReportTableWrapper>
+                                    <StyledTable>
+                                        <thead>
+                                            <tr>
+                                                <th style={{ width: '40px' }}></th>
+                                                <th>Date & Day</th>
+                                                <th style={{ textAlign: 'center' }}>Total GRNs</th>
+                                                <th style={{ textAlign: 'center' }}>Suppliers</th>
+                                                <th style={{ textAlign: 'right' }}>Total Purchases</th>
+                                                <th style={{ textAlign: 'center' }}>Returns</th>
+                                                <th style={{ textAlign: 'right' }}>Return Amount</th>
+                                                <th style={{ textAlign: 'right' }}>Net Purchases</th>
+                                                <th style={{ textAlign: 'center' }}>Items Recd</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {paginatedRows.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={9} style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
+                                                        No Date-Based GRN records found for the selected criteria in {selectedScope}.
+                                                    </td>
+                                                </tr>
+                                            ) : (
+                                                paginatedRows.map((d) => {
+                                                    const isExpanded = expandedSupplierModal === d.date;
+                                                    const returnCount = d.total_returns || (d.returns ? d.returns.length : 0);
+                                                    const returnAmount = Number(d.return_amount || 0);
+                                                    const netAmount = Number(d.net_amount != null ? d.net_amount : (d.total_amount || 0) - returnAmount);
+
+                                                    return (
+                                                        <React.Fragment key={d.date}>
+                                                            <tr 
+                                                                onClick={() => setExpandedSupplierModal(isExpanded ? null : d.date)}
+                                                                style={{ cursor: 'pointer', background: isExpanded ? '#f1f5f9' : 'transparent', transition: 'background 0.2s' }}
+                                                            >
+                                                                <td style={{ textAlign: 'center' }}>
+                                                                    {isExpanded ? <ChevronDown size={18} color="#059669" /> : <ChevronRight size={18} color="#94a3b8" />}
+                                                                </td>
+                                                                <td style={{ fontWeight: '700' }}>
+                                                                    <div style={{ color: '#059669', fontSize: '0.95rem' }}>
+                                                                        {dayjs(d.date).isValid() ? dayjs(d.date).format('DD-MMM-YYYY') : d.date}
+                                                                    </div>
+                                                                    <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '600' }}>
+                                                                        {d.day_of_week || (dayjs(d.date).isValid() ? dayjs(d.date).format('dddd') : '')}
+                                                                    </span>
+                                                                </td>
+                                                                <td style={{ textAlign: 'center', fontWeight: '700', color: '#2563eb' }}>
+                                                                    {d.total_grns}
+                                                                </td>
+                                                                <td style={{ textAlign: 'center', fontWeight: '600', color: '#475569' }}>
+                                                                    {d.suppliers_count || (d.suppliers ? d.suppliers.length : 0)} Vendors
+                                                                </td>
+                                                                <td style={{ textAlign: 'right', fontWeight: '700', color: '#1e293b' }}>
+                                                                    ₹{Number(d.total_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                                </td>
+                                                                <td style={{ textAlign: 'center', fontWeight: '700', color: returnCount > 0 ? '#dc2626' : '#64748b' }}>
+                                                                    {returnCount > 0 ? `${returnCount} DBN` : '0'}
+                                                                </td>
+                                                                <td style={{ textAlign: 'right', fontWeight: '600', color: returnAmount > 0 ? '#dc2626' : '#64748b' }}>
+                                                                    {returnAmount > 0 ? `-₹${returnAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '₹0.00'}
+                                                                </td>
+                                                                <td style={{ textAlign: 'right', fontWeight: '800', color: '#059669' }}>
+                                                                    ₹{netAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                                                </td>
+                                                                <td style={{ textAlign: 'center', fontWeight: '600' }}>
+                                                                    {d.total_items_qty} units
+                                                                </td>
+                                                            </tr>
+
+                                                            {/* Expanded Sub-Tables */}
+                                                            {isExpanded && (
+                                                                <tr>
+                                                                    <td colSpan={9} style={{ background: '#f8fafc', padding: '16px 20px' }}>
+                                                                        <div style={{ marginBottom: '10px', fontWeight: '700', color: '#059669', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                            <FileText size={16} /> GRNs Received on {dayjs(d.date).isValid() ? dayjs(d.date).format('DD-MMM-YYYY') : d.date} ({d.grns?.length || 0} Invoices)
+                                                                        </div>
+
+                                                                        <table style={{ width: '100%', background: '#ffffff', borderRadius: '8px', border: '1px solid #cbd5e1', borderCollapse: 'collapse', overflow: 'hidden', marginBottom: (returnCount > 0) ? '16px' : '0' }}>
+                                                                            <thead>
+                                                                                <tr style={{ background: '#e2e8f0', color: '#334155' }}>
+                                                                                    <th style={{ padding: '8px 12px', fontSize: '0.8rem', textAlign: 'left' }}>GRN Number</th>
+                                                                                    <th style={{ padding: '8px 12px', fontSize: '0.8rem', textAlign: 'left' }}>Invoice No & Date</th>
+                                                                                    <th style={{ padding: '8px 12px', fontSize: '0.8rem', textAlign: 'left' }}>Supplier / Vendor</th>
+                                                                                    <th style={{ padding: '8px 12px', fontSize: '0.8rem', textAlign: 'right' }}>Total Amount</th>
+                                                                                    <th style={{ padding: '8px 12px', fontSize: '0.8rem', textAlign: 'left' }}>Items Summary</th>
+                                                                                </tr>
+                                                                            </thead>
+                                                                            <tbody>
+                                                                                {Array.isArray(d.grns) && d.grns.map((g, gIdx) => (
+                                                                                    <tr key={gIdx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                                                                        <td style={{ padding: '8px 12px', fontWeight: '600', color: '#059669', fontSize: '0.85rem' }}>
+                                                                                            {g.grn_number}
+                                                                                        </td>
+                                                                                        <td style={{ padding: '8px 12px', fontSize: '0.85rem' }}>
+                                                                                            <div style={{ fontWeight: 600 }}>{g.invoice_no || '-'}</div>
+                                                                                            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>{g.invoice_date || '-'}</span>
+                                                                                        </td>
+                                                                                        <td style={{ padding: '8px 12px', fontSize: '0.85rem', fontWeight: '600' }}>{g.vendor_name || g.vendor_id || '-'}</td>
+                                                                                        <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: '600', fontSize: '0.85rem' }}>
+                                                                                            ₹{Number(g.total_amount || 0).toFixed(2)}
+                                                                                        </td>
+                                                                                        <td style={{ padding: '8px 12px', fontSize: '0.8rem' }}>
+                                                                                            {Array.isArray(g.items) && g.items.length > 0 ? (
+                                                                                                <div>
+                                                                                                    {g.items.slice(0, 3).map((it, itIdx) => (
+                                                                                                        <span key={itIdx} style={{ display: 'block', background: '#f8fafc', border: '1px solid #cbd5e1', padding: '4px 8px', borderRadius: '6px', margin: '4px 0', fontSize: '0.75rem' }}>
+                                                                                                            <div style={{ fontWeight: '700', color: '#1e293b' }}>{it.name || it.itemName || 'Medicine Item'}</div>
+                                                                                                            <div style={{ color: '#475569', fontSize: '0.72rem', marginTop: '2px' }}>
+                                                                                                                Qty: <span style={{ fontWeight: 600, color: '#16a34a' }}>{it.quantity || 0}</span>
+                                                                                                                {it.free ? <> (Free: <span style={{ fontWeight: 600 }}>{it.free}</span>)</> : null}
+                                                                                                                {it.batch ? <> | Batch: <span style={{ fontWeight: 600 }}>{it.batch}</span></> : null}
+                                                                                                                {it.expiry ? <> | Exp: <span style={{ fontWeight: 600 }}>{it.expiry}</span></> : null}
+                                                                                                            </div>
+                                                                                                        </span>
+                                                                                                    ))}
+                                                                                                    {g.items.length > 3 && (
+                                                                                                        <span style={{ fontSize: '0.75rem', color: '#64748b' }}> +{g.items.length - 3} more</span>
+                                                                                                    )}
+                                                                                                </div>
+                                                                                            ) : '-'}
+                                                                                        </td>
+                                                                                    </tr>
+                                                                                ))}
+                                                                            </tbody>
+                                                                        </table>
+
+                                                                        {/* Purchase Returns / Debit Notes Sub-table */}
+                                                                        {Array.isArray(d.returns) && d.returns.length > 0 && (
+                                                                            <div style={{ marginTop: '16px' }}>
+                                                                                <div style={{ marginBottom: '10px', fontWeight: '700', color: '#dc2626', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                                    <FileText size={16} /> Purchase Returns (Debit Notes) on {dayjs(d.date).isValid() ? dayjs(d.date).format('DD-MMM-YYYY') : d.date} ({d.returns.length} Returns)
+                                                                                </div>
+                                                                                <table style={{ width: '100%', background: '#ffffff', borderRadius: '8px', border: '1px solid #fecaca', borderCollapse: 'collapse', overflow: 'hidden' }}>
+                                                                                    <thead>
+                                                                                        <tr style={{ background: '#fee2e2', color: '#991b1b' }}>
+                                                                                            <th style={{ padding: '8px 12px', fontSize: '0.8rem', textAlign: 'left' }}>Debit Note / Return ID</th>
+                                                                                            <th style={{ padding: '8px 12px', fontSize: '0.8rem', textAlign: 'left' }}>Supplier / Vendor</th>
+                                                                                            <th style={{ padding: '8px 12px', fontSize: '0.8rem', textAlign: 'left' }}>Against GRN</th>
+                                                                                            <th style={{ padding: '8px 12px', fontSize: '0.8rem', textAlign: 'left' }}>Reason</th>
+                                                                                            <th style={{ padding: '8px 12px', fontSize: '0.8rem', textAlign: 'center' }}>Items Count</th>
+                                                                                            <th style={{ padding: '8px 12px', fontSize: '0.8rem', textAlign: 'right' }}>Return Value</th>
+                                                                                        </tr>
+                                                                                    </thead>
+                                                                                    <tbody>
+                                                                                        {d.returns.map((ret, rIdx) => (
+                                                                                            <tr key={rIdx} style={{ borderBottom: '1px solid #fef2f2' }}>
+                                                                                                <td style={{ padding: '8px 12px', fontWeight: '700', color: '#dc2626', fontSize: '0.85rem' }}>
+                                                                                                    {ret.debit_note_no || ret.return_id}
+                                                                                                </td>
+                                                                                                <td style={{ padding: '8px 12px', fontSize: '0.85rem', fontWeight: '600' }}>{ret.vendor_name || ret.vendor_id || '-'}</td>
+                                                                                                <td style={{ padding: '8px 12px', fontSize: '0.85rem', color: '#64748b' }}>{ret.grn_number || '-'}</td>
+                                                                                                <td style={{ padding: '8px 12px', fontSize: '0.85rem' }}>{ret.reason || 'Drug Purchase Return'}</td>
+                                                                                                <td style={{ padding: '8px 12px', textAlign: 'center', fontSize: '0.85rem' }}>{ret.items_count || (ret.items ? ret.items.length : 0)}</td>
+                                                                                                <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: '700', color: '#dc2626', fontSize: '0.85rem' }}>
+                                                                                                    -₹{Number(ret.total_amount || 0).toFixed(2)}
+                                                                                                </td>
+                                                                                            </tr>
+                                                                                        ))}
+                                                                                    </tbody>
+                                                                                </table>
+                                                                            </div>
+                                                                        )}
                                                                     </td>
                                                                 </tr>
                                                             )}

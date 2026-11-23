@@ -350,18 +350,42 @@ export const generateSupplierPurchaseHTML = (reportData, options = {}) => {
             `;
         });
 
+        // Purchase Return Rows if any
+        if (Array.isArray(s.returns) && s.returns.length > 0) {
+            s.returns.forEach((r, rIdx) => {
+                const returnNo = r.debit_note_no || r.return_id || '-';
+                const refGrn = r.grn_number ? `Debit Note (Against ${r.grn_number})` : (r.reason || 'Purchase Return');
+                const returnDate = formatDate(r.date);
+                const returnAmount = formatAmount(r.total_amount);
+
+                rowsHtml += `
+                    <tr class="item-row" style="color: #b91c1c; font-style: italic;">
+                        <td style="width: 45px;">R-${rIdx + 1}</td>
+                        <td style="width: 155px;">${returnNo}</td>
+                        <td style="width: 175px;">${refGrn}</td>
+                        <td style="width: 110px;">${returnDate}</td>
+                        <td style="width: 110px;" class="text-right">- ${returnAmount}</td>
+                    </tr>
+                `;
+            });
+        }
+
         // Supplier Total Row
-        const supplierTotal = formatAmount(s.total_amount);
+        const netSupplierTotal = formatAmount(s.net_amount != null ? s.net_amount : (Number(s.total_amount || 0) - Number(s.return_amount || 0)));
+        const returnLabel = (s.return_amount && Number(s.return_amount) > 0) 
+            ? `GRN: ${formatAmount(s.total_amount)} | Ret: -${formatAmount(s.return_amount)} | Net:`
+            : `Total`;
         rowsHtml += `
             <tr class="subtotal-row">
                 <td colspan="3"></td>
-                <td class="text-right total-label"><strong>Total</strong></td>
-                <td class="text-right total-val"><strong>${supplierTotal}</strong></td>
+                <td class="text-right total-label"><strong>${returnLabel}</strong></td>
+                <td class="text-right total-val"><strong>${netSupplierTotal}</strong></td>
             </tr>
         `;
     });
 
-    const netAmountFormatted = formatAmount(calculatedGrandTotal);
+    const hasReturnsInSummary = options.summary && (options.summary.grand_return_amount > 0 || options.summary.total_returns > 0);
+    const netAmountFormatted = formatAmount(options.summary?.grand_net_amount != null ? options.summary.grand_net_amount : (calculatedGrandTotal - (options.summary?.grand_return_amount || 0)));
 
     return `
 <!DOCTYPE html>
@@ -397,6 +421,252 @@ export const generateSupplierPurchaseHTML = (reportData, options = {}) => {
                     <td colspan="5" class="category-bar">${departmentName}</td>
                 </tr>
                 ${rowsHtml}
+                ${hasReturnsInSummary ? `
+                <tr style="font-size: 8.5pt; border-top: 1px solid #cbd5e1;">
+                    <td colspan="3"></td>
+                    <td class="text-right" style="color: #475569;">Total GRN Value:</td>
+                    <td class="text-right" style="color: #475569;">${formatAmount(calculatedGrandTotal)}</td>
+                </tr>
+                <tr style="font-size: 8.5pt; color: #b91c1c;">
+                    <td colspan="3"></td>
+                    <td class="text-right">Total Purchase Returns (Debit):</td>
+                    <td class="text-right">- ${formatAmount(options.summary.grand_return_amount)}</td>
+                </tr>` : ''}
+                <tr class="grand-total-row" style="font-weight: bold; border-top: 1.5px solid #000; border-bottom: 1.5px solid #000;">
+                    <td colspan="3"></td>
+                    <td class="text-right" style="color: #800000;"><strong>Net Amount</strong></td>
+                    <td class="text-right" style="color: #800000;"><strong>${netAmountFormatted}</strong></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
+    `;
+};
+
+/**
+ * Generate authentic HTML for Date-Based Purchase / GRN Report matching "monthly supplier report.pdf" style.
+ */
+export const generateDatePurchaseHTML = (reportData, options = {}) => {
+    const hospitalName = options.hospitalName || localStorage.getItem("hospital_name") || "SHANMUGA HOSPITAL LIMITED";
+    const fromDateStr = formatDate(options.fromDate || dayjs().startOf('month').format('YYYY-MM-DD'));
+    const toDateStr = formatDate(options.toDate || dayjs().format('YYYY-MM-DD'));
+    const departmentName = (options.department || getSelectedStoreDepartment() || "GENERAL PURCHASE").toUpperCase();
+
+    const dates = Array.isArray(reportData) ? reportData : [];
+    
+    let calculatedGrandTotal = 0;
+    if (options.summary && typeof options.summary.grand_total_amount === 'number') {
+        calculatedGrandTotal = options.summary.grand_total_amount;
+    } else {
+        dates.forEach(d => {
+            calculatedGrandTotal += Number(d.total_amount || 0);
+        });
+    }
+
+    let rowsHtml = '';
+    dates.forEach((d) => {
+        const dateTitle = `${formatDate(d.date)} ${d.day_of_week ? `(${d.day_of_week})` : ''} - ${d.total_grns || 0} GRN(s)`.toUpperCase();
+        const grns = Array.isArray(d.grns) ? d.grns : [];
+        const returns = Array.isArray(d.returns) ? d.returns : [];
+
+        // Date Header Row in Maroon
+        rowsHtml += `
+            <tr class="supplier-row">
+                <td colspan="5" class="supplier-title">${dateTitle}</td>
+            </tr>
+        `;
+
+        // GRN Invoices
+        grns.forEach((g, gIdx) => {
+            const purchaseNo = g.grn_number || g.purchase_number || '-';
+            const invoiceNo = g.invoice_no || '-';
+            const supplierName = g.vendor_name || g.vendor_id || '-';
+            const billAmount = formatAmount(g.total_amount);
+
+            rowsHtml += `
+                <tr class="item-row">
+                    <td style="width: 45px;">${gIdx + 1}</td>
+                    <td style="width: 155px;">${purchaseNo}</td>
+                    <td style="width: 175px;">${invoiceNo}</td>
+                    <td style="width: 150px;">${supplierName}</td>
+                    <td style="width: 110px;" class="text-right">${billAmount}</td>
+                </tr>
+            `;
+        });
+
+        // Purchase Returns
+        returns.forEach((r, rIdx) => {
+            const returnNo = r.debit_note_no || r.return_id || '-';
+            const refGrn = r.grn_number ? `DBN (Against ${r.grn_number})` : (r.reason || 'Purchase Return');
+            const supplierName = r.vendor_name || r.vendor_id || '-';
+            const returnAmount = formatAmount(r.total_amount);
+
+            rowsHtml += `
+                <tr class="item-row" style="color: #b91c1c; font-style: italic;">
+                    <td style="width: 45px;">R-${rIdx + 1}</td>
+                    <td style="width: 155px;">${returnNo}</td>
+                    <td style="width: 175px;">${refGrn}</td>
+                    <td style="width: 150px;">${supplierName}</td>
+                    <td style="width: 110px;" class="text-right">- ${returnAmount}</td>
+                </tr>
+            `;
+        });
+
+        // Date Subtotal
+        const dateGrnTotal = Number(d.total_amount || 0);
+        const dateReturnTotal = Number(d.return_amount || 0);
+        const dateNetTotal = Number(d.net_amount != null ? d.net_amount : dateGrnTotal - dateReturnTotal);
+
+        rowsHtml += `
+            <tr class="subtotal-row">
+                <td colspan="4" class="text-right">
+                    <strong>Total for ${formatDate(d.date)}${dateReturnTotal > 0 ? ` (GRN: ${formatAmount(dateGrnTotal)} - Ret: ${formatAmount(dateReturnTotal)})` : ''} :</strong>
+                </td>
+                <td class="text-right font-bold">${formatAmount(dateNetTotal)}</td>
+            </tr>
+        `;
+    });
+
+    const hasReturnsInSummary = options.summary && (options.summary.total_returns > 0 || options.summary.grand_return_amount > 0);
+    const grandReturnAmt = options.summary?.grand_return_amount || 0;
+    const netAmountFormatted = formatAmount(options.summary?.grand_net_amount != null ? options.summary.grand_net_amount : (calculatedGrandTotal - grandReturnAmt));
+
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Date Wise Purchase Report</title>
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 12mm 10mm 12mm 10mm;
+        }
+        * {
+            box-sizing: border-box;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 8.5pt;
+            color: #000000;
+            margin: 0;
+            padding: 0;
+            background: #ffffff;
+        }
+        .page-frame-border {
+            position: fixed;
+            top: 6mm;
+            left: 6mm;
+            right: 6mm;
+            bottom: 6mm;
+            border: 1.5px solid #000000;
+            pointer-events: none;
+            z-index: 9999;
+        }
+        .document-wrapper {
+            padding: 8mm 6mm;
+        }
+        .report-header {
+            text-align: center;
+            margin-bottom: 12px;
+        }
+        .hospital-name {
+            font-size: 13.5pt;
+            font-weight: bold;
+            color: #000000;
+            letter-spacing: 0.5px;
+            margin-bottom: 2px;
+        }
+        .report-subtitle {
+            font-size: 9.5pt;
+            font-weight: bold;
+            color: #000000;
+        }
+        table.ledger-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 8pt;
+        }
+        table.ledger-table th, 
+        table.ledger-table td {
+            padding: 4px 6px;
+            vertical-align: middle;
+            border: none;
+        }
+        tr.col-headers th {
+            border-top: 1.5px solid #000000;
+            border-bottom: 1.5px solid #000000;
+            font-weight: bold;
+            color: #000000;
+            text-align: left;
+            font-size: 8.5pt;
+        }
+        tr.category-row td.category-bar {
+            color: #008080;
+            font-weight: bold;
+            font-size: 8.5pt;
+            padding: 6px 4px 4px 4px;
+        }
+        tr.supplier-row td.supplier-title {
+            color: #800000;
+            font-weight: bold;
+            font-size: 8.5pt;
+            padding: 6px 4px 2px 4px;
+        }
+        tr.item-row td {
+            padding: 2.5px 4px;
+            color: #000000;
+        }
+        tr.subtotal-row td {
+            border-top: 1px dashed #666666;
+            border-bottom: 1px dashed #666666;
+            padding: 4px;
+        }
+        .text-right {
+            text-align: right !important;
+        }
+        .font-bold {
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="page-frame-border"></div>
+    <div class="document-wrapper">
+        <div class="report-header">
+            <div class="hospital-name">${hospitalName}</div>
+            <div class="report-subtitle">Date Wise Purchase / GRN Report From ${fromDateStr} to ${toDateStr}</div>
+        </div>
+        <table class="ledger-table">
+            <thead>
+                <tr class="col-headers">
+                    <th style="width: 45px;">Sl No.</th>
+                    <th style="width: 155px;">Purchase / GRN No</th>
+                    <th style="width: 175px;">Invoice / DBN No</th>
+                    <th style="width: 150px;">Supplier / Vendor</th>
+                    <th style="width: 110px;" class="text-right">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="category-row">
+                    <td colspan="5" class="category-bar">${departmentName}</td>
+                </tr>
+                ${rowsHtml}
+                ${hasReturnsInSummary ? `
+                <tr style="font-size: 8.5pt; border-top: 1px solid #cbd5e1;">
+                    <td colspan="3"></td>
+                    <td class="text-right" style="color: #475569;">Total GRN Value:</td>
+                    <td class="text-right" style="color: #475569;">${formatAmount(calculatedGrandTotal)}</td>
+                </tr>
+                <tr style="font-size: 8.5pt; color: #b91c1c;">
+                    <td colspan="3"></td>
+                    <td class="text-right">Total Purchase Returns (Debit):</td>
+                    <td class="text-right">- ${formatAmount(options.summary.grand_return_amount)}</td>
+                </tr>` : ''}
                 <tr class="grand-total-row" style="font-weight: bold; border-top: 1.5px solid #000; border-bottom: 1.5px solid #000;">
                     <td colspan="3"></td>
                     <td class="text-right" style="color: #800000;"><strong>Net Amount</strong></td>
@@ -766,13 +1036,14 @@ export const printStoresReport = (elementOrData, options = {}) => {
     // 1. Check if structured data is passed or if attached on DOM
     let reportData = null;
     let isSupplierFormat = options.isSupplierPurchaseFormat || options.reportType === 'supplier_purchase';
+    let isDateFormat = options.isDatePurchaseFormat || options.reportType === 'date_purchase';
 
     if (Array.isArray(elementOrData)) {
         reportData = elementOrData;
-        isSupplierFormat = true;
+        if (!isDateFormat) isSupplierFormat = true;
     } else if (typeof elementOrData === 'object' && elementOrData?.data && Array.isArray(elementOrData.data)) {
         reportData = elementOrData.data;
-        isSupplierFormat = true;
+        if (!isDateFormat) isSupplierFormat = true;
     }
 
     // Check if DOM element has attached structured report data
@@ -785,7 +1056,7 @@ export const printStoresReport = (elementOrData, options = {}) => {
 
     if (targetElem && targetElem._reportData && Array.isArray(targetElem._reportData)) {
         reportData = targetElem._reportData;
-        isSupplierFormat = true;
+        if (!isDateFormat) isSupplierFormat = true;
     }
 
     // 2. Prepare iframe
@@ -808,7 +1079,10 @@ export const printStoresReport = (elementOrData, options = {}) => {
     const doc = iframe.contentWindow.document;
     doc.open();
 
-    if (isSupplierFormat && reportData) {
+    if (isDateFormat && reportData) {
+        const html = generateDatePurchaseHTML(reportData, options);
+        doc.write(html);
+    } else if (isSupplierFormat && reportData) {
         // Output exact monthly supplier report template
         const html = generateSupplierPurchaseHTML(reportData, options);
         doc.write(html);

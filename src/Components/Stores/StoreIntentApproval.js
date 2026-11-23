@@ -7,7 +7,7 @@ import { DatePicker, Table, Modal, Button as AntButton, Select, Card, Statistic,
 import dayjs from 'dayjs';
 import * as XLSX from 'xlsx';
 import apiRequest from '../../Auth/apiRequest';
-import { getSelectedStoreDepartment, setSelectedStoreDepartment, useStoresDepartment } from './storesDepartmentHelper';
+import { getSelectedStoreDepartment, getSelectedStoreDepartmentName, setSelectedStoreDepartment, useStoresDepartment, matchesStoreDepartment } from './storesDepartmentHelper';
 import DepartmentSelectionModal, { DepartmentFilterControl } from './DepartmentSelectionModal';
 import * as S from '../GlobalStyles';
 import { RotateCcw, CheckCircle, Clock, X, Download, RefreshCw, Search, ShieldCheck, FileText, AlertCircle, MoreVertical, Eye, CheckCheck, Printer, Trash2, Ban, User } from 'lucide-react';
@@ -474,7 +474,11 @@ const StoresApprovalManager = () => {
     const [intents, setIntents] = useState([]);
     const [departments, setDepartments] = useState([]);
     const [selectedDepartment, setSelectedDepartment] = useState(getSelectedStoreDepartment());
-    useStoresDepartment((newDept) => setSelectedDepartment(newDept || ''));
+    const [selectedDepartmentName, setSelectedDepartmentName] = useState(getSelectedStoreDepartmentName());
+    useStoresDepartment((newDept, newName) => {
+        setSelectedDepartment(newDept || '');
+        setSelectedDepartmentName(newName || '');
+    });
     const departmentFilterRef = useRef(null);
     const [loading, setLoading] = useState(false);
     const [intentSearch, setIntentSearch] = useState('');
@@ -584,6 +588,10 @@ const StoresApprovalManager = () => {
             to_date: dayjs().format('YYYY-MM-DD')
         };
         setFilter(defaultFilter);
+        setIntentSearch('');
+        setSelectedDepartment('');
+        setSelectedDepartmentName('');
+        setSelectedStoreDepartment('', 'All Departments');
         loadPendingIntents(defaultFilter);
     };
 
@@ -871,6 +879,9 @@ const StoresApprovalManager = () => {
             search: ''
         };
         setReturnFilter(defaultFilter);
+        setSelectedDepartment('');
+        setSelectedDepartmentName('');
+        setSelectedStoreDepartment('', 'All Departments');
         loadIndentReturns(defaultFilter);
     };
 
@@ -1097,10 +1108,10 @@ const StoresApprovalManager = () => {
         if (activeTab === 'partially_approved' && status !== 'Partially Approved' && status !== 'Rejected') return false;
         if (activeTab === 'approved' && status !== 'Approved') return false;
 
-        if (selectedDepartment) {
-            const dept = (item.department_name || item.department || '').toLowerCase().trim();
-            const target = selectedDepartment.toLowerCase().trim();
-            if (dept !== target && !dept.includes(target)) return false;
+        if (selectedDepartment && selectedDepartment !== 'ALL') {
+            if (!matchesStoreDepartment(item, selectedDepartment, selectedDepartmentName, departments)) {
+                return false;
+            }
         }
 
         if (!intentSearch) return true;
@@ -1113,10 +1124,10 @@ const StoresApprovalManager = () => {
 
     // Filtered returns based on text search, status, and department
     const filteredReturns = safeIndentReturns.filter(item => {
-        if (selectedDepartment) {
-            const dept = (item.department_name || item.department || '').toLowerCase().trim();
-            const target = selectedDepartment.toLowerCase().trim();
-            if (dept !== target && !dept.includes(target)) return false;
+        if (selectedDepartment && selectedDepartment !== 'ALL') {
+            if (!matchesStoreDepartment(item, selectedDepartment, selectedDepartmentName, departments)) {
+                return false;
+            }
         }
 
         if (returnFilter.status && returnFilter.status !== 'ALL') {
@@ -1135,13 +1146,20 @@ const StoresApprovalManager = () => {
     const intentPagination = usePagination(filteredIntents, 15);
     const returnPagination = usePagination(filteredReturns, 15);
 
-    const pendingIntentsCount = safeIntents.filter(i => getIntentStatus(i) === 'Pending').length;
-    const partiallyApprovedIntentsCount = safeIntents.filter(i => {
+    const deptFilteredIntents = (selectedDepartment && selectedDepartment !== 'ALL')
+        ? safeIntents.filter(i => matchesStoreDepartment(i, selectedDepartment, selectedDepartmentName, departments))
+        : safeIntents;
+    const deptFilteredReturns = (selectedDepartment && selectedDepartment !== 'ALL')
+        ? safeIndentReturns.filter(r => matchesStoreDepartment(r, selectedDepartment, selectedDepartmentName, departments))
+        : safeIndentReturns;
+
+    const pendingIntentsCount = deptFilteredIntents.filter(i => getIntentStatus(i) === 'Pending').length;
+    const partiallyApprovedIntentsCount = deptFilteredIntents.filter(i => {
         const s = getIntentStatus(i);
         return s === 'Partially Approved' || s === 'Rejected';
     }).length;
-    const approvedIntentsCount = safeIntents.filter(i => getIntentStatus(i) === 'Approved').length;
-    const pendingReturnsCount = safeIndentReturns.filter(r => r.status === 'Pending').length;
+    const approvedIntentsCount = deptFilteredIntents.filter(i => getIntentStatus(i) === 'Approved').length;
+    const pendingReturnsCount = deptFilteredReturns.filter(r => r.status === 'Pending').length;
 
     return (
         <S.PageWrapper>
@@ -1372,9 +1390,9 @@ const StoresApprovalManager = () => {
                                     <div style={{ flex: '0 0 auto' }}>
                                         <DepartmentFilterControl
                                             departments={departments}
-                                            onDepartmentChange={(dept) => {
+                                            onDepartmentChange={(dept, name) => {
                                                 setSelectedDepartment(dept || '');
-                                                
+                                                setSelectedDepartmentName(name || '');
                                             }}
                                         />
                                     </div>
@@ -1711,8 +1729,9 @@ const StoresApprovalManager = () => {
                                     <div style={{ flex: '0 0 auto' }}>
                                         <DepartmentFilterControl
                                             departments={departments}
-                                            onDepartmentChange={(dept) => {
+                                            onDepartmentChange={(dept, name) => {
                                                 setSelectedDepartment(dept || '');
+                                                setSelectedDepartmentName(name || '');
                                             }}
                                         />
                                     </div>

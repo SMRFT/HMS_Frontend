@@ -7,6 +7,7 @@ export { default as DrugShortExpiryReport } from './DrugShortExpiryReport';
 export { default as DrugReorderLevelReport } from './DrugReorderLevelReport';
 export { default as DrugRackClassificationReport } from './DrugRackClassificationReport';
 export { default as DrugSupplierGrnReport } from './DrugSupplierGrnReport';
+export { default as DrugDateGrnReport } from './DrugDateGrnReport';
 export { default as DrugDepartmentIndentReport } from './DrugDepartmentIndentReport';
 export { default as DrugGRNGeneralReport } from './DrugGRNGeneralReport';
 export { default as DrugIntentReturnReport } from './DrugIntentReturnReport';

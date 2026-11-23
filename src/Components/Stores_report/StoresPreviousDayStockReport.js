@@ -3,6 +3,8 @@ import React, { useState, useEffect } from 'react';
 import dayjs from 'dayjs';
 import apiRequest from '../../Auth/apiRequest';
 import * as XLSX from 'xlsx';
+import { getSelectedStoreDepartment, getSelectedStoreDepartmentName, setSelectedStoreDepartment, useStoresDepartment } from '../Stores/storesDepartmentHelper';
+import { DepartmentFilterControl } from '../Stores/DepartmentSelectionModal';
 import { 
     Calendar, RefreshCw, Download, Printer, Search, 
     Layers, ArrowDownRight, ArrowUpRight, RotateCcw, Package
@@ -22,7 +24,7 @@ import {
     colors
 } from '../GlobalStyles';
 
-const StoresPreviousDayStockReport = () => {
+const StoresPreviousDayStockReport = ({ department: propDepartment = '', departmentName: propDepartmentName = '', isModalView = false, onClose }) => {
     const yesterday = dayjs().subtract(1, 'day').format('YYYY-MM-DD');
     const getBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || '';
 
@@ -30,6 +32,9 @@ const StoresPreviousDayStockReport = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(false);
     const [stockData, setStockData] = useState([]);
+    const [departments, setDepartments] = useState([]);
+    const [selectedDepartment, setSelectedDepartment] = useState(propDepartment || getSelectedStoreDepartment());
+    const [selectedDepartmentName, setSelectedDepartmentName] = useState(propDepartmentName || getSelectedStoreDepartmentName());
     const [groupMap, setGroupMap] = useState({});
     const [categoryMap, setCategoryMap] = useState({});
     const [summary, setSummary] = useState({
@@ -43,18 +48,32 @@ const StoresPreviousDayStockReport = () => {
     });
 
     useEffect(() => {
+        setSelectedDepartment(propDepartment || '');
+        setSelectedDepartmentName(propDepartmentName || '');
+    }, [propDepartment, propDepartmentName]);
+
+    useStoresDepartment((newDept, newName) => {
+        setSelectedDepartment(newDept || '');
+        setSelectedDepartmentName(newName || '');
+    });
+
+    useEffect(() => {
         fetchStockReport();
         fetchMasters();
-    }, []);
+    }, [selectedDate, selectedDepartment]);
 
     const fetchMasters = async () => {
         try {
-            const [gRes, cRes] = await Promise.all([
+            const [gRes, cRes, dRes] = await Promise.all([
                 apiRequest(`${getBaseUrl.replace(/\/$/, '')}/group-master/`),
-                apiRequest(`${getBaseUrl.replace(/\/$/, '')}/category-master/`)
+                apiRequest(`${getBaseUrl.replace(/\/$/, '')}/category-master/`),
+                apiRequest(`${getBaseUrl.replace(/\/$/, '')}/department-master/`)
             ]);
             const gList = (gRes && (Array.isArray(gRes) ? gRes : (gRes.data || []))) || [];
             const cList = (cRes && (Array.isArray(cRes) ? cRes : (cRes.data || []))) || [];
+            if (dRes && dRes.success && Array.isArray(dRes.data)) {
+                setDepartments(dRes.data);
+            }
 
             const gMap = {};
             gList.forEach(g => {
@@ -93,12 +112,15 @@ const StoresPreviousDayStockReport = () => {
             setLoading(true);
             let query = [];
             if (selectedDate) query.push(`date=${selectedDate}`);
+            if (selectedDepartment && selectedDepartment !== 'ALL') query.push(`department=${encodeURIComponent(selectedDepartment)}`);
             if (searchTerm) query.push(`search=${encodeURIComponent(searchTerm)}`);
 
             const queryString = query.length > 0 ? `?${query.join('&')}` : '';
             const res = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/stores-previous-day-stock-report/${queryString}`);
             if (res && res.success) {
-                setStockData(res.data.data || []);
+                const list = res.data.data || [];
+                const sortedList = [...list].sort((a, b) => String(a.item_name || a.itemName || '').localeCompare(String(b.item_name || b.itemName || ''), undefined, { sensitivity: 'base' }));
+                setStockData(sortedList);
                 setSummary(res.data.summary || {});
             } else {
                 setStockData([]);
@@ -170,6 +192,16 @@ const StoresPreviousDayStockReport = () => {
                     <div style={{ flex: '1 1 200px', minWidth: '160px' }}>
                         <label style={{ fontSize: '0.8rem', fontWeight: '600', color: colors.textMuted, display: 'block', marginBottom: '4px' }}>Select Stock Date</label>
                         <Input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} style={{ width: '100%' }} />
+                    </div>
+                    <div style={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <label style={{ fontSize: '0.8rem', fontWeight: '600', color: colors.textMuted, display: 'block' }}>Department</label>
+                        <DepartmentFilterControl
+                            departments={departments}
+                            onDepartmentChange={(dept, name) => {
+                                setSelectedDepartment(dept || '');
+                                setSelectedDepartmentName(name || '');
+                            }}
+                        />
                     </div>
                     <div style={{ flex: '1 1 250px', minWidth: '200px' }}>
                         <label style={{ fontSize: '0.8rem', fontWeight: '600', color: colors.textMuted, display: 'block', marginBottom: '4px' }}>Search Item Name / Code</label>

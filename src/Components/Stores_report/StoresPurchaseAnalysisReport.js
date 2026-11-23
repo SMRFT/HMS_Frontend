@@ -3,6 +3,8 @@ import React, { useState, useEffect } from 'react';
 import dayjs from 'dayjs';
 import apiRequest from '../../Auth/apiRequest';
 import * as XLSX from 'xlsx';
+import { getSelectedStoreDepartment, getSelectedStoreDepartmentName, setSelectedStoreDepartment, useStoresDepartment } from '../Stores/storesDepartmentHelper';
+import { DepartmentFilterControl } from '../Stores/DepartmentSelectionModal';
 import { 
     BarChart3, TrendingUp, Calendar, RefreshCw, Download, Printer, 
     Building2, Package, PieChart, Search
@@ -22,7 +24,7 @@ import {
     colors
 } from '../GlobalStyles';
 
-const StoresPurchaseAnalysisReport = () => {
+const StoresPurchaseAnalysisReport = ({ department: propDepartment = '', departmentName: propDepartmentName = '', isModalView = false, onClose }) => {
     const today = dayjs().format('YYYY-MM-DD');
     const oneMonthAgo = dayjs().subtract(1, 'month').format('YYYY-MM-DD');
     const getBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || '';
@@ -31,7 +33,20 @@ const StoresPurchaseAnalysisReport = () => {
     const [toDate, setToDate] = useState(today);
     const [selectedVendor, setSelectedVendor] = useState('');
     const [vendors, setVendors] = useState([]);
+    const [departments, setDepartments] = useState([]);
+    const [selectedDepartment, setSelectedDepartment] = useState(propDepartment || getSelectedStoreDepartment());
+    const [selectedDepartmentName, setSelectedDepartmentName] = useState(propDepartmentName || getSelectedStoreDepartmentName());
     const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        setSelectedDepartment(propDepartment || '');
+        setSelectedDepartmentName(propDepartmentName || '');
+    }, [propDepartment, propDepartmentName]);
+
+    useStoresDepartment((newDept, newName) => {
+        setSelectedDepartment(newDept || '');
+        setSelectedDepartmentName(newName || '');
+    });
 
     const [summary, setSummary] = useState({
         total_spend: 0,
@@ -47,8 +62,23 @@ const StoresPurchaseAnalysisReport = () => {
 
     useEffect(() => {
         fetchVendors();
-        fetchAnalysis();
+        fetchDepts();
     }, []);
+
+    useEffect(() => {
+        fetchAnalysis();
+    }, [selectedDepartment]);
+
+    const fetchDepts = async () => {
+        try {
+            const res = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/department-master/`);
+            if (res && res.success && Array.isArray(res.data)) {
+                setDepartments(res.data);
+            }
+        } catch (err) {
+            console.error("Error fetching departments:", err);
+        }
+    };
 
     const fetchVendors = async () => {
         try {
@@ -69,6 +99,7 @@ const StoresPurchaseAnalysisReport = () => {
             if (fromDate) query.push(`from_date=${fromDate}`);
             if (toDate) query.push(`to_date=${toDate}`);
             if (selectedVendor) query.push(`vendor_id=${selectedVendor}`);
+            if (selectedDepartment && selectedDepartment !== 'ALL') query.push(`department=${encodeURIComponent(selectedDepartment)}`);
 
             const queryString = query.length > 0 ? `?${query.join('&')}` : '';
             const res = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/stores-purchase-analysis-report/${queryString}`);
@@ -183,6 +214,15 @@ const StoresPurchaseAnalysisReport = () => {
                                 <option key={v.vendor_id} value={v.vendor_id}>{v.name} ({v.vendor_id})</option>
                             ))}
                         </Select>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', alignSelf: 'flex-end', height: '38px' }}>
+                        <DepartmentFilterControl
+                            departments={departments}
+                            onDepartmentChange={(dept, name) => {
+                                setSelectedDepartment(dept || '');
+                                setSelectedDepartmentName(name || '');
+                            }}
+                        />
                     </div>
                     <div style={{ display: 'flex', gap: '8px', alignSelf: 'flex-end' }}>
                         <Button onClick={fetchAnalysis} style={{ background: colors.primary, color: '#fff', padding: '9px 16px', borderRadius: '8px', border: 'none', fontWeight: '600' }}>
