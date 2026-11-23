@@ -1262,10 +1262,28 @@ const formatBillData = (bills, employeeName = "") => {
       resolvedStatus = hasPayment ? "Paid" : "Billed";
     }
 
+    const meds = parseMedicineParticulars(b.medicine_particulars);
+    const returnBillNos = [];
+    let totalReturnedQty = 0;
+    meds.forEach((item) => {
+      (item.edit_history || []).forEach((h) => {
+        if (h.action === "sales_return") {
+          if (h.return_bill_no && !returnBillNos.includes(h.return_bill_no)) {
+            returnBillNos.push(h.return_bill_no);
+          }
+          totalReturnedQty += Number(h.return_qty || 0);
+        }
+      });
+    });
+    const hasSalesReturn = returnBillNos.length > 0 || totalReturnedQty > 0;
+
     rows.push({
       id:             b.Bill_id,
       Bill_id:        b.Bill_id,
       _isReturn:      false,
+      has_sales_return: hasSalesReturn,
+      return_bill_no: returnBillNos.join(", "),
+      return_bill_numbers: returnBillNos,
       bill_date:      b.bill_date      || b.created_date || "",
       uhid:           b.uhid           || "",
       patient_name:   b.patient_name   || b.patientname || "",
@@ -1304,8 +1322,6 @@ const formatBillData = (bills, employeeName = "") => {
       cashier_id:     b.cashier_id     || b.created_by || "",
       medicine_particulars: parseMedicineParticulars(b.medicine_particulars).filter((m) => !m.deleted_is && !m.is_deleted),
     });
-    // Inline return rows derived from edit_history
-    extractReturnRows(b, b.billed_name || b.employee_name || b.prepared_by || b.created_by_name || b.created_by || b.cashier_id || employeeName).forEach((r) => rows.push(r));
   });
   return rows;
 };
@@ -1716,13 +1732,13 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
     return false;
   };
   const isDeleted = (bill) => (bill?.billing_status || "").toLowerCase() === "deleted" || bill?.is_deleted === true;
-  const isPartiallyBilled = (bill) => !bill?._isReturn && !isDeleted(bill) && (String(bill?.billing_status || "").toLowerCase().includes("processing") || String(bill?.billing_status || "").toLowerCase().includes("partially"));
+  const isPartiallyBilled = (bill) => !isDeleted(bill) && (String(bill?.billing_status || "").toLowerCase().includes("processing") || String(bill?.billing_status || "").toLowerCase().includes("partially"));
 
-  const paidCount         = dateFiltered.filter((b) => !b._isReturn && isPaid(b)).length;
+  const paidCount         = dateFiltered.filter((b) => isPaid(b)).length;
   const partiallyBilledCount = dateFiltered.filter(isPartiallyBilled).length;
-  const billedCount       = dateFiltered.filter((b) => !b._isReturn && !isPaid(b) && !isDeleted(b) && !isPartiallyBilled(b)).length;
-  const deletedCount      = dateFiltered.filter((b) => !b._isReturn && isDeleted(b)).length;
-  const salesReturnCount  = dateFiltered.filter((b) => b._isReturn).length;
+  const billedCount       = dateFiltered.filter((b) => !isPaid(b) && !isDeleted(b) && !isPartiallyBilled(b)).length;
+  const deletedCount      = dateFiltered.filter((b) => isDeleted(b)).length;
+  const salesReturnCount  = dateFiltered.filter((b) => b.has_sales_return).length;
 
   const getPageNums = (current, total) => {
     const pages = [];
@@ -1889,20 +1905,7 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                               )}
                             </Td>
                             <Td>
-                              {bill._isReturn ? (
-                                <div style={{ display:"flex", flexWrap:"wrap", gap:4, alignItems:"center" }}>
-                                  {bill.parent_billing_status && (
-                                    <Badge variant={
-                                      bill.parent_billing_status.toLowerCase() === "paid"    ? "paid"    :
-                                      bill.parent_billing_status.toLowerCase() === "billed"  ? "billed"  :
-                                      bill.parent_billing_status.toLowerCase() === "deleted" ? "deleted" : "default"
-                                    }>
-                                      {bill.parent_billing_status}
-                                    </Badge>
-                                  )}
-                                  <Badge variant="sales-returned">🔄 Sales Returned</Badge>
-                                </div>
-                              ) : (
+                              <div style={{ display:"flex", flexWrap:"wrap", gap:4, alignItems:"center" }}>
                                 <Badge variant={
                                   isDeleted(bill)         ? "deleted"    :
                                   isPaidBill              ? "paid"       :
@@ -1916,28 +1919,25 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                                         ? "⏳ Partially Billed"
                                         : bill.billing_status || "—"}
                                 </Badge>
-                              )}
+                                {bill.has_sales_return && (
+                                  <Badge variant="sales-returned">🔄 Sales Returned</Badge>
+                                )}
+                              </div>
                             </Td>
                             <Td style={{ fontFamily:"monospace", fontSize: 11 }}>
                               {bill.bill_number || "—"}
-                              {bill._isReturn && bill.original_bill_no && (
+                              {bill.has_sales_return && bill.return_bill_no && (
                                 <div style={{ fontSize: 9.5, color:"#9ca3af", marginTop: 2 }}>
-                                  Orig: {bill.original_bill_no}
+                                  Ret: {bill.return_bill_no}
                                 </div>
                               )}
                             </Td>
                             <Td><AmountCell style={{ color: "#2d3748" }}>₹ {bill.net_amount.toFixed(2)}</AmountCell></Td>
                             {showAmountCollected && (
                               <Td>
-                                {bill._isReturn ? (
-                                  <AmountCell style={{ color:"#276749", fontWeight:600 }}>
-                                    ₹ {bill.net_amount.toFixed(2)}
-                                  </AmountCell>
-                                ) : (
-                                  <AmountCell style={{ color: isPaidBill ? "#276749" : "#a0aec0", fontWeight: isPaidBill ? 600 : 400 }}>
-                                    {isPaidBill ? `₹ ${bill.net_amount.toFixed(2)}` : "—"}
-                                  </AmountCell>
-                                )}
+                                <AmountCell style={{ color: isPaidBill ? "#276749" : "#a0aec0", fontWeight: isPaidBill ? 600 : 400 }}>
+                                  {isPaidBill ? `₹ ${bill.net_amount.toFixed(2)}` : "—"}
+                                </AmountCell>
                               </Td>
                             )}
                             <Td style={{ color:"#744210", fontWeight: bill.inpatient_number ? 500 : 400 }}>{bill.inpatient_number || "—"}</Td>
@@ -1946,20 +1946,14 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                             <Td style={{ color:"#4a5568", fontSize: 11.5 }}>{bill.employee_name || "—"}</Td>
                             <Td>
                               <ActionGroup>
-                                {bill._isReturn ? (
-                                  <IconBtn variant="print" title="Print" onClick={() => handlePrint(bill)}>🖨️</IconBtn>
-                                ) : (
-                                  <>
-                                    {/* HIDE EDIT & DELETE TEMPORARILY - REMOVE 'false &&' TO REVERT */}
-                                    {false && !isDeleted(bill) && !isPaid(bill) && (
-                                      <IconBtn variant="edit" title="Edit" onClick={() => openEditModal(bill)}>✏️</IconBtn>
-                                    )}
-                                    {false && !isDeleted(bill) && (
-                                      <IconBtn variant="delete" title="Delete" onClick={() => openDeleteModal(bill)}>🗑️</IconBtn>
-                                    )}
-                                    <IconBtn variant="print" title="Print" onClick={() => handlePrint(bill)}>🖨️</IconBtn>
-                                  </>
+                                {/* HIDE EDIT & DELETE TEMPORARILY - REMOVE 'false &&' TO REVERT */}
+                                {false && !isDeleted(bill) && !isPaid(bill) && (
+                                  <IconBtn variant="edit" title="Edit" onClick={() => openEditModal(bill)}>✏️</IconBtn>
                                 )}
+                                {false && !isDeleted(bill) && (
+                                  <IconBtn variant="delete" title="Delete" onClick={() => openDeleteModal(bill)}>🗑️</IconBtn>
+                                )}
+                                <IconBtn variant="print" title="Print" onClick={() => handlePrint(bill)}>🖨️</IconBtn>
                               </ActionGroup>
                             </Td>
                           </Tr>
