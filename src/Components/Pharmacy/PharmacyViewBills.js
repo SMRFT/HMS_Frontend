@@ -2339,7 +2339,10 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                               computedItemDisc ||
                               0
                             );
-                            const previewNet = explicitNet > 0 ? explicitNet : Math.max(0, previewGross - explicitDisc);
+                            const expectedNet = Math.max(0, previewGross - explicitDisc);
+                            const previewNet = (explicitNet > 0 && Math.abs(explicitNet - expectedNet) <= 1.05)
+                              ? explicitNet
+                              : Math.round(expectedNet);
                             const previewDisc = Math.max(0, explicitDisc);
                             const totalItemDiscPct = (allMeds || []).reduce((sum, m) => {
                               const dVal = parseFloat(m.discount_value ?? m.discount ?? (m.discount_percent !== "%" ? m.discount_percent : 0) ?? 0);

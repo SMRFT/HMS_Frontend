@@ -1083,6 +1083,12 @@ const buildPrintBillHtml = (data) => {
     Number(data?.discount || 0)
   );
 
+  const expectedNet = Math.max(0, grossTotal - totalDiscount);
+  const rawNet = Number(netAmount || (data && (data.net_amount || data.netAmount)) || 0);
+  const calculatedNet = (rawNet > 0 && Math.abs(rawNet - expectedNet) <= 1.05)
+    ? rawNet
+    : Math.round(expectedNet);
+
   const totalItemDiscPct = (medicines || []).reduce((sum, m) => {
     const dVal = parseFloat(m.discount_value ?? m.discount ?? (m.discount_percent !== "%" ? m.discount_percent : 0) ?? 0);
     return sum + (isNaN(dVal) ? 0 : dVal);
@@ -1239,7 +1245,7 @@ const buildPrintBillHtml = (data) => {
         <div style="font-size: 11px; color: #111; line-height: 1.35; max-width: 360px; padding-top: 2px;">
           <span style="font-weight: 700;">Rupees in Words:</span>
           <div style="font-style: italic; font-weight: 600; color: #1e293b; text-transform: capitalize; margin-top: 1px;">
-            ${numberToWords(netAmount)}
+            ${numberToWords(calculatedNet)}
           </div>
         </div>
 
@@ -1280,7 +1286,7 @@ const buildPrintBillHtml = (data) => {
             `}
             <tr>
               <td style="padding: 2.5px 12px 2.5px 0; text-align: right; font-weight: 800; font-size: 12.5px; white-space: nowrap;">Net Amount (Payable) :</td>
-              <td style="padding: 2.5px 0; text-align: right; font-weight: 800; font-size: 12.5px; min-width: 72px;">${formatCurrency(netAmount)}</td>
+              <td style="padding: 2.5px 0; text-align: right; font-weight: 800; font-size: 12.5px; min-width: 72px;">${formatCurrency(calculatedNet)}</td>
             </tr>
           </tbody>
         </table>
@@ -7581,9 +7587,11 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
                                 const previewTax = previewCgst + previewSgst;
 
-                                const netPayable = Number(printBillData.netAmount || 0) > 0
-                                  ? Number(printBillData.netAmount)
-                                  : Math.max(0, previewGross - previewTotalDisc);
+                                const expectedNet = Math.max(0, previewGross - previewTotalDisc);
+                                const rawNet = Number(printBillData.netAmount || 0);
+                                const netPayable = (rawNet > 0 && Math.abs(rawNet - expectedNet) <= 1.05)
+                                  ? rawNet
+                                  : Math.round(expectedNet);
 
                                 return (
                                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginTop: 4 }}>
