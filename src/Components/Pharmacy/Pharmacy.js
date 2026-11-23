@@ -1004,23 +1004,35 @@ const buildPrintBillHtml = (data) => {
     resolvedBillingMode.includes("OT");
   const billTypeHeader = isCreditBill ? "CREDIT BILL" : "CASH BILL";
 
-  const resolvedOutlet = String(
-    (data && (data.outlet_code || data.outletCode || data.outlet)) ||
-    localStorage.getItem("selected_outlet") ||
-    localStorage.getItem("outlet_code") ||
-    ""
-  ).trim().toUpperCase();
-  const isIpBill = resolvedOutlet === "OLET001" || resolvedOutlet === "1" || resolvedOutlet.includes("OLET001") ||
-    Boolean(inpatientNo) ||
-    Boolean(data && (data.inpatient_number || data.inpatientNumber || data.ip_number || data.ipNumber)) ||
-    String(billTypeName || "").toLowerCase().includes("ip") ||
-    resolvedBillingMode.includes("REQUEST") ||
-    resolvedBillingMode.includes("WARD") ||
-    resolvedBillingMode.includes("OT");
-  const invoiceHeaderTitle = isIpBill ? "PHARMACY IP GST INVOICE" : "PHARMACY OP GST INVOICE";
-  const dlNumber = (resolvedOutlet === "OLET001" || resolvedOutlet === "1" || resolvedOutlet.includes("OLET001"))
-    ? "DL NO : TN/SLE/20/01107"
-    : "DL NO : TN/SLE/20/01109";
+  const resolveBillOutlet = () => {
+    const raw = String(
+      (data && (data.outlet_code || data.outletCode || data.outlet)) || ""
+    ).trim().toUpperCase();
+    if (raw === "OLET002" || raw === "2" || raw.includes("OLET002") || raw.includes("OP PHARMACY")) return "OLET002";
+    if (raw === "OLET001" || raw === "1" || raw.includes("OLET001") || raw.includes("IP PHARMACY")) return "OLET001";
+
+    // If outlet_code not stored on data, resolve from bill number prefix (262701 = OLET001, 262702 = OLET002)
+    const bNum = String(billNo || (data && (data.bill_no || data.bill_number)) || "").trim();
+    if (bNum.length >= 6) {
+      const codePart = bNum.slice(4, 6);
+      if (codePart === "02") return "OLET002";
+      if (codePart === "01") return "OLET001";
+    }
+
+    const localOut = String(localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "").trim().toUpperCase();
+    if (localOut.includes("OLET002") || localOut === "2" || localOut.includes("OP PHARMACY")) return "OLET002";
+    return "OLET001";
+  };
+
+  const resolvedOutlet = resolveBillOutlet();
+  // Display dynamically based on stored outlet_code:
+  // outlet_code === "OLET002" -> PHARMACY OP GST INVOICE (DL NO : TN/SLE/20/01109)
+  // outlet_code === "OLET001" -> PHARMACY IP GST INVOICE (DL NO : TN/SLE/20/01107)
+  const isOpPharmacy = resolvedOutlet === "OLET002";
+  const invoiceHeaderTitle = isOpPharmacy ? "PHARMACY OP GST INVOICE" : "PHARMACY IP GST INVOICE";
+  const dlNumber = isOpPharmacy
+    ? "DL NO : TN/SLE/20/01109"
+    : "DL NO : TN/SLE/20/01107";
 
   const formatCurrency = (val) => {
     const num = Number(val || 0);
@@ -3675,12 +3687,21 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
           Boolean(formData.is_insurance) ||
           String(formData.customer_type || "").toLowerCase() === "insurance";
 
+        const finalizeReqNo = String(formData.request_no || wardRequestToLoad?.request_no || wardRequestToLoad?.requestNo || "").toUpperCase();
+        const finalizeOrigMode = String(formData.billing_mode || wardRequestToLoad?.billing_mode || wardRequestToLoad?.billingMode || "").toUpperCase();
+        const finalizeBillingMode = (finalizeOrigMode.includes("OT") || finalizeReqNo.startsWith("OT"))
+          ? "OT REQUEST"
+          : (finalizeOrigMode.includes("DISCHARGE"))
+            ? "DISCHARGE MEDICINE"
+            : "WARD REQUEST";
+
         const finalizeRes = await apiRequest(`${HmsBaseUrl}finalize_bill/`, "POST", {
           _id:                  recordMongoId,
           record_id:            recordMongoId,
           Bill_id: parseInt(recordId),
           uhid:                 formData.uhid,
           is_ward_request:      true,
+          billing_mode:         finalizeBillingMode,
 
           // ── Send updated medicine list & amounts so backend uses them ──
           medicine_particulars: finalMedicines,
@@ -3915,7 +3936,19 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
       if (intentStatus === "Estimate") {
         status = "Estimate";
-        billing_mode = "ESTIMATE";
+        if (isWardRequest || wardRequestToLoad) {
+          const reqNo = String(formData.request_no || wardRequestToLoad?.request_no || wardRequestToLoad?.requestNo || "").toUpperCase();
+          const origMode = String(formData.billing_mode || wardRequestToLoad?.billing_mode || wardRequestToLoad?.billingMode || "").toUpperCase();
+          if (origMode.includes("OT") || reqNo.startsWith("OT")) {
+            billing_mode = "OT REQUEST";
+          } else if (origMode.includes("DISCHARGE")) {
+            billing_mode = "DISCHARGE MEDICINE";
+          } else {
+            billing_mode = "WARD REQUEST";
+          }
+        } else {
+          billing_mode = "ESTIMATE";
+        }
       } else {
         status = "Billed";
         if (loadedEstimateNo) {
@@ -7351,10 +7384,12 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
                                 <div>
                                   <div>
                                     {(() => {
-                                      const billOut = String(printBillData.outlet_code || printBillData.outletCode || printBillData.outlet || localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "").trim().toUpperCase();
-                                      return (billOut === "OLET001" || billOut === "1" || billOut.includes("OLET001"))
-                                        ? "DL NO : TN/SLE/20/01107"
-                                        : "DL NO : TN/SLE/20/01109";
+                                      const rawOut = String(printBillData.outlet_code || printBillData.outletCode || printBillData.outlet || "").trim().toUpperCase();
+                                      const bNo = String(printBillData.bill_no || printBillData.billNo || printBillData.bill_number || "").trim();
+                                      const codePart = bNo.length >= 6 ? bNo.slice(4, 6) : "";
+                                      const localOut = String(localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "").trim().toUpperCase();
+                                      const isOut2 = rawOut === "OLET002" || rawOut === "2" || rawOut.includes("OLET002") || rawOut.includes("OP PHARMACY") || codePart === "02" || (!rawOut && (localOut.includes("OLET002") || localOut === "2" || localOut.includes("OP PHARMACY")));
+                                      return isOut2 ? "DL NO : TN/SLE/20/01109" : "DL NO : TN/SLE/20/01107";
                                     })()}
                                   </div>
                                   <div>CIN : L85110TZ2020PLC033974</div>
@@ -7375,14 +7410,12 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
                                 <div style={{ textAlign: "right" }}>
                                   <div style={{ fontWeight: 800, fontSize: 12.5, color: "#111" }}>
                                     {(() => {
-                                      const billOut = String(printBillData.outlet_code || printBillData.outletCode || printBillData.outlet || localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "").trim().toUpperCase();
-                                      if (billOut === "OLET001" || billOut === "1" || billOut.includes("OLET001")) return "PHARMACY IP GST INVOICE";
-                                      if (billOut === "OLET002" || billOut === "2" || billOut.includes("OLET002")) return "PHARMACY OP GST INVOICE";
-                                      if (Boolean(printBillData.inpatientNumber || printBillData.inpatient_number || printBillData.ipNumber || printBillData.ip_number)) return "PHARMACY IP GST INVOICE";
-                                      const btn = String(printBillData.billTypeName || printBillData.bill_type_name || "").toUpperCase();
-                                      const bm = String(printBillData.billing_mode || printBillData.billingMode || "").toUpperCase();
-                                      if (btn.includes("IP") || bm.includes("REQUEST") || bm.includes("WARD") || bm.includes("OT")) return "PHARMACY IP GST INVOICE";
-                                      return "PHARMACY OP GST INVOICE";
+                                      const rawOut = String(printBillData.outlet_code || printBillData.outletCode || printBillData.outlet || "").trim().toUpperCase();
+                                      const bNo = String(printBillData.bill_no || printBillData.billNo || printBillData.bill_number || "").trim();
+                                      const codePart = bNo.length >= 6 ? bNo.slice(4, 6) : "";
+                                      const localOut = String(localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "").trim().toUpperCase();
+                                      const isOut2 = rawOut === "OLET002" || rawOut === "2" || rawOut.includes("OLET002") || rawOut.includes("OP PHARMACY") || codePart === "02" || (!rawOut && (localOut.includes("OLET002") || localOut === "2" || localOut.includes("OP PHARMACY")));
+                                      return isOut2 ? "PHARMACY OP GST INVOICE" : "PHARMACY IP GST INVOICE";
                                     })()}
                                   </div>
                                   <div style={{ display: "flex", justifyContent: "flex-end" }}>

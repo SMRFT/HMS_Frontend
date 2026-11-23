@@ -2083,6 +2083,24 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
     String(item?.item_name || item?.medicine_name || "").toUpperCase().includes("CONSUMABLE")
   );
 
+  const isFullyDispatchedOrBilled = (patient) => {
+    if (!patient) return false;
+    if (patient.is_dispatched) return true;
+    const bStatus = String(patient.billing_status || "").trim().toLowerCase();
+    if (bStatus === "billed" || bStatus === "paid" || bStatus === "completed") return true;
+    const rawItems = Array.isArray(patient.medicine_items)
+      ? patient.medicine_items
+      : (Array.isArray(patient.medicine_particulars) ? patient.medicine_particulars : []);
+    if (rawItems.length === 0) return false;
+    const validItems = rawItems.filter((it) => it && !it.deleted_is && !it.is_deleted);
+    if (validItems.length === 0) return false;
+    return validItems.every((it) => {
+      const orig = Number(it.requested_qty ?? it.qty ?? it.quantity ?? 0);
+      const disp = Number(it.dispatched_qty ?? 0);
+      return orig > 0 && disp >= orig;
+    });
+  };
+
   const getPatientFinancials = (patient) => {
     const rawItems = Array.isArray(patient?.medicine_items)
       ? patient.medicine_items
@@ -2090,8 +2108,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
     let prescriptionTotal = 0;
     let consumableTotal = 0;
 
-    const rawStatus = String(patient?.billing_status || "").trim().toLowerCase();
-    const isBilled = rawStatus === "billed" || rawStatus === "paid" || rawStatus === "completed";
+    const isBilled = isFullyDispatchedOrBilled(patient);
 
     const pendingItems = rawItems.filter((it) => {
       if (it.deleted_is || it.is_deleted) return false;
@@ -2550,10 +2567,10 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
 
     modeFilteredData.forEach((p) => {
       const bStatus = String(p.billing_status || "").trim().toLowerCase();
-      const isB = bStatus === "billed" || bStatus === "paid" || bStatus === "completed";
-      if (bStatus === "pending") pending += 1;
+      const isB = isFullyDispatchedOrBilled(p);
+      if (isB) billed += 1;
       else if (bStatus === "processing") processing += 1;
-      else if (isB) billed += 1;
+      else pending += 1;
 
       // Active pending/processing counts for Insurance and General
       if (!isB) {
@@ -2580,16 +2597,16 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
   const filteredData = useMemo(() => {
     return modeFilteredData.filter((patient) => {
       const bStatus = String(patient.billing_status || "").trim().toLowerCase();
-      const isBilled = bStatus === "billed" || bStatus === "paid" || bStatus === "completed";
+      const isBilled = isFullyDispatchedOrBilled(patient);
 
       // 1. Active Tab Filter: "All" displays Pending and Processing prescriptions; "Billed" displays billed alone
       if (activeFilter === "All") {
         if (isBilled) return false;
         return bStatus === "pending" || bStatus === "processing" || !bStatus;
       } else if (activeFilter === "Pending") {
-        if (bStatus !== "pending") return false;
+        if (isBilled || bStatus !== "pending") return false;
       } else if (activeFilter === "Processing") {
-        if (bStatus !== "processing") return false;
+        if (isBilled || bStatus !== "processing") return false;
       } else if (activeFilter === "Billed") {
         if (!isBilled) return false;
       } else if (activeFilter === "Insurance") {
@@ -3615,7 +3632,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                 : "Dr. Murugavel R";
               const contact = patient.patient_details?.mobile || patient.mobile || patient.contact || "—";
               const rawStatus = String(patient.billing_status || "").trim().toLowerCase();
-              const isBilled = rawStatus === "billed" || rawStatus === "paid" || rawStatus === "completed";
+              const isBilled = isFullyDispatchedOrBilled(patient);
               const rawItems = Array.isArray(patient.medicine_items)
                 ? patient.medicine_items
                 : (Array.isArray(patient.medicine_particulars) ? patient.medicine_particulars : []);
@@ -4328,10 +4345,11 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                     <div>
                       <div>
                         {(() => {
-                          const billOut = String(printPatient?.outlet_code || printPatient?.outletCode || selectedOutlet || localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "").trim().toUpperCase();
-                          return (billOut === "OLET002" || billOut === "2" || billOut.includes("OLET002"))
-                            ? "DL NO : TN/SLE/20/01109"
-                            : "DL NO : TN/SLE/20/01107";
+                          const rawOut = String(printPatient?.outlet_code || printPatient?.outletCode || selectedOutlet || localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "").trim().toUpperCase();
+                          const bNo = String(printPatient?.bill_number || printPatient?.bill_no || printPatient?.Bill_id || "").trim();
+                          const codePart = bNo.length >= 6 ? bNo.slice(4, 6) : "";
+                          const isOut2 = rawOut === "OLET002" || rawOut === "2" || rawOut.includes("OLET002") || rawOut.includes("OP PHARMACY") || codePart === "02";
+                          return isOut2 ? "DL NO : TN/SLE/20/01109" : "DL NO : TN/SLE/20/01107";
                         })()}
                       </div>
                       <div>CIN : L85110TZ2020PLC033974</div>
@@ -4341,7 +4359,15 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                       <div style={{ fontWeight: 800, fontSize: 11.5, letterSpacing: 0.5 }}>{billTypeLabel}</div>
                     </div>
                     <div style={{ textAlign: "right" }}>
-                      <div style={{ fontWeight: 800, fontSize: 12.5, color: "#111" }}>PHARMACY IP GST INVOICE</div>
+                      <div style={{ fontWeight: 800, fontSize: 12.5, color: "#111" }}>
+                        {(() => {
+                          const rawOut = String(printPatient?.outlet_code || printPatient?.outletCode || selectedOutlet || localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "").trim().toUpperCase();
+                          const bNo = String(printPatient?.bill_number || printPatient?.bill_no || printPatient?.Bill_id || "").trim();
+                          const codePart = bNo.length >= 6 ? bNo.slice(4, 6) : "";
+                          const isOut2 = rawOut === "OLET002" || rawOut === "2" || rawOut.includes("OLET002") || rawOut.includes("OP PHARMACY") || codePart === "02";
+                          return isOut2 ? "PHARMACY OP GST INVOICE" : "PHARMACY IP GST INVOICE";
+                        })()}
+                      </div>
                       <div>GST NO : 33ABDCS8326A1ZP</div>
                     </div>
                   </div>

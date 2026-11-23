@@ -904,6 +904,7 @@ export default function CentralCashCounter() {
   const [cashCounterId, setCashCounterId] = useState("");
   const [toastState, setToastState] = useState({ visible: false, type: "", message: "" });
   const [isSavingPayment, setIsSavingPayment] = useState(false);
+  const isSubmittingPaymentRef = useRef(false);
   const [modalError, setModalError] = useState("");
 
   const extractErrorMessage = (err) => {
@@ -1522,6 +1523,7 @@ export default function CentralCashCounter() {
     });
     setRemarks(""); // ✅ reset remarks on open
     setModalError("");
+    isSubmittingPaymentRef.current = false;
     setIsSavingPayment(false);
     setShowPaymentModal(true);
   };
@@ -2172,283 +2174,297 @@ export default function CentralCashCounter() {
   }, []);
 
   const submitPayment = async () => {
-    // ── Return Bills: delegate to dedicated handler ───────────────────────────
-    if (selectedBill?.source === "ReturnBill") {
-      await submitReturnPayment();
+    // 🛑 Synchronous idempotency lock: prevent double clicks or duplicate submissions
+    if (isSubmittingPaymentRef.current || isSavingPayment) {
+      console.warn("Payment submission already in progress, blocking duplicate click.");
       return;
     }
+    isSubmittingPaymentRef.current = true;
+    setIsSavingPayment(true);
 
-    setModalError("");
+    try {
+      // ── Return Bills: delegate to dedicated handler ───────────────────────────
+      if (selectedBill?.source === "ReturnBill") {
+        await submitReturnPayment();
+        return;
+      }
 
-    // Exact amount validation: do not allow excess or low amount
-    if (Math.abs(paidAmount - netAmount) > 0.01) {
-      const msg = paidAmount < netAmount
-        ? `Entered amount (₹${paidAmount.toLocaleString('en-IN')}) is less than Net Amount (₹${netAmount.toLocaleString('en-IN')}). Low amount / partial payment is not allowed.`
-        : `Entered amount (₹${paidAmount.toLocaleString('en-IN')}) is greater than Net Amount (₹${netAmount.toLocaleString('en-IN')}). Excess payment is not allowed.`;
-      setModalError(msg);
-      showToast("error", msg);
-      return;
-    }
+      setModalError("");
 
-    const activeMethods = [];
-    if (selectedMethods.cash && parseFloat(payments.cash) > 0) {
-      activeMethods.push({ method: "cash", Paid_amount: parseFloat(payments.cash) });
-    }
-    if (selectedMethods.card && parseFloat(payments.card) > 0) {
-      activeMethods.push({ method: "card", Paid_amount: parseFloat(payments.card), card_no: payments.cardNo });
-    }
-    if (selectedMethods.cheque && parseFloat(payments.cheque) > 0) {
-      activeMethods.push({ method: "cheque", Paid_amount: parseFloat(payments.cheque), cheque_no: payments.chequeNo });
-    }
-    if (selectedMethods.credit && parseFloat(payments.credit) > 0) {
-      activeMethods.push({ method: "credit", Paid_amount: parseFloat(payments.credit) });
-    }
+      // Exact amount validation: do not allow excess or low amount
+      if (Math.abs(paidAmount - netAmount) > 0.01) {
+        const msg = paidAmount < netAmount
+          ? `Entered amount (₹${paidAmount.toLocaleString('en-IN')}) is less than Net Amount (₹${netAmount.toLocaleString('en-IN')}). Low amount / partial payment is not allowed.`
+          : `Entered amount (₹${paidAmount.toLocaleString('en-IN')}) is greater than Net Amount (₹${netAmount.toLocaleString('en-IN')}). Excess payment is not allowed.`;
+        setModalError(msg);
+        showToast("error", msg);
+        return;
+      }
 
-    if (activeMethods.length === 0) {
-      const msg = "Please enter at least one payment amount.";
-      setModalError(msg);
-      showToast("error", msg);
-      return;
-    }
+      const activeMethods = [];
+      if (selectedMethods.cash && parseFloat(payments.cash) > 0) {
+        activeMethods.push({ method: "cash", Paid_amount: parseFloat(payments.cash) });
+      }
+      if (selectedMethods.card && parseFloat(payments.card) > 0) {
+        activeMethods.push({ method: "card", Paid_amount: parseFloat(payments.card), card_no: payments.cardNo });
+      }
+      if (selectedMethods.cheque && parseFloat(payments.cheque) > 0) {
+        activeMethods.push({ method: "cheque", Paid_amount: parseFloat(payments.cheque), cheque_no: payments.chequeNo });
+      }
+      if (selectedMethods.credit && parseFloat(payments.credit) > 0) {
+        activeMethods.push({ method: "credit", Paid_amount: parseFloat(payments.credit) });
+      }
 
-    // Validate ref numbers based on selected methods (Card/Ref No is not mandatory)
-    if (selectedMethods.cheque && parseFloat(payments.cheque) > 0 && !payments.chequeNo.trim()) {
-      const msg = "Please enter the Cheque Number to proceed.";
-      setModalError(msg);
-      showToast("error", msg);
-      return;
-    }
+      if (activeMethods.length === 0) {
+        const msg = "Please enter at least one payment amount.";
+        setModalError(msg);
+        showToast("error", msg);
+        return;
+      }
 
-    let payment_details;
-    if (activeMethods.length === 1) {
-      payment_details = activeMethods[0];
-    } else {
-      payment_details = { method: "Multiple Payment", Paid_amount: paidAmount, breakdown: activeMethods };
-    }
+      // Validate ref numbers based on selected methods (Card/Ref No is not mandatory)
+      if (selectedMethods.cheque && parseFloat(payments.cheque) > 0 && !payments.chequeNo.trim()) {
+        const msg = "Please enter the Cheque Number to proceed.";
+        setModalError(msg);
+        showToast("error", msg);
+        return;
+      }
 
-    const pendingAmount = 0;
+      let payment_details;
+      if (activeMethods.length === 1) {
+        payment_details = activeMethods[0];
+      } else {
+        payment_details = { method: "Multiple Payment", Paid_amount: paidAmount, breakdown: activeMethods };
+      }
 
-    if (activeMenuItem === "IP Advance") {
-      setIsSavingPayment(true);
+      const pendingAmount = 0;
+
+      if (activeMenuItem === "IP Advance") {
+        try {
+          const payload = {
+            ipNumber: selectedBill.ipNumber,
+            advance_id: selectedBill.advance_id || null,    // ✅ specific advance being paid
+            bill_type: selectedBill.bill_type_id ?? null,  // ✅ raw integer bill_type for CashCounterCollection
+            payment_details,
+            shiftno: activeShift?.shiftno || "",
+            counter_id: cashCounterId,
+          };
+          const res = await apiRequest(`${HmsBaseUrl}ipadvance_bills/`, "POST", payload);
+          const ipRes = res?.data || res;
+          if (ipRes?.status === "success" || ipRes?.success) {
+            setShowPaymentModal(false);
+            await fetchIpAdvancePendingBills();
+            await fetchIpAdvanceUnpaidBills();
+            await fetchIpAdvanceReceivedBills();
+            refreshActiveShift();
+            showToast("success", "Payment collected successfully!");
+          } else {
+            const errMsg = extractErrorMessage(ipRes?.message || ipRes?.error || "Payment failed. Please try again.");
+            setModalError(errMsg);
+            showToast("error", errMsg);
+          }
+        } catch (err) {
+          console.error("IP Advance submitPayment error:", err);
+          const errMsg = "Payment failed. Please check your connection.";
+          setModalError(errMsg);
+          showToast("error", errMsg);
+        }
+        return;
+      }
+
+      // ✅ UPDATED: OPPharmacy payment — now includes remarks if filled
+      if (selectedBill.source === "OPPharmacy") {
+        try {
+          const payload = {
+            _id: selectedBill.raw?._id || selectedBill._id || null,
+            bill_no: selectedBill.raw_bill_no || selectedBill.bill_no || null,
+            Bill_id: selectedBill.Bill_id,
+            uhid: selectedBill.uhid && selectedBill.uhid !== "-" ? selectedBill.uhid : "",
+            payment_details,
+            shiftno: activeShift?.shiftno || "",
+            counter_id: cashCounterId,
+            // ✅ remarks: only sent if user typed something
+            ...(remarks.trim() ? { remarks: remarks.trim() } : {}),
+          };
+          const res = await apiRequest(`${HmsBaseUrl}collect_oppharmacy_payment/`, "POST", payload);
+          const result = res?.data || res;
+          if (result?.success || result?.status === "success") {
+            setShowPaymentModal(false);
+            await fetchOpPharmacyPendingBills();
+            await fetchPendingBills();
+            refreshActiveShift();
+            showToast("success", "Pharmacy payment collected successfully!");
+          } else {
+            const errMsg = extractErrorMessage(result?.error || result?.message || "Payment failed. Please try again.");
+            setModalError(errMsg);
+            showToast("error", errMsg);
+          }
+        } catch (err) {
+          console.error("OPPharmacy submitPayment error:", err);
+          const errMsg = "Payment failed. Please check your connection.";
+          setModalError(errMsg);
+          showToast("error", errMsg);
+        }
+        return;
+      }
+
+      const billCategory = selectedBill.type || selectedBill.raw_bill_type || selectedBill.bill_type || "";
+      let statusFields = {};
+      if (billCategory === "Discharge") {
+        statusFields = { status: "Paid" };
+      } else if (billCategory === "Investigation") {
+        statusFields = { paymentStatus: "Paid" };
+      } else {
+        statusFields = { payment_status: "Paid" };
+      }
+
+      const payload = {
+        bill_no: selectedBill.raw_bill_no || selectedBill.bill_no,
+        bill_id: selectedBill.raw?._id || selectedBill.raw?.id || selectedBill.id || selectedBill._id,
+        bill_type: selectedBill.bill_type_id ?? selectedBill.raw?.bill_type,
+        type: billCategory,
+        bill_category: billCategory,
+        ...statusFields,
+        payment_details,
+        shiftno: activeShift?.shiftno || "",
+        counter_id: cashCounterId,
+        ...(pendingAmount > 0 ? { pendingAmount } : {}),
+      };
+
       try {
-        const payload = {
-          ipNumber: selectedBill.ipNumber,
-          advance_id: selectedBill.advance_id || null,    // ✅ specific advance being paid
-          bill_type: selectedBill.bill_type_id ?? null,  // ✅ raw integer bill_type for CashCounterCollection
-          payment_details,
-          shiftno: activeShift?.shiftno || "",
-          counter_id: cashCounterId,
-        };
-        const res = await apiRequest(`${HmsBaseUrl}ipadvance_bills/`, "POST", payload);
-        const ipRes = res?.data || res;
-        if (ipRes?.status === "success" || ipRes?.success) {
+        const res = await apiRequest(`${HmsBaseUrl}update_mainblock_pendingbills/`, "POST", payload);
+        const billRes = res?.data || res;
+        if (billRes?.success || billRes?.status === "success") {
           setShowPaymentModal(false);
-          await fetchIpAdvancePendingBills();
-          await fetchIpAdvanceUnpaidBills();
-          await fetchIpAdvanceReceivedBills();
+          const paidBillNo = selectedBill.raw_bill_no || selectedBill.bill_no;
+          // Immediate local state removal for instant UI feedback
+          setPendingBills((prev) => prev.filter((b) => (b.raw_bill_no || b.bill_no) !== paidBillNo));
+          setUnpaidBills((prev) => prev.filter((b) => (b.raw_bill_no || b.bill_no) !== paidBillNo));
+          setOpPharmacyBills((prev) => prev.filter((b) => (b.raw_bill_no || b.bill_no) !== paidBillNo));
+          setOpPharmacyUnpaidBills((prev) => prev.filter((b) => (b.raw_bill_no || b.bill_no) !== paidBillNo));
+          await fetchPendingBills();
+          await fetchUnpaidBills();
+          await fetchOpPharmacyPendingBills();
+          await fetchReceivedBills();
           refreshActiveShift();
+          try {
+            localStorage.setItem("hms_last_billing_update", Date.now().toString());
+            if (typeof BroadcastChannel !== "undefined") {
+              new BroadcastChannel("hms_billing_channel").postMessage({ type: "BILL_PAID", billNo: paidBillNo });
+            }
+          } catch (e) {}
           showToast("success", "Payment collected successfully!");
         } else {
-          const errMsg = extractErrorMessage(ipRes?.message || ipRes?.error || "Payment failed. Please try again.");
+          const errMsg = extractErrorMessage(billRes?.message || billRes?.error || "Payment failed. Please try again.");
           setModalError(errMsg);
           showToast("error", errMsg);
         }
       } catch (err) {
-        console.error("IP Advance submitPayment error:", err);
+        console.error("submitPayment error:", err);
         const errMsg = "Payment failed. Please check your connection.";
         setModalError(errMsg);
         showToast("error", errMsg);
-      } finally {
-        setIsSavingPayment(false);
       }
-      return;
-    }
-
-    // ✅ UPDATED: OPPharmacy payment — now includes remarks if filled
-    if (selectedBill.source === "OPPharmacy") {
-      setIsSavingPayment(true);
-      try {
-        const payload = {
-          _id: selectedBill.raw?._id || selectedBill._id || null,
-          bill_no: selectedBill.raw_bill_no || selectedBill.bill_no || null,
-          Bill_id: selectedBill.Bill_id,
-          uhid: selectedBill.uhid && selectedBill.uhid !== "-" ? selectedBill.uhid : "",
-          payment_details,
-          shiftno: activeShift?.shiftno || "",
-          counter_id: cashCounterId,
-          // ✅ remarks: only sent if user typed something
-          ...(remarks.trim() ? { remarks: remarks.trim() } : {}),
-        };
-        const res = await apiRequest(`${HmsBaseUrl}collect_oppharmacy_payment/`, "POST", payload);
-        const result = res?.data || res;
-        if (result?.success || result?.status === "success") {
-          setShowPaymentModal(false);
-          await fetchOpPharmacyPendingBills();
-          await fetchPendingBills();
-          refreshActiveShift();
-          showToast("success", "Pharmacy payment collected successfully!");
-        } else {
-          const errMsg = extractErrorMessage(result?.error || result?.message || "Payment failed. Please try again.");
-          setModalError(errMsg);
-          showToast("error", errMsg);
-        }
-      } catch (err) {
-        console.error("OPPharmacy submitPayment error:", err);
-        const errMsg = "Payment failed. Please check your connection.";
-        setModalError(errMsg);
-        showToast("error", errMsg);
-      } finally {
-        setIsSavingPayment(false);
-      }
-      return;
-    }
-
-    const billCategory = selectedBill.type || selectedBill.raw_bill_type || selectedBill.bill_type || "";
-    let statusFields = {};
-    if (billCategory === "Discharge") {
-      statusFields = { status: "Paid" };
-    } else if (billCategory === "Investigation") {
-      statusFields = { paymentStatus: "Paid" };
-    } else {
-      statusFields = { payment_status: "Paid" };
-    }
-
-    const payload = {
-      bill_no: selectedBill.raw_bill_no || selectedBill.bill_no,
-      bill_id: selectedBill.raw?._id || selectedBill.raw?.id || selectedBill.id || selectedBill._id,
-      bill_type: selectedBill.bill_type_id ?? selectedBill.raw?.bill_type,
-      type: billCategory,
-      bill_category: billCategory,
-      ...statusFields,
-      payment_details,
-      shiftno: activeShift?.shiftno || "",
-      counter_id: cashCounterId,
-      ...(pendingAmount > 0 ? { pendingAmount } : {}),
-    };
-
-    setIsSavingPayment(true);
-    try {
-      const res = await apiRequest(`${HmsBaseUrl}update_mainblock_pendingbills/`, "POST", payload);
-      const billRes = res?.data || res;
-      if (billRes?.success || billRes?.status === "success") {
-        setShowPaymentModal(false);
-        const paidBillNo = selectedBill.raw_bill_no || selectedBill.bill_no;
-        // Immediate local state removal for instant UI feedback
-        setPendingBills((prev) => prev.filter((b) => (b.raw_bill_no || b.bill_no) !== paidBillNo));
-        setUnpaidBills((prev) => prev.filter((b) => (b.raw_bill_no || b.bill_no) !== paidBillNo));
-        setOpPharmacyBills((prev) => prev.filter((b) => (b.raw_bill_no || b.bill_no) !== paidBillNo));
-        setOpPharmacyUnpaidBills((prev) => prev.filter((b) => (b.raw_bill_no || b.bill_no) !== paidBillNo));
-        await fetchPendingBills();
-        await fetchUnpaidBills();
-        await fetchOpPharmacyPendingBills();
-        await fetchReceivedBills();
-        refreshActiveShift();
-        try {
-          localStorage.setItem("hms_last_billing_update", Date.now().toString());
-          if (typeof BroadcastChannel !== "undefined") {
-            new BroadcastChannel("hms_billing_channel").postMessage({ type: "BILL_PAID", billNo: paidBillNo });
-          }
-        } catch (e) {}
-        showToast("success", "Payment collected successfully!");
-      } else {
-        const errMsg = extractErrorMessage(billRes?.message || billRes?.error || "Payment failed. Please try again.");
-        setModalError(errMsg);
-        showToast("error", errMsg);
-      }
-    } catch (err) {
-      console.error("submitPayment error:", err);
-      const errMsg = "Payment failed. Please check your connection.";
-      setModalError(errMsg);
-      showToast("error", errMsg);
     } finally {
+      isSubmittingPaymentRef.current = false;
       setIsSavingPayment(false);
     }
   };
 
   // ── Submit payment for Return Bills ──────────────────────────────────────────
   const submitReturnPayment = async () => {
-    setModalError("");
-
-    // Exact refund amount validation
-    if (Math.abs(paidAmount - netAmount) > 0.01) {
-      const msg = paidAmount < netAmount
-        ? `Refund amount (₹${paidAmount.toLocaleString('en-IN')}) is less than Return Amount (₹${netAmount.toLocaleString('en-IN')}). Low refund amount is not allowed.`
-        : `Refund amount (₹${paidAmount.toLocaleString('en-IN')}) exceeds Return Amount (₹${netAmount.toLocaleString('en-IN')}). Excess refund amount is not allowed.`;
-      setModalError(msg);
-      showToast("error", msg);
+    // 🛑 Synchronous idempotency lock: prevent double clicks
+    if (isSubmittingPaymentRef.current || isSavingPayment) {
+      console.warn("Return payment submission already in progress, blocking duplicate click.");
       return;
     }
-
-    const activeMethods = [];
-    if (selectedMethods.cash && parseFloat(payments.cash) > 0) {
-      activeMethods.push({ method: "Cash", Paid_amount: parseFloat(payments.cash) });
-    }
-    if (selectedMethods.card && parseFloat(payments.card) > 0) {
-      activeMethods.push({ method: "Card", Paid_amount: parseFloat(payments.card), card_no: payments.cardNo });
-    }
-    if (selectedMethods.cheque && parseFloat(payments.cheque) > 0) {
-      activeMethods.push({ method: "Cheque", Paid_amount: parseFloat(payments.cheque), cheque_no: payments.chequeNo });
-    }
-    if (selectedMethods.credit && parseFloat(payments.credit) > 0) {
-      activeMethods.push({ method: "Credit", Paid_amount: parseFloat(payments.credit) });
-    }
-
-    if (activeMethods.length === 0) {
-      const msg = "Please enter at least one payment amount.";
-      setModalError(msg);
-      showToast("error", msg);
-      return;
-    }
-
-    // Validate ref numbers based on selected methods (Card/Ref No is not mandatory)
-    if (selectedMethods.cheque && parseFloat(payments.cheque) > 0 && !payments.chequeNo.trim()) {
-      const msg = "Please enter the Cheque Number to proceed.";
-      setModalError(msg);
-      showToast("error", msg);
-      return;
-    }
-
-    let payment_details;
-    if (activeMethods.length === 1) {
-      payment_details = activeMethods[0];
-    } else {
-      payment_details = { method: "Multiple Payment", Paid_amount: paidAmount, breakdown: activeMethods };
-    }
-
-    const pendingAmount = 0;
-
-    const payload = {
-      uhid: selectedBill.uhid_no,
-      bill_no: selectedBill.bill_no,          // original bill_no  ← NEW
-      return_bill_no: selectedBill.return_bill_no,
-      bill_type: selectedBill.raw?.bill_type,   // integer bill_type from the raw document
-      counter_id: cashCounterId,
-      shiftno: activeShift?.shiftno || "",
-      payment_details,
-      ...(pendingAmount > 0 ? { pendingAmount } : {}),
-      ...(remarks.trim() ? { remarks: remarks.trim() } : {}),
-    };
-
+    isSubmittingPaymentRef.current = true;
     setIsSavingPayment(true);
+
     try {
-      const res = await apiRequest(`${HmsBaseUrl}collectpayment_return_bills/`, "POST", payload);
-      const result = res?.data || res;
-      if (result?.status === "success" || result?.success) {
-        setShowPaymentModal(false);
-        await fetchReturnBills();
-        refreshActiveShift();
-        showToast("success", "Return bill payment processed successfully!");
+      setModalError("");
+
+      // Exact refund amount validation
+      if (Math.abs(paidAmount - netAmount) > 0.01) {
+        const msg = paidAmount < netAmount
+          ? `Refund amount (₹${paidAmount.toLocaleString('en-IN')}) is less than Return Amount (₹${netAmount.toLocaleString('en-IN')}). Low refund amount is not allowed.`
+          : `Refund amount (₹${paidAmount.toLocaleString('en-IN')}) exceeds Return Amount (₹${netAmount.toLocaleString('en-IN')}). Excess refund amount is not allowed.`;
+        setModalError(msg);
+        showToast("error", msg);
+        return;
+      }
+
+      const activeMethods = [];
+      if (selectedMethods.cash && parseFloat(payments.cash) > 0) {
+        activeMethods.push({ method: "Cash", Paid_amount: parseFloat(payments.cash) });
+      }
+      if (selectedMethods.card && parseFloat(payments.card) > 0) {
+        activeMethods.push({ method: "Card", Paid_amount: parseFloat(payments.card), card_no: payments.cardNo });
+      }
+      if (selectedMethods.cheque && parseFloat(payments.cheque) > 0) {
+        activeMethods.push({ method: "Cheque", Paid_amount: parseFloat(payments.cheque), cheque_no: payments.chequeNo });
+      }
+      if (selectedMethods.credit && parseFloat(payments.credit) > 0) {
+        activeMethods.push({ method: "Credit", Paid_amount: parseFloat(payments.credit) });
+      }
+
+      if (activeMethods.length === 0) {
+        const msg = "Please enter at least one payment amount.";
+        setModalError(msg);
+        showToast("error", msg);
+        return;
+      }
+
+      // Validate ref numbers based on selected methods (Card/Ref No is not mandatory)
+      if (selectedMethods.cheque && parseFloat(payments.cheque) > 0 && !payments.chequeNo.trim()) {
+        const msg = "Please enter the Cheque Number to proceed.";
+        setModalError(msg);
+        showToast("error", msg);
+        return;
+      }
+
+      let payment_details;
+      if (activeMethods.length === 1) {
+        payment_details = activeMethods[0];
       } else {
-        const errMsg = extractErrorMessage(result?.message || result?.error || "Payment failed. Please try again.");
+        payment_details = { method: "Multiple Payment", Paid_amount: paidAmount, breakdown: activeMethods };
+      }
+
+      const pendingAmount = 0;
+
+      const payload = {
+        uhid: selectedBill.uhid_no,
+        bill_no: selectedBill.bill_no,          // original bill_no  ← NEW
+        return_bill_no: selectedBill.return_bill_no,
+        bill_type: selectedBill.raw?.bill_type,   // integer bill_type from the raw document
+        counter_id: cashCounterId,
+        shiftno: activeShift?.shiftno || "",
+        payment_details,
+        ...(pendingAmount > 0 ? { pendingAmount } : {}),
+        ...(remarks.trim() ? { remarks: remarks.trim() } : {}),
+      };
+
+      try {
+        const res = await apiRequest(`${HmsBaseUrl}collectpayment_return_bills/`, "POST", payload);
+        const result = res?.data || res;
+        if (result?.status === "success" || result?.success) {
+          setShowPaymentModal(false);
+          await fetchReturnBills();
+          refreshActiveShift();
+          showToast("success", "Return bill payment processed successfully!");
+        } else {
+          const errMsg = extractErrorMessage(result?.message || result?.error || "Payment failed. Please try again.");
+          setModalError(errMsg);
+          showToast("error", errMsg);
+        }
+      } catch (err) {
+        console.error("submitReturnPayment error:", err);
+        const errMsg = "Payment failed. Please check your connection.";
         setModalError(errMsg);
         showToast("error", errMsg);
       }
-    } catch (err) {
-      console.error("submitReturnPayment error:", err);
-      const errMsg = "Payment failed. Please check your connection.";
-      setModalError(errMsg);
-      showToast("error", errMsg);
     } finally {
+      isSubmittingPaymentRef.current = false;
       setIsSavingPayment(false);
     }
   };
@@ -4276,7 +4292,12 @@ export default function CentralCashCounter() {
               <SaveButton
                 disabled={paidAmount === 0 || Math.abs(paidAmount - netAmount) > 0.01 || isSavingPayment}
                 onClick={selectedBill?.source === "ReturnBill" ? submitReturnPayment : submitPayment}
-                style={isRefundBill ? { background: "linear-gradient(135deg, #b91c1c 0%, #dc2626 100%)" } : {}}
+                style={{
+                  pointerEvents: isSavingPayment ? "none" : "auto",
+                  opacity: isSavingPayment ? 0.65 : 1,
+                  cursor: isSavingPayment ? "not-allowed" : "pointer",
+                  ...(isRefundBill ? { background: "linear-gradient(135deg, #b91c1c 0%, #dc2626 100%)" } : {})
+                }}
               >
                 {isSavingPayment
                   ? (isRefundBill ? "Processing Refund..." : "Saving Payment...")
