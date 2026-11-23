@@ -991,9 +991,13 @@ const InvestigationBilling = () => {
     const newProduct = {
       itemName: selectedItem,
       price: selectedPrice,
+      rate: selectedPrice,
       quantity: quantity,
       billTypeNo: formData.billTypeNo,
       nabh_code: obj?.nabh_code || "",
+      ...(obj?.nabh_rate !== undefined && obj?.nabh_rate !== null && { nabh_rate: obj.nabh_rate }),
+      ...(obj?.non_nabh_rate !== undefined && obj?.non_nabh_rate !== null && { non_nabh_rate: obj.non_nabh_rate }),
+      ...(obj?.no_nabh_rate !== undefined && obj?.no_nabh_rate !== null && { no_nabh_rate: obj.no_nabh_rate }),
       status: "Result Pending",
       ...(obj?.test_id && { test_id: obj.test_id }),
       ...(obj?.item_id && { item_id: obj.item_id }),
