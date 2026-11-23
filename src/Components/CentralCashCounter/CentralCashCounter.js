@@ -998,6 +998,7 @@ export default function CentralCashCounter() {
 
   // ── Return Bills state ────────────────────────────────────────────────────────
   const [returnPendingBills, setReturnPendingBills] = useState([]);
+  const [returnUnpaidBills, setReturnUnpaidBills] = useState([]);
   const [returnReceivedBills, setReturnReceivedBills] = useState([]);
 
   // ── In-flight request lock refs (prevent duplicate concurrent requests) ──────
@@ -1264,6 +1265,9 @@ export default function CentralCashCounter() {
       setOpPharmacyBills([]);
       setOpPharmacyUnpaidBills([]);
       setOpPharmacyReceivedBills([]);
+      setReturnPendingBills([]);
+      setReturnUnpaidBills([]);
+      setReturnReceivedBills([]);
       setFilteredBills([]);
       await refreshActiveShift();
       return;
@@ -1287,6 +1291,9 @@ export default function CentralCashCounter() {
       setOpPharmacyBills([]);
       setOpPharmacyUnpaidBills([]);
       setOpPharmacyReceivedBills([]);
+      setReturnPendingBills([]);
+      setReturnUnpaidBills([]);
+      setReturnReceivedBills([]);
       setFilteredBills([]);
     }
     await refreshActiveShift();
@@ -1335,6 +1342,9 @@ export default function CentralCashCounter() {
         setOpPharmacyBills([]);
         setOpPharmacyUnpaidBills([]);
         setOpPharmacyReceivedBills([]);
+        setReturnPendingBills([]);
+        setReturnUnpaidBills([]);
+        setReturnReceivedBills([]);
         setFilteredBills([]);
       }
     } catch (err) {
@@ -2122,7 +2132,12 @@ export default function CentralCashCounter() {
       };
 
       const pending = [];
+      const unpaid = [];
       const received = [];
+
+      const todayStr = new Date().toLocaleDateString("en-IN", {
+        day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata",
+      });
 
       data.forEach((item, idx) => {
         // For hospital_investrefund, only display if approved
@@ -2134,13 +2149,14 @@ export default function CentralCashCounter() {
         // Use return_bill_date as primary date field
         // hospital_investrefund uses camelCase "refundBillDate" — add it to the fallback chain
         const dateRaw = item.return_bill_date || item.created_date || item.refund_date || item.refundBillDate || null;
+        const formattedDate = formatDate(dateRaw);
 
         const row = {
           id: item._id || `ret-${idx}`,
-          date: formatDate(dateRaw),
+          date: formattedDate,
           time: formatTime(dateRaw),
           return_bill_no: item.return_bill_no || item.refund_bill_no || item.refundBillNo || "-",
-          return_bill_date: formatDate(dateRaw),
+          return_bill_date: formattedDate,
           // hospital_investrefund uses "investBillNo" as the original bill number
           bill_no: item.bill_no || item.investBillNo || "-",
           bill_type_name: item.bill_type_name || item.collection_name || "-",
@@ -2157,11 +2173,19 @@ export default function CentralCashCounter() {
         };
 
         const st = (row.document_status || "").toLowerCase();
-        if (st === "pending") pending.push(row);
-        else received.push(row);
+        if (st === "pending") {
+          if (formattedDate === todayStr) {
+            pending.push(row);
+          } else {
+            unpaid.push(row);
+          }
+        } else {
+          received.push(row);
+        }
       });
 
       setReturnPendingBills(pending);
+      setReturnUnpaidBills(unpaid);
       setReturnReceivedBills(received);
     } catch (err) {
       if (!silent) {
@@ -2449,6 +2473,9 @@ export default function CentralCashCounter() {
         const result = res?.data || res;
         if (result?.status === "success" || result?.success) {
           setShowPaymentModal(false);
+          const retNo = selectedBill.return_bill_no;
+          setReturnPendingBills((prev) => prev.filter((b) => b.return_bill_no !== retNo));
+          setReturnUnpaidBills((prev) => prev.filter((b) => b.return_bill_no !== retNo));
           await fetchReturnBills();
           refreshActiveShift();
           showToast("success", "Return bill payment processed successfully!");
@@ -2507,7 +2534,11 @@ export default function CentralCashCounter() {
           : ipAdvanceReceivedBills;
     } else if (activeMenuItem === "Returns Bills") {
       bills =
-        selectedType === "pending" ? returnPendingBills : selectedType === "unpaid" ? [] : returnReceivedBills;
+        selectedType === "pending"
+          ? returnPendingBills
+          : selectedType === "unpaid"
+          ? returnUnpaidBills
+          : returnReceivedBills;
     }
 
     let filtered = bills;
@@ -2606,6 +2637,7 @@ export default function CentralCashCounter() {
     ipAdvanceUnpaidBills,
     ipAdvanceReceivedBills,
     returnPendingBills,
+    returnUnpaidBills,
     returnReceivedBills,
     billType,
     allowedBillTypes,
@@ -2679,6 +2711,9 @@ export default function CentralCashCounter() {
       setOpPharmacyBills([]);
       setOpPharmacyUnpaidBills([]);
       setOpPharmacyReceivedBills([]);
+      setReturnPendingBills([]);
+      setReturnUnpaidBills([]);
+      setReturnReceivedBills([]);
       setFilteredBills([]);
       return;
     }
