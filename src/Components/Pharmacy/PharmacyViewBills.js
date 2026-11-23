@@ -2153,10 +2153,12 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                             <div>
                               <div>
                                 {(() => {
-                                  const billOut = String(printBill.outlet_code || printBill.outletCode || printBill.outlet || currentOutletCode || "").trim().toUpperCase();
-                                  return (billOut === "OLET001" || billOut === "1" || billOut.includes("OLET001"))
-                                    ? "DL NO : TN/SLE/20/01107"
-                                    : "DL NO : TN/SLE/20/01109";
+                                  const rawOut = String(printBill.outlet_code || printBill.outletCode || printBill.outlet || currentOutletCode || "").trim().toUpperCase();
+                                  const bNo = String(printBill.bill_no || printBill.bill_number || "").trim();
+                                  const codePart = bNo.length >= 6 ? bNo.slice(4, 6) : "";
+                                  const localOut = String(localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "").trim().toUpperCase();
+                                  const isOut2 = rawOut === "OLET002" || rawOut === "2" || rawOut.includes("OLET002") || rawOut.includes("OP PHARMACY") || codePart === "02" || (!rawOut && (localOut.includes("OLET002") || localOut === "2" || localOut.includes("OP PHARMACY")));
+                                  return isOut2 ? "DL NO : TN/SLE/20/01109" : "DL NO : TN/SLE/20/01107";
                                 })()}
                               </div>
                               <div>CIN : L85110TZ2020PLC033974</div>
@@ -2175,9 +2177,14 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                             <div style={{ textAlign: "right" }}>
                               <div style={{ fontWeight: 800, fontSize: 12.5, color: "#111" }}>
                                 {(() => {
-                                  const billOut = String(printBill.outlet_code || printBill.outletCode || printBill.outlet || currentOutletCode || "").trim().toUpperCase();
-                                  if (billOut === "OLET001" || billOut === "1" || billOut.includes("OLET001")) return "PHARMACY IP GST INVOICE";
-                                  if (billOut === "OLET002" || billOut === "2" || billOut.includes("OLET002")) return "PHARMACY OP GST INVOICE";
+                                  const rawOut = String(printBill.outlet_code || printBill.outletCode || printBill.outlet || currentOutletCode || "").trim().toUpperCase();
+                                  const bNo = String(printBill.bill_no || printBill.bill_number || "").trim();
+                                  const codePart = bNo.length >= 6 ? bNo.slice(4, 6) : "";
+                                  const localOut = String(localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "").trim().toUpperCase();
+                                  const isOut2 = rawOut === "OLET002" || rawOut === "2" || rawOut.includes("OLET002") || rawOut.includes("OP PHARMACY") || codePart === "02" || (!rawOut && (localOut.includes("OLET002") || localOut === "2" || localOut.includes("OP PHARMACY")));
+                                  if (isOut2) return "PHARMACY OP GST INVOICE";
+                                  const isOut1 = rawOut === "OLET001" || rawOut === "1" || rawOut.includes("OLET001") || rawOut.includes("IP PHARMACY") || codePart === "01";
+                                  if (isOut1) return "PHARMACY IP GST INVOICE";
                                   if (Boolean(printBill.inpatient_number || printBill.ip_number || printBill.ipNumber)) return "PHARMACY IP GST INVOICE";
                                   const btn = String(printBill.bill_type_name || "").toUpperCase();
                                   const bm = String(printBill.billing_mode || "").toUpperCase();

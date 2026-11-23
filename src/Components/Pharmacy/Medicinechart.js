@@ -4345,10 +4345,11 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                     <div>
                       <div>
                         {(() => {
-                          const billOut = String(printPatient?.outlet_code || printPatient?.outletCode || selectedOutlet || localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "").trim().toUpperCase();
-                          return (billOut === "OLET002" || billOut === "2" || billOut.includes("OLET002"))
-                            ? "DL NO : TN/SLE/20/01109"
-                            : "DL NO : TN/SLE/20/01107";
+                          const rawOut = String(printPatient?.outlet_code || printPatient?.outletCode || selectedOutlet || localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "").trim().toUpperCase();
+                          const bNo = String(printPatient?.bill_number || printPatient?.bill_no || printPatient?.Bill_id || "").trim();
+                          const codePart = bNo.length >= 6 ? bNo.slice(4, 6) : "";
+                          const isOut2 = rawOut === "OLET002" || rawOut === "2" || rawOut.includes("OLET002") || rawOut.includes("OP PHARMACY") || codePart === "02";
+                          return isOut2 ? "DL NO : TN/SLE/20/01109" : "DL NO : TN/SLE/20/01107";
                         })()}
                       </div>
                       <div>CIN : L85110TZ2020PLC033974</div>
@@ -4358,7 +4359,15 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                       <div style={{ fontWeight: 800, fontSize: 11.5, letterSpacing: 0.5 }}>{billTypeLabel}</div>
                     </div>
                     <div style={{ textAlign: "right" }}>
-                      <div style={{ fontWeight: 800, fontSize: 12.5, color: "#111" }}>PHARMACY IP GST INVOICE</div>
+                      <div style={{ fontWeight: 800, fontSize: 12.5, color: "#111" }}>
+                        {(() => {
+                          const rawOut = String(printPatient?.outlet_code || printPatient?.outletCode || selectedOutlet || localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "").trim().toUpperCase();
+                          const bNo = String(printPatient?.bill_number || printPatient?.bill_no || printPatient?.Bill_id || "").trim();
+                          const codePart = bNo.length >= 6 ? bNo.slice(4, 6) : "";
+                          const isOut2 = rawOut === "OLET002" || rawOut === "2" || rawOut.includes("OLET002") || rawOut.includes("OP PHARMACY") || codePart === "02";
+                          return isOut2 ? "PHARMACY OP GST INVOICE" : "PHARMACY IP GST INVOICE";
+                        })()}
+                      </div>
                       <div>GST NO : 33ABDCS8326A1ZP</div>
                     </div>
                   </div>
