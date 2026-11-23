@@ -3675,12 +3675,21 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
           Boolean(formData.is_insurance) ||
           String(formData.customer_type || "").toLowerCase() === "insurance";
 
+        const finalizeReqNo = String(formData.request_no || wardRequestToLoad?.request_no || wardRequestToLoad?.requestNo || "").toUpperCase();
+        const finalizeOrigMode = String(formData.billing_mode || wardRequestToLoad?.billing_mode || wardRequestToLoad?.billingMode || "").toUpperCase();
+        const finalizeBillingMode = (finalizeOrigMode.includes("OT") || finalizeReqNo.startsWith("OT"))
+          ? "OT REQUEST"
+          : (finalizeOrigMode.includes("DISCHARGE"))
+            ? "DISCHARGE MEDICINE"
+            : "WARD REQUEST";
+
         const finalizeRes = await apiRequest(`${HmsBaseUrl}finalize_bill/`, "POST", {
           _id:                  recordMongoId,
           record_id:            recordMongoId,
           Bill_id: parseInt(recordId),
           uhid:                 formData.uhid,
           is_ward_request:      true,
+          billing_mode:         finalizeBillingMode,
 
           // ── Send updated medicine list & amounts so backend uses them ──
           medicine_particulars: finalMedicines,
@@ -3915,7 +3924,19 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
       if (intentStatus === "Estimate") {
         status = "Estimate";
-        billing_mode = "ESTIMATE";
+        if (isWardRequest || wardRequestToLoad) {
+          const reqNo = String(formData.request_no || wardRequestToLoad?.request_no || wardRequestToLoad?.requestNo || "").toUpperCase();
+          const origMode = String(formData.billing_mode || wardRequestToLoad?.billing_mode || wardRequestToLoad?.billingMode || "").toUpperCase();
+          if (origMode.includes("OT") || reqNo.startsWith("OT")) {
+            billing_mode = "OT REQUEST";
+          } else if (origMode.includes("DISCHARGE")) {
+            billing_mode = "DISCHARGE MEDICINE";
+          } else {
+            billing_mode = "WARD REQUEST";
+          }
+        } else {
+          billing_mode = "ESTIMATE";
+        }
       } else {
         status = "Billed";
         if (loadedEstimateNo) {
