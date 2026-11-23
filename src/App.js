@@ -135,6 +135,7 @@ import StoresAbcVedReport from "./Components/Stores_report/StoresAbcVedReport";
 import VendingMachineReport from "./Components/Stores_report/VendingMachineReport";
 import StoresReportsDashboard from "./Components/Stores/StoresReportsDashboard";
 import StoresSupplierGrnReport from "./Components/Stores_report/StoresSupplierGrnReport";
+import StoresDateGrnReport from "./Components/Stores_report/StoresDateGrnReport";
 import StoresDepartmentIndentReport from "./Components/Stores_report/StoresDepartmentIndentReport";
 import StoresPurchaseOrderFormat from "./Components/Stores/StoresPurchaseOrderFormat";
 import StoresPurchaseReturn from "./Components/Stores/StoresPurchaseReturn";
@@ -271,6 +272,7 @@ import {
   DrugReorderLevelReport,
   DrugRackClassificationReport,
   DrugSupplierGrnReport,
+  DrugDateGrnReport,
   DrugDepartmentIndentReport,
   DrugGRNGeneralReport,
   DrugIntentReturnReport,
@@ -610,6 +612,7 @@ function App() {
       "/DrugReorderLevelReport": "Drug Reorder Level Indication",
       "/DrugRackClassificationReport": "Drug Barcode Entry & Rack Classification",
       "/DrugSupplierGrnReport": "Drug Supplier-Based GRN Report",
+      "/DrugDateGrnReport": "Drug Date-Based GRN Report",
       "/DrugDepartmentIndentReport": "Drug Department-Based Indent Report",
       "/DrugGRNGeneralReport": "Drug Purchase GRN General Report",
       "/DrugIntentReturnReport": "Drug Purchase Intent Approval Report",
@@ -631,6 +634,7 @@ function App() {
       "/InsuranceDischargeBillAllReport": "Insurance Discharge Bill (All)",
       "/PrescriptionDetailsReport": "Prescription Details Report",
       "/StoresSupplierGrnReport": "Supplier-Based Stores GRN Report",
+      "/StoresDateGrnReport": "Date-Based Stores GRN Report",
       "/StoresDepartmentIndentReport": "Department-Based Stores Indent Report",
       "/StoresPurchaseOrderFormat": "Stores Purchase Order Format",
       "/StoresPurchaseReturn": "Stores Purchase Return & Debit Note",
@@ -1885,6 +1889,7 @@ function App() {
               <Route path="/DrugReorderLevelReport" element={<DrugReorderLevelReport />} />
               <Route path="/DrugRackClassificationReport" element={<DrugRackClassificationReport />} />
               <Route path="/DrugSupplierGrnReport" element={<DrugSupplierGrnReport />} />
+              <Route path="/DrugDateGrnReport" element={<DrugDateGrnReport />} />
               <Route path="/DrugDepartmentIndentReport" element={<DrugDepartmentIndentReport />} />
               <Route path="/DrugGRNGeneralReport" element={<DrugGRNGeneralReport />} />
               <Route path="/DrugIntentReturnReport" element={<DrugIntentReturnReport />} />
@@ -1912,6 +1917,7 @@ function App() {
               <Route path="/StoresPurchaseReturnReport" element={<StoresPurchaseReturnReport />} />
               <Route path="/StoresRackClassificationReport" element={<StoresRackClassificationReport />} />
               <Route path="/StoresSupplierGrnReport" element={<StoresSupplierGrnReport />} />
+              <Route path="/StoresDateGrnReport" element={<StoresDateGrnReport />} />
               <Route path="/StoresDepartmentIndentReport" element={<StoresDepartmentIndentReport />} />
               <Route path="/OPPharmacySalesReport" element={<OPPharmacySalesReport />} />
               <Route path="/OPPharmacyB2BReport" element={<OPPharmacyB2BReport />} />
@@ -1977,6 +1983,9 @@ function App() {
               )}
               {hasPagePermission("/StoresSupplierGrnReport", allowedActions, dynamicPermissions) && (
                 <Route path="/StoresSupplierGrnReport" element={<StoresSupplierGrnReport />} />
+              )}
+              {hasPagePermission("/StoresDateGrnReport", allowedActions, dynamicPermissions) && (
+                <Route path="/StoresDateGrnReport" element={<StoresDateGrnReport />} />
               )}
               {hasPagePermission("/StoresDepartmentIndentReport", allowedActions, dynamicPermissions) && (
                 <Route path="/StoresDepartmentIndentReport" element={<StoresDepartmentIndentReport />} />

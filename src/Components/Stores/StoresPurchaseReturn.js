@@ -101,6 +101,8 @@ const StoresPurchaseReturn = () => {
 
     const [returnsList, setReturnsList] = useState([]);
     const [grnList, setGrnList] = useState([]);
+    const [loadingGrns, setLoadingGrns] = useState(false);
+    const [loadingGrnDetails, setLoadingGrnDetails] = useState(false);
     const [vendors, setVendors] = useState([]);
     const [departments, setDepartments] = useState([]);
     const [selectedDepartment, setSelectedDepartment] = useState(getSelectedStoreDepartment());
@@ -197,12 +199,16 @@ const StoresPurchaseReturn = () => {
 
     const fetchGrns = async () => {
         try {
-            const res = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/stores-grn/`);
+            setLoadingGrns(true);
+            const res = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/stores-grn/?only_numbers=true`);
             if (res && res.success && res.data) {
-                setGrnList(Array.isArray(res.data) ? res.data : []);
+                const list = Array.isArray(res.data) ? res.data : (Array.isArray(res.data?.data) ? res.data.data : []);
+                setGrnList(list);
             }
         } catch (err) {
             console.error("Error fetching GRNs:", err);
+        } finally {
+            setLoadingGrns(false);
         }
     };
 
@@ -231,38 +237,69 @@ const StoresPurchaseReturn = () => {
         }
     };
 
-    const handleGrnSelect = (grnNo) => {
-        const selectedGrn = grnList.find(g => g.grn_number === grnNo);
-        if (!selectedGrn) {
+    const handleGrnSelect = async (grnNo) => {
+        if (!grnNo) {
             setAvailableGrnItems([]);
+            setFormData(prev => ({
+                ...prev,
+                grn_number: '',
+                vendor_id: '',
+                vendor_name: '',
+                items: []
+            }));
             return;
         }
 
-        const vId = selectedGrn.vendor_id;
-        const vObj = vendors.find(v => v.vendor_id === vId);
+        const summaryMatch = grnList.find(g => g.grn_number === grnNo);
+        const initialVendorId = summaryMatch?.vendor_id || '';
+        const initialVendorObj = vendors.find(v => String(v.vendor_id) === String(initialVendorId));
 
-        let items = selectedGrn.items || [];
-        if (typeof items === 'string') {
-            try { items = JSON.parse(items); } catch(e) { items = []; }
-        }
-
-        setAvailableGrnItems(items);
         setFormData(prev => ({
             ...prev,
             grn_number: grnNo,
-            vendor_id: vId,
-            vendor_name: vObj ? vObj.name : vId,
-            items: items.map(it => ({
-                item_id: it.item_id || it.id,
-                itemName: it.itemName || it.name,
-                batch_no: it.batch_no || it.batch || 'N/A',
-                original_qty: parseFloat(it.quantity || 0),
-                return_qty: 0,
-                unit_price: parseFloat(it.rate || it.purchase_price || it.unit_price || 0),
-                total_return_amount: 0,
-                reason: 'Damaged'
-            }))
+            vendor_id: initialVendorId,
+            vendor_name: initialVendorObj ? (initialVendorObj.name || initialVendorObj.vendor_name) : (summaryMatch?.vendor_name || initialVendorId || 'Loading...'),
+            items: []
         }));
+
+        try {
+            setLoadingGrnDetails(true);
+            const res = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/stores-grn/?grn_number=${encodeURIComponent(grnNo)}`);
+            const fullGrn = (res && res.data && typeof res.data === 'object' && !Array.isArray(res.data)) ? res.data : res;
+            if (fullGrn && (fullGrn.grn_number || fullGrn.items)) {
+                const vId = fullGrn.vendor_id || initialVendorId;
+                const vObj = vendors.find(v => String(v.vendor_id) === String(vId));
+
+                let items = fullGrn.items || [];
+                if (typeof items === 'string') {
+                    try { items = JSON.parse(items); } catch(e) { items = []; }
+                }
+
+                setAvailableGrnItems(items);
+                setFormData(prev => ({
+                    ...prev,
+                    grn_number: grnNo,
+                    vendor_id: vId,
+                    vendor_name: vObj ? (vObj.name || vObj.vendor_name) : (fullGrn.vendor_name || vId),
+                    department: fullGrn.department || fullGrn.department_name || prev.department || '',
+                    department_name: fullGrn.department_name || prev.department_name || '',
+                    items: items.map(it => ({
+                        item_id: it.item_id || it.id,
+                        itemName: it.itemName || it.name,
+                        batch_no: it.batch_no || it.batch || 'N/A',
+                        original_qty: parseFloat(it.quantity || 0),
+                        return_qty: 0,
+                        unit_price: parseFloat(it.rate || it.purchase_price || it.unit_price || 0),
+                        total_return_amount: 0,
+                        reason: 'Damaged'
+                    }))
+                }));
+            }
+        } catch (err) {
+            console.error("Error fetching GRN details for " + grnNo, err);
+        } finally {
+            setLoadingGrnDetails(false);
+        }
     };
 
     const handleItemReturnQtyChange = (idx, qtyVal) => {
@@ -946,7 +983,10 @@ const StoresPurchaseReturn = () => {
                                 <form onSubmit={handleCreateReturn}>
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '20px' }}>
                                         <div>
-                                            <label style={{ fontSize: '0.85rem', fontWeight: '700', color: colors.textMain, display: 'block', marginBottom: '6px' }}>Select GRN to Return Against *</label>
+                                            <label style={{ fontSize: '0.85rem', fontWeight: '700', color: colors.textMain, display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                                                <span>Select GRN to Return Against *</span>
+                                                {loadingGrnDetails && <span style={{ fontSize: '0.75rem', color: '#059669', fontWeight: '600' }}>Fetching details...</span>}
+                                            </label>
                                             <ReactSelect 
                                                 options={grnList.map(g => ({
                                                     value: g.grn_number,
@@ -955,13 +995,14 @@ const StoresPurchaseReturn = () => {
                                                 value={grnList.map(g => ({
                                                     value: g.grn_number,
                                                     label: `${g.grn_number} | Inv: ${g.invoice_no || 'N/A'} | Date: ${g.date || 'N/A'}`
-                                                })).find(opt => opt.value === formData.grn_number) || null}
+                                                })).find(opt => opt.value === formData.grn_number) || (formData.grn_number ? { value: formData.grn_number, label: formData.grn_number } : null)}
                                                 onChange={opt => handleGrnSelect(opt ? opt.value : '')}
                                                 styles={customSelectStyles}
                                                 menuPortalTarget={document.body}
                                                 isSearchable
                                                 isClearable
-                                                placeholder="-- Choose GRN --"
+                                                isLoading={loadingGrns}
+                                                placeholder={loadingGrns ? "Loading GRN numbers..." : "-- Choose GRN --"}
                                             />
                                         </div>
                                         <div>
@@ -986,9 +1027,19 @@ const StoresPurchaseReturn = () => {
 
                                     {/* GRN Items Return Selection */}
                                     <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '10px', border: `1px solid ${colors.border}`, marginBottom: '20px' }}>
-                                        <h4 style={{ margin: '0 0 12px 0', fontSize: '0.95rem', fontWeight: '700', color: '#059669' }}>Items in Selected GRN</h4>
-                                        {formData.items.length === 0 ? (
-                                            <p style={{ color: colors.textMuted, fontSize: '0.85rem', margin: 0 }}>Please select a GRN above to load items.</p>
+                                        <h4 style={{ margin: '0 0 12px 0', fontSize: '0.95rem', fontWeight: '700', color: '#059669', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span>Items in Selected GRN</span>
+                                            {loadingGrnDetails && <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} />}
+                                        </h4>
+                                        {loadingGrnDetails ? (
+                                            <div style={{ textAlign: 'center', padding: '24px', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: '600', fontSize: '0.9rem' }}>
+                                                <RefreshCw size={18} style={{ animation: 'spin 1s linear infinite' }} />
+                                                <span>Loading GRN details and items for {formData.grn_number}...</span>
+                                            </div>
+                                        ) : formData.items.length === 0 ? (
+                                            <p style={{ color: colors.textMuted, fontSize: '0.85rem', margin: 0 }}>
+                                                {formData.grn_number ? 'No items found in this GRN.' : 'Please select a GRN above to load items.'}
+                                            </p>
                                         ) : (
                                             <div style={{ overflowX: 'auto' }}>
                                                 <Table style={{ fontSize: '0.85rem' }}>

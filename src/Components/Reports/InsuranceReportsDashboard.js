@@ -983,6 +983,7 @@ const InsuranceReportsDashboard = () => {
     const [modalToDate, setModalToDate] = useState(dayjs());
     const [modalUhid, setModalUhid] = useState('');
     const [modalIpNumber, setModalIpNumber] = useState('');
+    const [modalBillNumber, setModalBillNumber] = useState('');
     const [modalIpOptions, setModalIpOptions] = useState([]);
     const [modalSearchingIps, setModalSearchingIps] = useState(false);
     const [modalCompanyName, setModalCompanyName] = useState('ALL');
@@ -1080,6 +1081,7 @@ const InsuranceReportsDashboard = () => {
         setTargetReport(report);
         setModalUhid('');
         setModalIpNumber('');
+        setModalBillNumber('');
         setModalIpOptions([]);
         setModalSearchingIps(false);
         setModalCompanyName('ALL');
@@ -1091,8 +1093,14 @@ const InsuranceReportsDashboard = () => {
 
     const handleFilterModalPrint = () => {
         if (!targetReport) return;
-        const fDate = modalFromDate ? modalFromDate.format('YYYY-MM-DD') : '';
-        const tDate = modalToDate ? modalToDate.format('YYYY-MM-DD') : '';
+        const fmtDate = (d) => {
+            if (!d) return '';
+            if (typeof d.format === 'function') return d.format('YYYY-MM-DD');
+            const parsed = dayjs(d);
+            return parsed.isValid() ? parsed.format('YYYY-MM-DD') : String(d);
+        };
+        const fDate = fmtDate(modalFromDate);
+        const tDate = fmtDate(modalToDate);
 
         const isDischarge = [
             'discharge_all', 'discharge_tkt', 'discharge_railway', 'discharge_tkt_surgery',
@@ -1101,6 +1109,9 @@ const InsuranceReportsDashboard = () => {
 
         const params = new URLSearchParams();
         if (['patient_wise_pharmacy_ip_bill', 'lab_abstract', 'medicine_abstract'].includes(targetReport.id) || isDischarge) {
+            if (modalBillNumber && modalBillNumber.trim()) {
+                params.append('bill_number', modalBillNumber.trim());
+            }
             if (modalIpNumber && modalIpNumber.trim()) {
                 params.append('ip_number', modalIpNumber.trim());
             }
@@ -1213,7 +1224,7 @@ const InsuranceReportsDashboard = () => {
     // Print Report
     const handlePrint = () => {
         printInsuranceReport('insurance-modal-report-content', {
-            reportTitle: activeReport?.name || 'Insurance Report',
+            reportTitle: activeReport?.title || activeReport?.name || 'Insurance Report',
             fromDate: modalDateRange?.[0]?.format('DD/MM/YYYY') || dateRange?.[0]?.format('DD/MM/YYYY'),
             toDate: modalDateRange?.[1]?.format('DD/MM/YYYY') || dateRange?.[1]?.format('DD/MM/YYYY'),
             orientation: 'landscape'
@@ -1417,6 +1428,19 @@ const InsuranceReportsDashboard = () => {
 
                                     {['patient_wise_pharmacy_ip_bill', 'lab_abstract', 'medicine_abstract', 'discharge_all', 'discharge_tkt', 'discharge_railway', 'discharge_tkt_surgery', 'discharge_all_company', 'discharge_tkt_op', 'discharge_tkt_railway'].includes(targetReport.id) && (
                                         <>
+                                            {['discharge_all', 'discharge_tkt', 'discharge_railway', 'discharge_tkt_surgery', 'discharge_all_company', 'discharge_tkt_op', 'discharge_tkt_railway'].includes(targetReport.id) && (
+                                                <div className="fields-row single">
+                                                    <div className="field-box">
+                                                        <label>BILL NUMBER (OPTIONAL)</label>
+                                                        <input
+                                                            type="text"
+                                                            value={modalBillNumber}
+                                                            onChange={(e) => setModalBillNumber(e.target.value)}
+                                                            placeholder="Enter Bill Number (e.g. 2627/000193 or SCI 2627/000190)..."
+                                                        />
+                                                    </div>
+                                                </div>
+                                            )}
                                             <div className="fields-row">
                                                 <div className="field-box">
                                                     <label>UHID</label>

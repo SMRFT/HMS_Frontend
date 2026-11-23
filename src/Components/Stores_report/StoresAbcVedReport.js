@@ -7,6 +7,7 @@ import * as XLSX from 'xlsx';
 import ReactSelect from 'react-select';
 import { Search, Download, Printer, RefreshCw, FilterX, AlertTriangle, ShieldCheck, DollarSign, Layers, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import apiRequest from '../../Auth/apiRequest';
+import { getSelectedStoreDepartment, useStoresDepartment } from '../Stores/storesDepartmentHelper';
 
 const Hmsbaseurl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || '';
 
@@ -542,12 +543,20 @@ const PrintOnlyHeader = styled.div`
     }
 `;
 
-const StoresAbcVedReport = () => {
+const StoresAbcVedReport = ({ department: propDepartment = '', departmentName: propDepartmentName = '', isModalView = false, onClose }) => {
     const [loading, setLoading] = useState(false);
     const [rawItems, setRawItems] = useState([]);
     const [departments, setDepartments] = useState([]);
-    const [departmentFilter, setDepartmentFilter] = useState('ALL');
+    const [departmentFilter, setDepartmentFilter] = useState(propDepartment || getSelectedStoreDepartment() || 'ALL');
     const departmentFilterRef = useRef(null);
+
+    useEffect(() => {
+        setDepartmentFilter(propDepartment || 'ALL');
+    }, [propDepartment]);
+
+    useStoresDepartment((newDept) => {
+        setDepartmentFilter(newDept || 'ALL');
+    });
 
     const departmentOptions = useMemo(() => [
         { value: 'ALL', label: 'All Departments (F10)' },

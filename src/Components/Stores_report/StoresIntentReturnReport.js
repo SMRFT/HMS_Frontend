@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import apiRequest from '../../Auth/apiRequest';
 import { printStoresReport } from '../Stores/printStoresReport';
-import { getSelectedStoreDepartment, setSelectedStoreDepartment, useStoresDepartment } from '../Stores/storesDepartmentHelper';
+import { getSelectedStoreDepartment, getSelectedStoreDepartmentName, setSelectedStoreDepartment, useStoresDepartment, matchesStoreDepartment } from '../Stores/storesDepartmentHelper';
 import DepartmentSelectionModal, { DepartmentFilterControl } from '../Stores/DepartmentSelectionModal';
 import TablePagination, { usePagination } from '../Stores/TablePagination';
 import {
@@ -31,7 +31,7 @@ import {
     colors
 } from '../GlobalStyles';
 
-const StoresIntentReturnReport = ({ department: propDepartment = '', isModalView = false, onClose }) => {
+const StoresIntentReturnReport = ({ department: propDepartment = '', departmentName: propDepartmentName = '', isModalView = false, onClose }) => {
     const today = dayjs().format('YYYY-MM-DD');
     const oneMonthAgo = dayjs().subtract(1, 'month').format('YYYY-MM-DD');
 
@@ -43,7 +43,8 @@ const StoresIntentReturnReport = ({ department: propDepartment = '', isModalView
     const [fromDate, setFromDate] = useState(oneMonthAgo);
     const [toDate, setToDate] = useState(today);
     const [filterStatus, setFilterStatus] = useState('ALL');
-    const [selectedDepartment, setSelectedDepartment] = useState(propDepartment || 'ALL');
+    const [selectedDepartment, setSelectedDepartment] = useState(propDepartment || getSelectedStoreDepartment() || 'ALL');
+    const [selectedDepartmentName, setSelectedDepartmentName] = useState(propDepartmentName || getSelectedStoreDepartmentName() || 'All Departments');
     const [departments, setDepartments] = useState([]);
     const [selectedIndentForDetails, setSelectedIndentForDetails] = useState(null);
     const [selectedReturnForDetails, setSelectedReturnForDetails] = useState(null);
@@ -52,18 +53,15 @@ const StoresIntentReturnReport = ({ department: propDepartment = '', isModalView
 
     // Synchronize department when prop changes
     useEffect(() => {
-        if (propDepartment) {
-            setSelectedDepartment(propDepartment);
-        }
-    }, [propDepartment]);
+        setSelectedDepartment(propDepartment || 'ALL');
+        setSelectedDepartmentName(propDepartmentName || 'All Departments');
+    }, [propDepartment, propDepartmentName]);
 
-    // Department synchronization with global helper if not strictly passed as prop
-    const activeGlobalDept = useStoresDepartment();
-    useEffect(() => {
-        if (!propDepartment && activeGlobalDept && activeGlobalDept !== 'ALL') {
-            setSelectedDepartment(activeGlobalDept);
-        }
-    }, [activeGlobalDept, propDepartment]);
+    // Department synchronization with global helper
+    useStoresDepartment((newDept, newName) => {
+        setSelectedDepartment(newDept || 'ALL');
+        setSelectedDepartmentName(newName || 'All Departments');
+    });
 
     // Fetch department master
     useEffect(() => {
@@ -202,6 +200,12 @@ const StoresIntentReturnReport = ({ department: propDepartment = '', isModalView
                 reqBy.includes(term) || 
                 itemNames.includes(term);
 
+            if (selectedDepartment && selectedDepartment !== 'ALL') {
+                if (!matchesStoreDepartment(item, selectedDepartment, selectedDepartmentName, departments)) {
+                    return false;
+                }
+            }
+
             let matchesStatus = true;
             if (filterStatus === 'STORE_APPROVED') {
                 matchesStatus = item.storeStatus === 'Approved';
@@ -218,7 +222,7 @@ const StoresIntentReturnReport = ({ department: propDepartment = '', isModalView
             }
 
             return matchesSearch && matchesStatus;
-        });
+        }).sort((a, b) => String(a.department || a.department_name || a.intent_id || '').localeCompare(String(b.department || b.department_name || b.intent_id || ''), undefined, { sensitivity: 'base' }));
     }, [enrichedIndents, searchTerm, filterStatus]);
 
     // Filter Returns
@@ -231,6 +235,12 @@ const StoresIntentReturnReport = ({ department: propDepartment = '', isModalView
             const intentId = (ret.intent_id || '').toLowerCase();
             const matchesSearch = !term || id.includes(term) || debit.includes(term) || dept.includes(term) || intentId.includes(term);
 
+            if (selectedDepartment && selectedDepartment !== 'ALL') {
+                if (!matchesStoreDepartment(ret, selectedDepartment, selectedDepartmentName, departments)) {
+                    return false;
+                }
+            }
+
             let matchesStatus = true;
             if (filterStatus === 'STORE_APPROVED' || filterStatus === 'APPROVED') {
                 matchesStatus = ret.status === 'Approved';
@@ -239,7 +249,7 @@ const StoresIntentReturnReport = ({ department: propDepartment = '', isModalView
             }
 
             return matchesSearch && matchesStatus;
-        });
+        }).sort((a, b) => String(a.department_name || a.department || a.return_id || '').localeCompare(String(b.department_name || b.department || b.return_id || ''), undefined, { sensitivity: 'base' }));
     }, [returns, searchTerm, filterStatus]);
 
     // Indents Summary Metrics
@@ -486,7 +496,10 @@ const StoresIntentReturnReport = ({ department: propDepartment = '', isModalView
                             <label style={{ fontSize: '0.72rem', fontWeight: '700', color: colors.textMuted }}>DEPARTMENT</label>
                             <DepartmentFilterControl
                                 departments={departments}
-                                onDepartmentChange={(dept) => setSelectedDepartment(dept || 'ALL')}
+                                onDepartmentChange={(dept, name) => {
+                                    setSelectedDepartment(dept || 'ALL');
+                                    setSelectedDepartmentName(name || 'All Departments');
+                                }}
                             />
                         </div>
 

@@ -33,7 +33,7 @@ import {
     colors
 } from '../GlobalStyles';
 
-const StoresRackClassificationReport = () => {
+const StoresRackClassificationReport = ({ department: propDepartment = '', departmentName: propDepartmentName = '', isModalView = false, onClose }) => {
     const getBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || '';
 
     // Data states
@@ -48,15 +48,16 @@ const StoresRackClassificationReport = () => {
     const [selectedRack, setSelectedRack] = useState('');
     const [selectedShelf, setSelectedShelf] = useState('');
     const [statusFilter, setStatusFilter] = useState('ALL'); // ALL | ASSIGNED | UNASSIGNED
-    const [filterDepartment, setFilterDepartment] = useState('');
+    const [filterDepartment, setFilterDepartment] = useState(propDepartment || getSelectedStoreDepartment() || '');
 
     // Synchronize with active global department
-    const activeGlobalDept = useStoresDepartment();
     useEffect(() => {
-        if (activeGlobalDept && activeGlobalDept !== 'ALL') {
-            setFilterDepartment(activeGlobalDept);
-        }
-    }, [activeGlobalDept]);
+        setFilterDepartment(propDepartment || '');
+    }, [propDepartment]);
+
+    useStoresDepartment((newDept) => {
+        setFilterDepartment(newDept || '');
+    });
 
     useEffect(() => {
         fetchMasters();
@@ -90,7 +91,9 @@ const StoresRackClassificationReport = () => {
 
             const res = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/stores-rack-classification/${queryString}`);
             if (res && res.success) {
-                setItemsList(res.data.data || []);
+                const list = res.data.data || [];
+                const sortedList = [...list].sort((a, b) => String(a.item_name || a.itemName || '').localeCompare(String(b.item_name || b.itemName || ''), undefined, { sensitivity: 'base' }));
+                setItemsList(sortedList);
                 if (res.data.racks) setRacks(res.data.racks);
                 if (res.data.shelves) setShelves(res.data.shelves);
             } else {

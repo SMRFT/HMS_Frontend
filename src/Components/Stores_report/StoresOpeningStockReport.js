@@ -10,6 +10,8 @@ import {
     TrendingUp, ShieldCheck, ArrowLeft
 } from 'lucide-react';
 import apiRequest from '../../Auth/apiRequest';
+import { getSelectedStoreDepartment, setSelectedStoreDepartment, useStoresDepartment } from '../Stores/storesDepartmentHelper';
+import { DepartmentFilterControl } from '../Stores/DepartmentSelectionModal';
 import TablePagination, { usePagination } from '../Stores/TablePagination';
 import {
     PageWrapper,
@@ -26,7 +28,7 @@ import {
     colors
 } from '../GlobalStyles';
 
-const StoresOpeningStockReport = () => {
+const StoresOpeningStockReport = ({ department: propDepartment = '', departmentName: propDepartmentName = '', isModalView = false, onClose }) => {
     const navigate = useNavigate();
     const today = dayjs().format('YYYY-MM-DD');
     const getBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || '';
@@ -35,12 +37,20 @@ const StoresOpeningStockReport = () => {
     const [fromDate, setFromDate] = useState('');
     const [toDate, setToDate] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
-    const [departmentFilter, setDepartmentFilter] = useState('');
+    const [departmentFilter, setDepartmentFilter] = useState(propDepartment || getSelectedStoreDepartment());
     const [groupFilter, setGroupFilter] = useState('');
 
     // Masters for filter dropdowns
     const [allDepartments, setAllDepartments] = useState([]);
     const [allGroups, setAllGroups] = useState([]);
+
+    useEffect(() => {
+        setDepartmentFilter(propDepartment || '');
+    }, [propDepartment]);
+
+    useStoresDepartment((newDept) => {
+        setDepartmentFilter(newDept || '');
+    });
 
     // Data states
     const [loading, setLoading] = useState(false);
@@ -53,8 +63,11 @@ const StoresOpeningStockReport = () => {
 
     useEffect(() => {
         fetchMasters();
-        fetchReport();
     }, []);
+
+    useEffect(() => {
+        fetchReport();
+    }, [departmentFilter]);
 
     const fetchMasters = async () => {
         try {
@@ -83,8 +96,9 @@ const StoresOpeningStockReport = () => {
             const res = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/stores-opening-stock-report/${queryString}`);
             if (res && res.success) {
                 const results = res.data?.results || res.data?.data || (Array.isArray(res.data) ? res.data : []);
-                const summ = res.data?.summary || { total_logs: results.length, unique_items: 0, total_opening_stock: 0 };
-                setLogs(results);
+                const sortedResults = [...results].sort((a, b) => String(a.item_name || a.itemName || '').localeCompare(String(b.item_name || b.itemName || ''), undefined, { sensitivity: 'base' }));
+                const summ = res.data?.summary || { total_logs: sortedResults.length, unique_items: 0, total_opening_stock: 0 };
+                setLogs(sortedResults);
                 setSummary(summ);
             } else {
                 setLogs([]);
@@ -123,8 +137,9 @@ const StoresOpeningStockReport = () => {
             const res = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/stores-opening-stock-report/${queryString}`);
             if (res && res.success) {
                 const results = res.data?.results || res.data?.data || (Array.isArray(res.data) ? res.data : []);
-                const summ = res.data?.summary || { total_logs: results.length, unique_items: 0, total_opening_stock: 0 };
-                setLogs(results);
+                const sortedResults = [...results].sort((a, b) => String(a.item_name || a.itemName || '').localeCompare(String(b.item_name || b.itemName || ''), undefined, { sensitivity: 'base' }));
+                const summ = res.data?.summary || { total_logs: sortedResults.length, unique_items: 0, total_opening_stock: 0 };
+                setLogs(sortedResults);
                 setSummary(summ);
             } else {
                 setLogs([]);
@@ -201,7 +216,13 @@ const StoresOpeningStockReport = () => {
                         </p>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <DepartmentFilterControl
+                            departments={allDepartments}
+                            onDepartmentChange={(dept, name) => {
+                                setDepartmentFilter(dept || '');
+                            }}
+                        />
                         <Button 
                             onClick={() => navigate('/Items')}
                             style={{ 

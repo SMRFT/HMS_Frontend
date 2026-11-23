@@ -7,6 +7,8 @@ import {
     Layers, DollarSign, Box
 } from 'lucide-react';
 import apiRequest from '../../Auth/apiRequest';
+import { getSelectedStoreDepartment, getSelectedStoreDepartmentName, setSelectedStoreDepartment, useStoresDepartment } from '../Stores/storesDepartmentHelper';
+import { DepartmentFilterControl } from '../Stores/DepartmentSelectionModal';
 import {
     PageWrapper,
     Container,
@@ -22,15 +24,23 @@ import {
     colors
 } from '../GlobalStyles';
 
-const StoresItemMasterStockReport = () => {
+const StoresItemMasterStockReport = ({ department: propDepartment = '', departmentName: propDepartmentName = '', isModalView = false, onClose }) => {
     const getBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || '';
 
     // Filter states
     const [searchTerm, setSearchTerm] = useState('');
-    const [selectedDepartment, setSelectedDepartment] = useState('');
+    const [selectedDepartment, setSelectedDepartment] = useState(propDepartment || getSelectedStoreDepartment());
     const [selectedCategory, setSelectedCategory] = useState('');
     const [selectedGroup, setSelectedGroup] = useState('');
     const [stockFilter, setStockFilter] = useState('in_stock'); // 'in_stock', 'all', 'zero_stock'
+
+    useEffect(() => {
+        setSelectedDepartment(propDepartment || '');
+    }, [propDepartment]);
+
+    useStoresDepartment((newDept) => {
+        setSelectedDepartment(newDept || '');
+    });
 
     // Masters for dropdowns
     const [departments, setDepartments] = useState([]);
@@ -406,6 +416,12 @@ const StoresItemMasterStockReport = () => {
                     </div>
 
                     <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                        <DepartmentFilterControl
+                            departments={departments}
+                            onDepartmentChange={(dept, name) => {
+                                setSelectedDepartment(dept || '');
+                            }}
+                        />
                         <Button 
                             onClick={exportToExcel}
                             disabled={loading || filteredItems.length === 0}

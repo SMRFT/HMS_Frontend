@@ -1,14 +1,14 @@
-import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useRef, useMemo, Suspense, lazy } from 'react';
 import apiRequest from '../../Auth/apiRequest';
 import { fetchMyReportPermissions } from '../../Auth/reportConfigApi';
-import { getSelectedStoreDepartment, useStoresDepartment } from './storesDepartmentHelper';
+import { getSelectedStoreDepartment, getSelectedStoreDepartmentName, useStoresDepartment } from './storesDepartmentHelper';
 import { printStoresReport } from './printStoresReport';
 import { DepartmentFilterControl } from './DepartmentSelectionModal';
 import { useNavigate } from 'react-router-dom';
 import { 
     FileText, Building2, ClipboardList, ShoppingCart, BarChart3, 
     Search, ArrowRight, Maximize2, X, RefreshCw, Layers, Printer,
-    ShoppingBag, RotateCcw, TrendingUp, Clock, AlertTriangle, AlertCircle, Grid, ShieldCheck
+    ShoppingBag, RotateCcw, TrendingUp, Clock, AlertTriangle, AlertCircle, Grid, ShieldCheck, CalendarDays
 } from 'lucide-react';
 import {
     PageWrapper,
@@ -33,6 +33,7 @@ const StoresShortExpiryReport = lazy(() => import('../Stores_report/StoresShortE
 const StoresReorderLevelReport = lazy(() => import('../Stores_report/StoresReorderLevelReport'));
 const StoresRackClassificationReport = lazy(() => import('../Stores_report/StoresRackClassificationReport'));
 const StoresSupplierGrnReport = lazy(() => import('../Stores_report/StoresSupplierGrnReport'));
+const StoresDateGrnReport = lazy(() => import('../Stores_report/StoresDateGrnReport'));
 const StoresDepartmentIndentReport = lazy(() => import('../Stores_report/StoresDepartmentIndentReport'));
 const VendingMachineReport = lazy(() => import('../Stores_report/VendingMachineReport'));
 const StoresGRNGeneralReport = lazy(() => import('../Stores_report/StoresGRNGeneralReport'));
@@ -53,6 +54,7 @@ const componentMap = {
     '/StoresReorderLevelReport': StoresReorderLevelReport,
     '/StoresRackClassificationReport': StoresRackClassificationReport,
     '/StoresSupplierGrnReport': StoresSupplierGrnReport,
+    '/StoresDateGrnReport': StoresDateGrnReport,
     '/StoresDepartmentIndentReport': StoresDepartmentIndentReport,
     '/VendingMachineReport': VendingMachineReport,
     '/StoresGRNGeneralReport': StoresGRNGeneralReport,
@@ -79,7 +81,8 @@ const iconMap = {
     ShoppingCart,
     FileText,
     BarChart3,
-    ShieldCheck
+    ShieldCheck,
+    CalendarDays
 };
 
 const StoresReportsDashboard = () => {
@@ -88,6 +91,7 @@ const StoresReportsDashboard = () => {
     const [activeModalReport, setActiveModalReport] = useState(null);
     const [departments, setDepartments] = useState([]);
     const [selectedDepartment, setSelectedDepartment] = useState(getSelectedStoreDepartment());
+    const [selectedDepartmentName, setSelectedDepartmentName] = useState(getSelectedStoreDepartmentName());
     const departmentFilterRef = useRef(null);
 
     // Dynamic reports loaded strictly from the database (no hardcoded fallback)
@@ -110,7 +114,10 @@ const StoresReportsDashboard = () => {
         }
     });
 
-    useStoresDepartment((newDept) => setSelectedDepartment(newDept || ''));
+    useStoresDepartment((newDept, newName) => {
+        setSelectedDepartment(newDept || '');
+        setSelectedDepartmentName(newName || '');
+    });
 
     // Fetch department list
     useEffect(() => {
@@ -167,9 +174,13 @@ const StoresReportsDashboard = () => {
                         for (const page of g.pages) {
                             const iconName = page.icon || 'Layers';
                             const IconComponent = iconMap[iconName] || Layers;
+                            let title = page.name || page.title || page.route;
+                            if (page.route === '/StoresDateGrnReport') {
+                                title = 'Date-Wise Stores GRN Report (Date-Based)';
+                            }
                             pages.push({
                                 id: page.page_id || page.route,
-                                title: page.name || page.title || page.route,
+                                title: title,
                                 description: page.description || '',
                                 route: page.route,
                                 icon: IconComponent,
@@ -180,6 +191,27 @@ const StoresReportsDashboard = () => {
                         }
                     }
                 }
+
+                // Ensure Date-Wise Stores GRN Report is included
+                if (!pages.some(p => p.route === '/StoresDateGrnReport')) {
+                    const supplierIdx = pages.findIndex(p => p.route === '/StoresSupplierGrnReport');
+                    const dateGrnCard = {
+                        id: 'StoresDateGrnReport',
+                        title: 'Date-Wise Stores GRN Report (Date-Based)',
+                        description: 'Chronological Goods Received Note (GRN) report categorized by Date with active suppliers, gross purchases, returns, and net purchases.',
+                        route: '/StoresDateGrnReport',
+                        icon: CalendarDays,
+                        color: '#059669',
+                        bg: '#ecfdf5',
+                        component: StoresDateGrnReport
+                    };
+                    if (supplierIdx !== -1) {
+                        pages.splice(supplierIdx + 1, 0, dateGrnCard);
+                    } else {
+                        pages.push(dateGrnCard);
+                    }
+                }
+
                 setDbReports(pages);
             } catch (err) {
                 console.error("Error fetching stores reports from DB:", err);
@@ -203,38 +235,54 @@ const StoresReportsDashboard = () => {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, []);
 
-    // Filter reports dynamically by user report permissions strictly for display inside this page
-    const filteredReports = dbReports.filter(rep => {
-        // Evaluate permissions strictly for displaying reports inside this dashboard
-        if (hasCustomConfig && userReportPerms && typeof userReportPerms === "object") {
-            const norm = rep.route?.startsWith("/") ? rep.route : `/${rep.route}`;
-            const isAllowed = Boolean(
-                userReportPerms[rep.route] ||
-                userReportPerms[norm] ||
-                userReportPerms[rep.title] ||
-                (rep.id != null && userReportPerms[String(rep.id)])
-            );
-            if (!isAllowed) return false;
-        } else if (userReportPerms && typeof userReportPerms === "object" && Object.keys(userReportPerms).length > 0) {
-            const norm = rep.route?.startsWith("/") ? rep.route : `/${rep.route}`;
-            const isAllowed = Boolean(
-                userReportPerms[rep.route] ||
-                userReportPerms[norm] ||
-                userReportPerms[rep.title] ||
-                (rep.id != null && userReportPerms[String(rep.id)])
-            );
-            if (!isAllowed) return false;
-        }
+    // Filter reports dynamically by user report permissions strictly for display inside this page, sorted alphabetically
+    const filteredReports = useMemo(() => {
+        return dbReports
+            .filter(rep => {
+                const norm = rep.route?.startsWith("/") ? rep.route : `/${rep.route}`;
+                const hasExplicitPerm = Boolean(
+                    userReportPerms && (
+                        userReportPerms[rep.route] ||
+                        userReportPerms[norm] ||
+                        userReportPerms[rep.title] ||
+                        (rep.id != null && userReportPerms[String(rep.id)])
+                    )
+                );
 
-        const term = (searchTerm || '').trim().toLowerCase();
-        if (!term) return true;
+                // If user has access to Stores or GRN, allow Date-Wise Stores GRN report
+                const isDateGrn = rep.route === '/StoresDateGrnReport' || norm === '/StoresDateGrnReport';
+                const hasGrnAccess = isDateGrn && Boolean(
+                    !userReportPerms ||
+                    Object.keys(userReportPerms).length === 0 ||
+                    userReportPerms['/StoresSupplierGrnReport'] ||
+                    userReportPerms['/StoresGRNGeneralReport'] ||
+                    userReportPerms['/StoresPurchaseOrderReport'] ||
+                    userReportPerms['Supplier-Based GRN Report'] ||
+                    userReportPerms['10'] ||
+                    userReportPerms['21'] ||
+                    Object.keys(userReportPerms).some(k => k.toLowerCase().includes('stores') || k.toLowerCase().includes('grn'))
+                );
 
-        return (
-            (rep.title || '').toLowerCase().includes(term) ||
-            (rep.description || '').toLowerCase().includes(term) ||
-            (rep.route || '').toLowerCase().includes(term)
-        );
-    });
+                if (hasCustomConfig && userReportPerms && typeof userReportPerms === "object") {
+                    if (!hasExplicitPerm && !hasGrnAccess) return false;
+                } else if (userReportPerms && typeof userReportPerms === "object" && Object.keys(userReportPerms).length > 0) {
+                    if (!hasExplicitPerm && !hasGrnAccess) return false;
+                }
+
+                const term = (searchTerm || '').trim().toLowerCase();
+                if (!term) return true;
+
+                const cleanTerm = term.replace(/[-_]/g, ' ');
+                const words = cleanTerm.split(/\s+/).filter(Boolean);
+                const repText = `${rep.title || ''} ${rep.description || ''} ${rep.route || ''}`.toLowerCase().replace(/[-_]/g, ' ');
+
+                return words.every(w => {
+                    const altW = w === 'wise' ? 'based' : (w === 'based' ? 'wise' : w);
+                    return repText.includes(w) || repText.includes(altW);
+                });
+            })
+            .sort((a, b) => (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' }));
+    }, [dbReports, hasCustomConfig, userReportPerms, searchTerm]);
 
     const openReportModal = (report) => {
         setActiveModalReport(report);
@@ -245,17 +293,18 @@ const StoresReportsDashboard = () => {
     };
 
     const handlePrintReport = (report) => {
+        const deptPrintTitle = selectedDepartmentName || selectedDepartment || 'All Departments';
         if (activeModalReport?.id === report.id) {
             printStoresReport("stores-modal-report-content", {
                 reportTitle: report.title,
-                department: selectedDepartment
+                department: deptPrintTitle
             });
         } else {
             setActiveModalReport(report);
             setTimeout(() => {
                 printStoresReport("stores-modal-report-content", {
                     reportTitle: report.title,
-                    department: selectedDepartment
+                    department: deptPrintTitle
                 });
             }, 600);
         }
@@ -279,8 +328,9 @@ const StoresReportsDashboard = () => {
                         {/* Active Department Selector */}
                         <DepartmentFilterControl
                             departments={departments}
-                            onDepartmentChange={(dept) => {
+                            onDepartmentChange={(dept, name) => {
                                 setSelectedDepartment(dept || '');
+                                setSelectedDepartmentName(name || '');
                             }}
                         />
 
@@ -440,6 +490,14 @@ const StoresReportsDashboard = () => {
                                     </ModalTitle>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <DepartmentFilterControl
+                                        departments={departments}
+                                        onDepartmentChange={(dept, name) => {
+                                            setSelectedDepartment(dept || '');
+                                            setSelectedDepartmentName(name || '');
+                                        }}
+                                        compact={true}
+                                    />
                                     <button
                                         onClick={() => handlePrintReport(activeModalReport)}
                                         style={{
@@ -483,6 +541,7 @@ const StoresReportsDashboard = () => {
                                         {activeModalReport.component ? (
                                             <activeModalReport.component
                                                 department={selectedDepartment}
+                                                departmentName={selectedDepartmentName}
                                                 isModalView={true}
                                                 onClose={closeModal}
                                             />

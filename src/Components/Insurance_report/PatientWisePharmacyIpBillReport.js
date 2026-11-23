@@ -371,6 +371,7 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
     const [loading, setLoading] = useState(false);
     const [reportPayload, setReportPayload] = useState(null);
     const [doctorMap, setDoctorMap] = useState({});
+    const debounceTimerRef = useRef(null);
 
     const loadData = useCallback(async (targetUhid = uhid, targetIp = ipNumber, dates = dateRange) => {
         const queryTerm = (targetIp && targetIp.trim()) || (targetUhid && targetUhid.trim());
@@ -395,7 +396,7 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
                 if (dataObj.patient_info?.uhid && !uhid) {
                     setUhid(dataObj.patient_info.uhid);
                 }
-                if (!ipParam && dataObj.patient_info?.ip_number) {
+                if (dataObj.patient_info?.ip_number) {
                     setIpNumber(dataObj.patient_info.ip_number);
                 }
             } else {
@@ -424,8 +425,19 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
                 if (autoSelectFirst) {
                     const match = selectedIp && admissions.some(a => a.ip_number === selectedIp);
                     const chosen = match ? selectedIp : admissions[0].ip_number;
+                    const chosenAdm = admissions.find(a => a.ip_number === chosen) || admissions[0];
                     setIpNumber(chosen);
-                    loadData(uhidVal, chosen, dateRange);
+
+                    let newDates = dateRange;
+                    if (chosenAdm.admission_date) {
+                        const parsedStart = dayjs(chosenAdm.admission_date.slice(0, 10), 'DD/MM/YYYY');
+                        if (parsedStart.isValid()) {
+                            const parsedEnd = chosenAdm.discharge_date ? dayjs(chosenAdm.discharge_date.slice(0, 10), 'DD/MM/YYYY') : dayjs();
+                            newDates = [parsedStart, parsedEnd.isValid() ? parsedEnd : dayjs()];
+                            setDateRange(newDates);
+                        }
+                    }
+                    loadData(uhidVal, chosen, newDates);
                 }
             } else {
                 setIpOptions([]);
@@ -450,8 +462,11 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
     const handleUhidInput = (val) => {
         setUhid(val);
         setIpNumber('');
+        if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
         if (val && val.trim().length >= 2) {
-            fetchIpOptions(val, true, '');
+            debounceTimerRef.current = setTimeout(() => {
+                fetchIpOptions(val.trim(), true, '');
+            }, 350);
         } else {
             setIpOptions([]);
         }
@@ -461,10 +476,25 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
         if (!adm || !adm.ip_number) return;
         const newIp = adm.ip_number;
         setIpNumber(newIp);
-        loadData(uhid, newIp, dateRange);
+
+        let newDates = dateRange;
+        if (adm.admission_date) {
+            const parsedStart = dayjs(adm.admission_date.slice(0, 10), 'DD/MM/YYYY');
+            if (parsedStart.isValid()) {
+                const parsedEnd = adm.discharge_date ? dayjs(adm.discharge_date.slice(0, 10), 'DD/MM/YYYY') : dayjs();
+                newDates = [parsedStart, parsedEnd.isValid() ? parsedEnd : dayjs()];
+                setDateRange(newDates);
+            }
+        }
+        loadData(uhid, newIp, newDates);
     };
 
     const handleQuery = () => {
+        if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+        if (ipOptions.length === 0 && uhid && uhid.trim().length >= 2) {
+            fetchIpOptions(uhid.trim(), true, ipNumber);
+            return;
+        }
         const targetIp = ipNumber || (ipOptions.length > 0 ? ipOptions[0].ip_number : '');
         if (targetIp && !ipNumber) setIpNumber(targetIp);
         loadData(uhid, targetIp, dateRange);

@@ -3,6 +3,8 @@ import React, { useState, useEffect } from 'react';
 import dayjs from 'dayjs';
 import apiRequest from '../../Auth/apiRequest';
 import * as XLSX from 'xlsx';
+import { getSelectedStoreDepartment, getSelectedStoreDepartmentName, setSelectedStoreDepartment, useStoresDepartment } from '../Stores/storesDepartmentHelper';
+import { DepartmentFilterControl } from '../Stores/DepartmentSelectionModal';
 import {
     AlertTriangle, Download, Printer, Search, RefreshCw
 } from 'lucide-react';
@@ -21,7 +23,7 @@ import {
     colors
 } from '../GlobalStyles';
 
-const StoresShortExpiryReport = () => {
+const StoresShortExpiryReport = ({ department: propDepartment = '', departmentName: propDepartmentName = '', isModalView = false, onClose }) => {
     const today = dayjs().format('YYYY-MM-DD');
     const getBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || '';
 
@@ -29,6 +31,20 @@ const StoresShortExpiryReport = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(false);
     const [expiryItems, setExpiryItems] = useState([]);
+    const [departments, setDepartments] = useState([]);
+    const [selectedDepartment, setSelectedDepartment] = useState(propDepartment || getSelectedStoreDepartment());
+    const [selectedDepartmentName, setSelectedDepartmentName] = useState(propDepartmentName || getSelectedStoreDepartmentName());
+
+    useEffect(() => {
+        setSelectedDepartment(propDepartment || '');
+        setSelectedDepartmentName(propDepartmentName || '');
+    }, [propDepartment, propDepartmentName]);
+
+    useStoresDepartment((newDept, newName) => {
+        setSelectedDepartment(newDept || '');
+        setSelectedDepartmentName(newName || '');
+    });
+
     const [summary, setSummary] = useState({
         total_items: 0,
         expired_count: 0,
@@ -38,19 +54,36 @@ const StoresShortExpiryReport = () => {
     });
 
     useEffect(() => {
+        const fetchDepts = async () => {
+            try {
+                const res = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/department-master/`);
+                if (res && res.success && Array.isArray(res.data)) {
+                    setDepartments(res.data);
+                }
+            } catch (err) {
+                console.error("Error fetching departments:", err);
+            }
+        };
+        fetchDepts();
+    }, [getBaseUrl]);
+
+    useEffect(() => {
         fetchReport();
-    }, [daysThreshold]);
+    }, [daysThreshold, selectedDepartment]);
 
     const fetchReport = async () => {
         try {
             setLoading(true);
             let query = [`days=${daysThreshold}`];
             if (searchTerm) query.push(`search=${encodeURIComponent(searchTerm)}`);
+            if (selectedDepartment && selectedDepartment !== 'ALL') query.push(`department=${encodeURIComponent(selectedDepartment)}`);
 
             const queryString = `?${query.join('&')}`;
             const res = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/stores-short-expiry-report/${queryString}`);
             if (res && res.success) {
-                setExpiryItems(res.data.data || []);
+                const list = res.data.data || [];
+                const sortedList = [...list].sort((a, b) => String(a.item_name || '').localeCompare(String(b.item_name || ''), undefined, { sensitivity: 'base' }));
+                setExpiryItems(sortedList);
                 setSummary(res.data.summary || {});
             } else {
                 setExpiryItems([]);
@@ -108,7 +141,7 @@ const StoresShortExpiryReport = () => {
                             <Download size={16} /> Export Excel
                         </Button>
                         <Button 
-                            onClick={() => printStoresReport(null, { reportTitle: 'Stores Short Expiry & Expired List' })}
+                            onClick={() => printStoresReport(null, { reportTitle: 'Stores Short Expiry & Expired List', department: selectedDepartmentName || selectedDepartment || 'All Departments' })}
                             style={{ background: '#0284c7', color: '#fff', display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 14px', borderRadius: '8px', border: 'none', fontWeight: '600', cursor: 'pointer' }}
                         >
                             <Printer size={16} /> Print
@@ -137,6 +170,15 @@ const StoresShortExpiryReport = () => {
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
                             style={{ width: '100%' }}
+                        />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', alignSelf: 'flex-end', height: '38px' }}>
+                        <DepartmentFilterControl
+                            departments={departments}
+                            onDepartmentChange={(dept, name) => {
+                                setSelectedDepartment(dept || '');
+                                setSelectedDepartmentName(name || '');
+                            }}
                         />
                     </div>
                     <div style={{ display: 'flex', gap: '8px', alignSelf: 'flex-end' }}>

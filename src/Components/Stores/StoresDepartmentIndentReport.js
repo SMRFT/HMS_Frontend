@@ -3,6 +3,8 @@ import React, { useState, useEffect } from 'react';
 import dayjs from 'dayjs';
 import apiRequest from '../../Auth/apiRequest';
 import * as XLSX from 'xlsx';
+import { getSelectedStoreDepartment, getSelectedStoreDepartmentName, setSelectedStoreDepartment, useStoresDepartment } from './storesDepartmentHelper';
+import { DepartmentFilterControl } from './DepartmentSelectionModal';
 import { 
     Search, Calendar, RefreshCw, FileText, ChevronDown, ChevronRight, 
     Building2, ClipboardList, CheckCircle, Clock, PackageCheck, AlertCircle, Download
@@ -21,7 +23,7 @@ import {
     colors
 } from '../GlobalStyles';
 
-const StoresDepartmentIndentReport = () => {
+const StoresDepartmentIndentReport = ({ department: propDepartment = '', departmentName: propDepartmentName = '', isModalView = false, onClose }) => {
     const today = dayjs().format('YYYY-MM-DD');
     const oneMonthAgo = dayjs().subtract(1, 'month').format('YYYY-MM-DD');
 
@@ -37,14 +39,44 @@ const StoresDepartmentIndentReport = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [fromDate, setFromDate] = useState(oneMonthAgo);
     const [toDate, setToDate] = useState(today);
-    const [selectedDepartment, setSelectedDepartment] = useState('');
+    const [departments, setDepartments] = useState([]);
+    const [selectedDepartment, setSelectedDepartment] = useState(propDepartment || getSelectedStoreDepartment());
+    const [selectedDepartmentName, setSelectedDepartmentName] = useState(propDepartmentName || getSelectedStoreDepartmentName());
     const [expandedDept, setExpandedDept] = useState(null);
 
     const getBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || '';
 
     useEffect(() => {
+        if (propDepartment !== undefined) {
+            setSelectedDepartment(propDepartment || '');
+            if (propDepartmentName) setSelectedDepartmentName(propDepartmentName);
+        }
+    }, [propDepartment, propDepartmentName]);
+
+    useStoresDepartment((newDept, newName) => {
+        if (!propDepartment) {
+            setSelectedDepartment(newDept || '');
+            setSelectedDepartmentName(newName || '');
+        }
+    });
+
+    useEffect(() => {
+        const fetchDepts = async () => {
+            try {
+                const res = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/department-master/`);
+                if (res && res.success && Array.isArray(res.data)) {
+                    setDepartments(res.data);
+                }
+            } catch (err) {
+                console.error("Error fetching departments:", err);
+            }
+        };
+        fetchDepts();
+    }, [getBaseUrl]);
+
+    useEffect(() => {
         fetchReport();
-    }, []);
+    }, [selectedDepartment]);
 
     const fetchReport = async () => {
         try {
@@ -52,7 +84,7 @@ const StoresDepartmentIndentReport = () => {
             let query = [];
             if (fromDate) query.push(`from_date=${fromDate}`);
             if (toDate) query.push(`to_date=${toDate}`);
-            if (selectedDepartment) query.push(`department=${selectedDepartment}`);
+            if (selectedDepartment && selectedDepartment !== 'ALL') query.push(`department=${encodeURIComponent(selectedDepartment)}`);
             if (searchTerm) query.push(`search=${encodeURIComponent(searchTerm)}`);
 
             const queryString = query.length > 0 ? `?${query.join('&')}` : '';
@@ -80,11 +112,13 @@ const StoresDepartmentIndentReport = () => {
     };
 
     const clearFilters = () => {
-        setFromDate('');
-        setToDate('');
+        setFromDate(oneMonthAgo);
+        setToDate(today);
         setSelectedDepartment('');
+        setSelectedDepartmentName('');
+        setSelectedStoreDepartment('', 'All Departments');
         setSearchTerm('');
-        setTimeout(() => fetchReport(), 100);
+        setTimeout(() => fetchReport(), 50);
     };
 
     const toggleExpandDept = (deptId) => {
@@ -211,6 +245,16 @@ const StoresDepartmentIndentReport = () => {
                                 value={toDate}
                                 onChange={(e) => setToDate(e.target.value)}
                                 style={{ height: '42px', width: '150px', borderRadius: '8px' }}
+                            />
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                            <DepartmentFilterControl
+                                departments={departments}
+                                onDepartmentChange={(dept, name) => {
+                                    setSelectedDepartment(dept || '');
+                                    setSelectedDepartmentName(name || '');
+                                }}
                             />
                         </div>
 

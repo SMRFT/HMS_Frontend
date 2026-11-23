@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import dayjs from 'dayjs';
 import apiRequest from '../../Auth/apiRequest';
-import { getSelectedStoreDepartment, setSelectedStoreDepartment, useStoresDepartment } from '../Stores/storesDepartmentHelper';
+import { getSelectedStoreDepartment, getSelectedStoreDepartmentName, setSelectedStoreDepartment, useStoresDepartment, matchesStoreDepartment } from '../Stores/storesDepartmentHelper';
 import DepartmentSelectionModal, { DepartmentFilterControl } from '../Stores/DepartmentSelectionModal';
 import * as XLSX from 'xlsx';
 import ReactSelect from 'react-select';
@@ -94,7 +94,7 @@ const customSelectStyles = {
     })
 };
 
-const StoresPurchaseReturnReport = () => {
+const StoresPurchaseReturnReport = ({ department: propDepartment = '', departmentName: propDepartmentName = '', isModalView = false, onClose }) => {
     const today = dayjs().format('YYYY-MM-DD');
     const oneMonthAgo = dayjs().subtract(1, 'month').format('YYYY-MM-DD');
     const getBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || '';
@@ -103,8 +103,17 @@ const StoresPurchaseReturnReport = () => {
     const [grnList, setGrnList] = useState([]);
     const [vendors, setVendors] = useState([]);
     const [departments, setDepartments] = useState([]);
-    const [selectedDepartment, setSelectedDepartment] = useState(getSelectedStoreDepartment());
-    useStoresDepartment((newDept) => setSelectedDepartment(newDept || ''));
+    const [selectedDepartment, setSelectedDepartment] = useState(propDepartment || getSelectedStoreDepartment());
+    const [selectedDepartmentName, setSelectedDepartmentName] = useState(propDepartmentName || getSelectedStoreDepartmentName());
+    useStoresDepartment((newDept, newName) => {
+        setSelectedDepartment(newDept || '');
+        setSelectedDepartmentName(newName || '');
+    });
+
+    useEffect(() => {
+        setSelectedDepartment(propDepartment || '');
+        setSelectedDepartmentName(propDepartmentName || '');
+    }, [propDepartment, propDepartmentName]);
     const departmentFilterRef = useRef(null);
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
@@ -126,11 +135,16 @@ const StoresPurchaseReturnReport = () => {
     }, []);
 
     const filteredReturns = returnsList.filter(ret => {
-        if (selectedDepartment) {
+        if (selectedDepartment && selectedDepartment !== 'ALL') {
             const matchedGrn = grnList.find(g => String(g.grn_number).toLowerCase() === String(ret.grn_number).toLowerCase());
-            const dept = (ret.department_name || ret.department || matchedGrn?.department_name || matchedGrn?.department || '').toLowerCase().trim();
-            const target = selectedDepartment.toLowerCase().trim();
-            if (dept !== target && !dept.includes(target)) return false;
+            const itemToMatch = {
+                ...ret,
+                department: ret.department || matchedGrn?.department,
+                department_name: ret.department_name || matchedGrn?.department_name
+            };
+            if (!matchesStoreDepartment(itemToMatch, selectedDepartment, selectedDepartmentName, departments)) {
+                return false;
+            }
         }
 
         if (!searchTerm) return true;
@@ -141,7 +155,7 @@ const StoresPurchaseReturnReport = () => {
         const vendorName = (ret.vendor_name || ret.vendor_id || '').toLowerCase();
         const reason = (ret.return_reason || '').toLowerCase();
         return retId.includes(q) || debitNo.includes(q) || grnNo.includes(q) || vendorName.includes(q) || reason.includes(q);
-    });
+    }).sort((a, b) => String(a.vendor_name || a.return_id || '').localeCompare(String(b.vendor_name || b.return_id || ''), undefined, { sensitivity: 'base' }));
 
     const totalQtyReturned = filteredReturns.reduce((acc, r) => acc + (parseFloat(r.total_return_quantity || 0) || (r.items || []).reduce((sum, it) => sum + (parseFloat(it.return_quantity || it.quantity || 0)), 0)), 0);
 
@@ -197,9 +211,10 @@ const StoresPurchaseReturnReport = () => {
 
     const fetchGrns = async () => {
         try {
-            const res = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/stores-grn/`);
+            const res = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/stores-grn/?only_numbers=true`);
             if (res && res.success && res.data) {
-                setGrnList(Array.isArray(res.data) ? res.data : []);
+                const list = Array.isArray(res.data) ? res.data : (Array.isArray(res.data?.data) ? res.data.data : []);
+                setGrnList(list);
             }
         } catch (err) {
             console.error("Error fetching GRNs:", err);
@@ -734,8 +749,9 @@ const StoresPurchaseReturnReport = () => {
                     <div style={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                         <DepartmentFilterControl
                             departments={departments}
-                            onDepartmentChange={(dept) => {
+                            onDepartmentChange={(dept, name) => {
                                 setSelectedDepartment(dept || '');
+                                setSelectedDepartmentName(name || '');
                             }}
                         />
                     </div>

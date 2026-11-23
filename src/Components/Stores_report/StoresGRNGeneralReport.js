@@ -30,7 +30,7 @@ import {
     colors
 } from '../GlobalStyles';
 
-const StoresGRNGeneralReport = () => {
+const StoresGRNGeneralReport = ({ department: propDepartment = '', departmentName: propDepartmentName = '', isModalView = false, onClose }) => {
     const today = dayjs().format('YYYY-MM-DD');
     const oneMonthAgo = dayjs().subtract(1, 'month').format('YYYY-MM-DD');
 
@@ -40,19 +40,20 @@ const StoresGRNGeneralReport = () => {
     const [fromDate, setFromDate] = useState(oneMonthAgo);
     const [toDate, setToDate] = useState(today);
     const [filterStatus, setFilterStatus] = useState('ALL');
-    const [selectedDepartment, setSelectedDepartment] = useState('ALL');
+    const [selectedDepartment, setSelectedDepartment] = useState(propDepartment || getSelectedStoreDepartment() || 'ALL');
     const [departments, setDepartments] = useState([]);
     const [selectedGrnForDetails, setSelectedGrnForDetails] = useState(null);
 
     const getBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || '';
 
     // Department helper synchronization
-    const activeGlobalDept = useStoresDepartment();
     useEffect(() => {
-        if (activeGlobalDept && activeGlobalDept !== 'ALL') {
-            setSelectedDepartment(activeGlobalDept);
-        }
-    }, [activeGlobalDept]);
+        setSelectedDepartment(propDepartment || 'ALL');
+    }, [propDepartment]);
+
+    useStoresDepartment((newDept) => {
+        setSelectedDepartment(newDept || 'ALL');
+    });
 
     // Fetch department list
     useEffect(() => {
@@ -126,7 +127,7 @@ const StoresGRNGeneralReport = () => {
             else if (filterStatus === 'CANCELLED') matchesStatus = isCancelled;
 
             return matchesSearch && matchesStatus;
-        });
+        }).sort((a, b) => String(a.vendor_name || a.grn_number || '').localeCompare(String(b.vendor_name || b.grn_number || ''), undefined, { sensitivity: 'base' }));
     }, [grns, searchTerm, filterStatus]);
 
     // Calculate Summary Metrics

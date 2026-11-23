@@ -3,6 +3,8 @@ import dayjs from 'dayjs';
 import apiRequest from '../../Auth/apiRequest';
 import * as XLSX from 'xlsx';
 import ReactSelect from 'react-select';
+import { getSelectedStoreDepartment, getSelectedStoreDepartmentName, setSelectedStoreDepartment, useStoresDepartment } from '../Stores/storesDepartmentHelper';
+import { DepartmentFilterControl } from '../Stores/DepartmentSelectionModal';
 import { 
     FileText, Plus, Search, Calendar, RefreshCw, Printer, 
     CheckCircle, X, Download, Trash2, Building2, ShoppingBag, Eye, MapPin, CreditCard, Hash
@@ -115,13 +117,16 @@ const sanitizeTerms = (terms) => {
 };
 
 
-const StoresPurchaseOrderReport = () => {
+const StoresPurchaseOrderReport = ({ department: propDepartment = '', departmentName: propDepartmentName = '', isModalView = false, onClose }) => {
     const today = dayjs().format('YYYY-MM-DD');
     const oneMonthAgo = dayjs().subtract(1, 'month').format('YYYY-MM-DD');
     const getBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || '';
 
     const [poList, setPoList] = useState([]);
     const [vendors, setVendors] = useState([]);
+    const [departments, setDepartments] = useState([]);
+    const [selectedDepartment, setSelectedDepartment] = useState(propDepartment || getSelectedStoreDepartment());
+    const [selectedDepartmentName, setSelectedDepartmentName] = useState(propDepartmentName || getSelectedStoreDepartmentName());
     const [itemsMaster, setItemsMaster] = useState([]);
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
@@ -130,6 +135,16 @@ const StoresPurchaseOrderReport = () => {
     const [selectedVendor, setSelectedVendor] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
     const [totalAmount, setTotalAmount] = useState(0);
+
+    useEffect(() => {
+        setSelectedDepartment(propDepartment || '');
+        setSelectedDepartmentName(propDepartmentName || '');
+    }, [propDepartment, propDepartmentName]);
+
+    useStoresDepartment((newDept, newName) => {
+        setSelectedDepartment(newDept || '');
+        setSelectedDepartmentName(newName || '');
+    });
 
     // Modal state
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -160,9 +175,21 @@ const StoresPurchaseOrderReport = () => {
 
     useEffect(() => {
         fetchVendors();
+        fetchDepts();
         fetchItemsMaster();
         fetchPOs();
     }, []);
+
+    const fetchDepts = async () => {
+        try {
+            const res = await apiRequest(`${getBaseUrl.replace(/\/$/, '')}/department-master/`);
+            if (res && res.success && Array.isArray(res.data)) {
+                setDepartments(res.data);
+            }
+        } catch (err) {
+            console.error("Error fetching departments:", err);
+        }
+    };
 
     const fetchVendors = async () => {
         try {
@@ -765,6 +792,27 @@ const StoresPurchaseOrderReport = () => {
         printWindow.document.close();
     };
 
+    const filteredPoList = React.useMemo(() => {
+        let list = poList;
+        if (selectedDepartment && selectedDepartment !== 'ALL') {
+            const dLower = selectedDepartment.toLowerCase();
+            const dNameLower = (selectedDepartmentName || '').toLowerCase();
+            list = poList.filter(po => {
+                if (po.department && (po.department.toLowerCase() === dLower || (dNameLower && po.department.toLowerCase() === dNameLower))) return true;
+                const items = parsePoItems(po.items);
+                return items.some(it => {
+                    const itemDept = String(it.department || it.dept || it.department_id || it.department_name || '').toLowerCase();
+                    return itemDept === dLower || (dNameLower && itemDept === dNameLower);
+                });
+            });
+        }
+        return [...list].sort((a, b) => String(a.vendor_name || a.po_number || '').localeCompare(String(b.vendor_name || b.po_number || ''), undefined, { sensitivity: 'base' }));
+    }, [poList, selectedDepartment, selectedDepartmentName]);
+
+    const displayTotalAmount = React.useMemo(() => {
+        return filteredPoList.reduce((acc, p) => acc + (parseFloat(p.total_amount) || 0), 0);
+    }, [filteredPoList]);
+
     return (
         <PageWrapper style={{ background: '#f8fafc', minHeight: '100vh', padding: '24px' }}>
             <Container>
@@ -838,6 +886,15 @@ const StoresPurchaseOrderReport = () => {
                             style={{ width: '100%' }}
                         />
                     </div>
+                    <div style={{ display: 'flex', alignItems: 'center', alignSelf: 'flex-end', height: '38px' }}>
+                        <DepartmentFilterControl
+                            departments={departments}
+                            onDepartmentChange={(dept, name) => {
+                                setSelectedDepartment(dept || '');
+                                setSelectedDepartmentName(name || '');
+                            }}
+                        />
+                    </div>
                     <div style={{ display: 'flex', gap: '8px', alignSelf: 'flex-end' }}>
                         <Button onClick={fetchPOs} style={{ background: colors.primary, color: '#fff', padding: '9px 16px', borderRadius: '8px', border: 'none', fontWeight: '600', cursor: 'pointer' }}>
                             <Search size={16} /> Filter
@@ -853,14 +910,14 @@ const StoresPurchaseOrderReport = () => {
                     <div style={{ background: '#ffffff', padding: '16px 20px', borderRadius: '12px', border: `1px solid ${colors.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
                             <div style={{ color: colors.textMuted, fontSize: '0.85rem', fontWeight: '600' }}>TOTAL PURCHASE ORDERS</div>
-                            <div style={{ fontSize: '1.6rem', fontWeight: '800', color: colors.primary, marginTop: '4px' }}>{poList.length}</div>
+                            <div style={{ fontSize: '1.6rem', fontWeight: '800', color: colors.primary, marginTop: '4px' }}>{filteredPoList.length}</div>
                         </div>
                         <FileText size={32} color={colors.primary} opacity={0.3} />
                     </div>
                     <div style={{ background: '#ffffff', padding: '16px 20px', borderRadius: '12px', border: `1px solid ${colors.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
                             <div style={{ color: colors.textMuted, fontSize: '0.85rem', fontWeight: '600' }}>TOTAL PO VALUE</div>
-                            <div style={{ fontSize: '1.6rem', fontWeight: '800', color: '#059669', marginTop: '4px' }}>₹{totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+                            <div style={{ fontSize: '1.6rem', fontWeight: '800', color: '#059669', marginTop: '4px' }}>₹{displayTotalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
                         </div>
                         <CheckCircle size={32} color="#059669" opacity={0.3} />
                     </div>
@@ -890,14 +947,14 @@ const StoresPurchaseOrderReport = () => {
                                         <p style={{ marginTop: '8px', color: colors.textMuted }}>Loading Purchase Orders...</p>
                                     </Td>
                                 </Tr>
-                            ) : poList.length === 0 ? (
+                            ) : filteredPoList.length === 0 ? (
                                 <Tr>
                                     <Td colSpan="9" style={{ textAlign: 'center', padding: '40px', color: colors.textMuted }}>
                                         No purchase orders found matching the filter criteria.
                                     </Td>
                                 </Tr>
                             ) : (
-                                poList.map(po => (
+                                filteredPoList.map(po => (
                                     <Tr key={po.po_number}>
                                         <Td style={{ fontWeight: '700', color: colors.primary }}>{po.po_number}</Td>
                                         <Td>{po.po_date}</Td>

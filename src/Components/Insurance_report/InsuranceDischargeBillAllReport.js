@@ -261,21 +261,23 @@ const InsuranceDischargeBillAllReport = ({ embedded = false }) => {
     const queryParams = new URLSearchParams(location.search);
     const initialIp = queryParams.get('ip_number') || '';
     const initialUhid = queryParams.get('uhid') || '';
+    const initialBillNumber = queryParams.get('bill_number') || queryParams.get('bill_no') || '';
     const initialTitle = queryParams.get('report_title') || '';
     const initialReportType = queryParams.get('report_type') || '';
 
     const [ipNumber, setIpNumber] = useState(initialIp);
     const [uhid, setUhid] = useState(initialUhid);
+    const [billNumber, setBillNumber] = useState(initialBillNumber);
     const [loading, setLoading] = useState(false);
     const [payload, setPayload] = useState(null);
 
     const activeReportTitle = initialTitle || payload?.report_title || 'Insurance Discharge Bill (All)';
 
-    const loadData = useCallback(async (targetIp = ipNumber, targetUhid = uhid) => {
+    const loadData = useCallback(async (targetIp = ipNumber, targetUhid = uhid, targetBill = billNumber) => {
         try {
             setLoading(true);
             const getBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || '';
-            const url = `${getBaseUrl.replace(/\/$/, '')}/report-insurance-discharge-bill-all/?ip_number=${encodeURIComponent(targetIp)}&uhid=${encodeURIComponent(targetUhid)}&report_title=${encodeURIComponent(initialTitle)}&report_type=${encodeURIComponent(initialReportType)}`;
+            const url = `${getBaseUrl.replace(/\/$/, '')}/report-insurance-discharge-bill-all/?bill_number=${encodeURIComponent(targetBill)}&ip_number=${encodeURIComponent(targetIp)}&uhid=${encodeURIComponent(targetUhid)}&report_title=${encodeURIComponent(initialTitle)}&report_type=${encodeURIComponent(initialReportType)}`;
             const res = await apiRequest(url, 'GET');
 
             if (res && res.success) {
@@ -291,11 +293,11 @@ const InsuranceDischargeBillAllReport = ({ embedded = false }) => {
         } finally {
             setLoading(false);
         }
-    }, [ipNumber, uhid, initialTitle, initialReportType]);
+    }, [ipNumber, uhid, billNumber, initialTitle, initialReportType]);
 
     useEffect(() => {
-        loadData(initialIp, initialUhid);
-    }, [initialIp, initialUhid, loadData]);
+        loadData(initialIp, initialUhid, initialBillNumber);
+    }, [initialIp, initialUhid, initialBillNumber, loadData]);
 
     const handlePrint = () => {
         printInsuranceReport('printable-discharge-bill-sheet', {
@@ -398,13 +400,24 @@ const InsuranceDischargeBillAllReport = ({ embedded = false }) => {
 
                     <div className="filters-side">
                         <div className="filter-input">
+                            <Search size={15} color="#64748b" />
+                            <input
+                                type="text"
+                                placeholder="Bill Number (e.g. 2627/000193)..."
+                                value={billNumber}
+                                onChange={(e) => setBillNumber(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') loadData(ipNumber, uhid, e.target.value); }}
+                            />
+                        </div>
+
+                        <div className="filter-input">
                             <User size={15} color="#64748b" />
                             <input
                                 type="text"
                                 placeholder="Enter IP Number..."
                                 value={ipNumber}
                                 onChange={(e) => setIpNumber(e.target.value)}
-                                onKeyDown={(e) => { if (e.key === 'Enter') loadData(); }}
+                                onKeyDown={(e) => { if (e.key === 'Enter') loadData(e.target.value, uhid, billNumber); }}
                             />
                         </div>
 
@@ -415,11 +428,11 @@ const InsuranceDischargeBillAllReport = ({ embedded = false }) => {
                                 placeholder="Or UHID..."
                                 value={uhid}
                                 onChange={(e) => setUhid(e.target.value)}
-                                onKeyDown={(e) => { if (e.key === 'Enter') loadData(); }}
+                                onKeyDown={(e) => { if (e.key === 'Enter') loadData(ipNumber, e.target.value, billNumber); }}
                             />
                         </div>
 
-                        <button className="btn-query" onClick={() => loadData()}>
+                        <button className="btn-query" onClick={() => loadData(ipNumber, uhid, billNumber)}>
                             <Search size={15} /> Search
                         </button>
 
@@ -441,22 +454,46 @@ const InsuranceDischargeBillAllReport = ({ embedded = false }) => {
                 </div>
             ) : (
                 <PrintableSheet id="printable-discharge-bill-sheet">
-                    {/* Patient & Bill Metadata matching PDF */}
+                    {/* Official Shanmuga Hospital Ltd. Header matching image media_1795329956212_4709c03e.jpg */}
+                    <div className="sheet-hospital-header" style={{ marginBottom: '16px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            <div style={{ textAlign: 'center', flex: 1, padding: '0 10px' }}>
+                                <h1 style={{ margin: '0 0 2px 0', fontSize: '24px', fontWeight: '900', color: '#166534', letterSpacing: '-0.3px', textTransform: 'none' }}>
+                                    Shanmuga Hospital Ltd.,
+                                </h1>
+                                <div style={{ fontSize: '8.5px', color: '#14532d', fontWeight: 600, margin: '2px 0' }}>
+                                    Approved Hospital for Central / State / TKT / TN. GOVT. EMPLOYESS / ECHS / ESI / BSNL / FCI / ALL INSURANCE COMPANIES / CASHLESS / REIMBURSEMENT
+                                </div>
+                                <div style={{ fontSize: '9.5px', color: '#000000', fontWeight: 500 }}>
+                                    24, Saradha College Road, SALEM - 636 007.
+                                </div>
+                                <div style={{ fontSize: '9.5px', color: '#000000', fontWeight: 700, marginTop: '1px' }}>
+                                    ☎ 0427-2706666 / 87540 33833
+                                </div>
+                            </div>
+                            <div style={{ textAlign: 'right', fontSize: '9px', fontWeight: 'bold', color: '#000000', minWidth: '130px' }}>
+                                CIN : L85110TZ2020PLC033974
+                            </div>
+                        </div>
+                        <div style={{ borderBottom: '2px solid #166534', marginTop: '8px', marginBottom: '8px' }}></div>
+                        <div style={{ textAlign: 'center', fontSize: '13px', fontWeight: '900', letterSpacing: '0.5px', textTransform: 'uppercase', color: '#166534', padding: '2px 0' }}>
+                            DISCHARGE BILL
+                        </div>
+                        <div style={{ borderBottom: '1px solid #166534', marginBottom: '14px' }}></div>
+                    </div>
+
+                    {/* Patient & Bill Metadata Two Columns */}
                     <div className="meta-container">
                         <div className="meta-col-left">
                             <div className="meta-row">
-                                <span className="lbl">IP Number</span>
-                                <span className="val">: {pickVal(patient.ip_number, ipNumber)}</span>
-                            </div>
-                            <div className="meta-row">
                                 <span className="lbl">OP Number</span>
-                                <span className="val">: {pickVal(patient.op_number, patient.uhid)}</span>
+                                <span className="val">: {pickVal(patient.op_number, patient.uhid, uhid)}</span>
                             </div>
                             <div className="meta-row">
                                 <span className="lbl">Name</span>
                                 <span className="val">: {pickVal(patient.name, patient.patient_name)} {pickVal(patient.age) !== '-' ? `${pickVal(patient.age)} Years` : ''}</span>
                             </div>
-                            <div className="meta-row">
+                            <div className="meta-row" style={{ alignItems: 'flex-start' }}>
                                 <span className="lbl">Address</span>
                                 <span className="val">: {pickVal(patient.address)}</span>
                             </div>
@@ -465,8 +502,8 @@ const InsuranceDischargeBillAllReport = ({ embedded = false }) => {
                                 <span className="val">: {pickVal(patient.doctor, patient.doctor_name)}</span>
                             </div>
                             <div className="meta-row">
-                                <span className="lbl">Claim Intimation No.</span>
-                                <span className="val">: {pickVal(patient.claim_intimation_no)}</span>
+                                <span className="lbl">Claim Intimation</span>
+                                <span className="val">: {pickVal(patient.claim_intimation, patient.claim_intimation_no)}</span>
                             </div>
                         </div>
 
@@ -480,44 +517,50 @@ const InsuranceDischargeBillAllReport = ({ embedded = false }) => {
                                 <span className="val">: {pickVal(billMeta.bill_date, patient.bill_date)}</span>
                             </div>
                             <div className="meta-row">
-                                <span className="lbl">DOA</span>
-                                <span className="val">: {pickVal(billMeta.doa, patient.doa, patient.admitted_date)}</span>
+                                <span className="lbl">Treatment start</span>
+                                <span className="val">: {pickVal(billMeta.treatment_start, billMeta.doa, patient.treatment_start, patient.doa, patient.admitted_date)}</span>
                             </div>
                             <div className="meta-row">
-                                <span className="lbl">DOD</span>
-                                <span className="val">: {pickVal(billMeta.dod, patient.dod, patient.discharge_date)}</span>
-                            </div>
-                            <div className="meta-row">
-                                <span className="lbl">Room</span>
-                                <span className="val">: {pickVal(billMeta.room, billMeta.room_category, patient.room_category, patient.room)}</span>
-                            </div>
-                            <div className="meta-row">
-                                <span className="lbl">Days</span>
-                                <span className="val">: {pickVal(billMeta.days, billMeta.total_days, patient.days, patient.total_days)}</span>
+                                <span className="lbl">Treatment end</span>
+                                <span className="val">: {pickVal(billMeta.treatment_end, billMeta.dod, patient.treatment_end, patient.dod, patient.discharge_date)}</span>
                             </div>
                             <div className="meta-row">
                                 <span className="lbl">Company</span>
                                 <span className="val">: {pickVal(billMeta.company, billMeta.company_name, patient.company_name, patient.insurance_company)}</span>
                             </div>
                             <div className="meta-row">
-                                <span className="lbl">Approval</span>
-                                <span className="val">: {pickVal(billMeta.approval, patient.approval)}</span>
+                                <span className="lbl">REF ID</span>
+                                <span className="val">: {pickVal(billMeta.ref_id, billMeta.approval, patient.ref_id, patient.approval)}</span>
                             </div>
                         </div>
                     </div>
 
                     <div className="divider-line" />
 
-                    <div className="section-heading">Diagnosis</div>
+                    {/* Package Details */}
+                    <div style={{ display: 'flex', marginBottom: '8px', fontSize: '11px' }}>
+                        <div style={{ width: '130px', fontWeight: 'bold' }}>Package Details</div>
+                        <div style={{ flex: 1, fontWeight: 'bold' }}>
+                            {pickVal(payload?.package_details, billMeta.package_details, patient.package_details)}
+                        </div>
+                    </div>
 
-                    <div className="section-heading" style={{ marginTop: '16px' }}>Bill Details</div>
+                    {/* Diagnosis */}
+                    <div style={{ display: 'flex', marginBottom: '14px', fontSize: '11px' }}>
+                        <div style={{ width: '130px', fontWeight: 'bold' }}>Diagnosis</div>
+                        <div style={{ flex: 1, fontWeight: 'bold' }}>
+                            {pickVal(payload?.diagnosis, billMeta.diagnosis, patient.diagnosis)}
+                        </div>
+                    </div>
+
+                    <div className="section-heading" style={{ marginTop: '14px', marginBottom: '8px' }}>Bill Details</div>
 
                     <div className="bill-details-container">
                         <table className="items-table">
                             <tbody>
                                 {(!Array.isArray(details) || details.length === 0) ? (
                                     <tr>
-                                        <td colSpan={2} style={{ textAlign: 'center', padding: '40px', color: '#64748b', fontSize: '14px', fontWeight: 600 }}>
+                                        <td colSpan={2} style={{ textAlign: 'center', padding: '30px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>
                                             No record found
                                         </td>
                                     </tr>
@@ -525,14 +568,14 @@ const InsuranceDischargeBillAllReport = ({ embedded = false }) => {
                                     <>
                                         {details.map((d, idx) => (
                                             <tr key={idx}>
-                                                <td className="item-title">{d.category || d.particulars}</td>
-                                                <td className="item-amount">{Number(d.amount || 0).toFixed(2)}</td>
+                                                <td className="item-title">{d.itemName || d.category || d.particulars}</td>
+                                                <td className="item-amount" style={{ fontWeight: 'bold' }}>{Number(d.amount || d.price || 0).toFixed(2)}</td>
                                             </tr>
                                         ))}
 
-                                        <tr className="total-row">
-                                            <td className="item-title" style={{ textAlign: 'center' }}>Total</td>
-                                            <td className="item-amount">{Number(totalAmount).toFixed(2)}</td>
+                                        <tr className="total-row" style={{ borderTop: '1px solid #000', borderBottom: '3px double #000' }}>
+                                            <td className="item-title" style={{ textAlign: 'center', fontWeight: '900', fontSize: '12px' }}>Total</td>
+                                            <td className="item-amount" style={{ fontWeight: '900', fontSize: '12px' }}>{Number(totalAmount).toFixed(2)}</td>
                                         </tr>
                                     </>
                                 )}
@@ -540,16 +583,16 @@ const InsuranceDischargeBillAllReport = ({ embedded = false }) => {
                         </table>
                     </div>
 
-                    {/* Signatures */}
-                    <div className="signatures-block">
-                        <div className="sig-col">
-                            <div className="sig-name">Dr.P.Prabhusankar</div>
-                            <div className="sig-role">Director</div>
+                    {/* Footer Signatures: Designation ONLY */}
+                    <div className="signatures-block" style={{ display: 'flex', justifyContent: 'space-between', marginTop: '70px', paddingTop: '10px' }}>
+                        <div className="sig-col" style={{ textAlign: 'left', fontSize: '11px' }}>
+                            <div style={{ borderTop: '1px solid #000000', width: '180px', marginBottom: '6px' }}></div>
+                            <div className="sig-role" style={{ fontWeight: 'bold', fontSize: '11px', color: '#000000' }}>Insurance Executive</div>
                         </div>
 
-                        <div className="sig-col">
-                            <div className="sig-name">Dr.P.S.Paneerselvam</div>
-                            <div className="sig-role">Medical Director</div>
+                        <div className="sig-col" style={{ textAlign: 'right', fontSize: '11px' }}>
+                            <div style={{ borderTop: '1px solid #000000', width: '220px', marginBottom: '6px', marginLeft: 'auto' }}></div>
+                            <div className="sig-role" style={{ fontWeight: 'bold', fontSize: '11px', color: '#000000' }}>General Manager - Insurance</div>
                         </div>
                     </div>
                 </PrintableSheet>

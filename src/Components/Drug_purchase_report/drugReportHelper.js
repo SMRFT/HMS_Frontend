@@ -1,10 +1,10 @@
 import dayjs from 'dayjs';
 
 export const SCOPE_OPTIONS = [
-    { id: 'ALL (IP PHARMACY, OP PHARMACY, DRUG PURCHASE)', label: 'CONSOLIDATED (ALL: IP, OP, DRUG PURCHASE)' },
+    { id: 'ALL (IP PHARMACY, OP PHARMACY, DRUG PURCHASE)', label: 'ALL (IP PHARMACY, OP PHARMACY, DRUG PURCHASE)' },
     { id: 'IP PHARMACY', label: 'IP PHARMACY' },
     { id: 'OP PHARMACY', label: 'OP PHARMACY' },
-    { id: 'DRUG PURCHASE', label: 'DRUG PURCHASE (CENTRAL)' }
+    { id: 'DRUG PURCHASE', label: 'DRUG PURCHASE' }
 ];
 
 export const getStoredScope = () => {

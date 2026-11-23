@@ -322,6 +322,7 @@ const MedicineAbstractReport = () => {
 
     const [loading, setLoading] = useState(false);
     const [reportData, setReportData] = useState(null);
+    const debounceTimerRef = useRef(null);
 
     const fetchReport = useCallback(async (targetIp, targetUhid, fDate, tDate) => {
         const queryTerm = (targetIp && targetIp.trim()) || (targetUhid && targetUhid.trim());
@@ -345,7 +346,7 @@ const MedicineAbstractReport = () => {
                 if (dataObj.patient_info?.uhid && !uhid) {
                     setUhid(dataObj.patient_info.uhid);
                 }
-                if (dataObj.patient_info?.ip_number && !ipNumber) {
+                if (dataObj.patient_info?.ip_number) {
                     setIpNumber(dataObj.patient_info.ip_number);
                 }
             } else {
@@ -375,8 +376,22 @@ const MedicineAbstractReport = () => {
                 if (autoSelectFirst) {
                     const match = selectedIp && admissions.some(a => a.ip_number === selectedIp);
                     const chosen = match ? selectedIp : admissions[0].ip_number;
+                    const chosenAdm = admissions.find(a => a.ip_number === chosen) || admissions[0];
                     setIpNumber(chosen);
-                    fetchReport(chosen, uhidVal, fromDate, toDate);
+
+                    let fD = fromDate;
+                    let tD = toDate;
+                    if (chosenAdm.admission_date) {
+                        const parsedStart = dayjs(chosenAdm.admission_date.slice(0, 10), 'DD/MM/YYYY');
+                        if (parsedStart.isValid()) {
+                            const parsedEnd = chosenAdm.discharge_date ? dayjs(chosenAdm.discharge_date.slice(0, 10), 'DD/MM/YYYY') : dayjs();
+                            fD = parsedStart;
+                            tD = parsedEnd.isValid() ? parsedEnd : dayjs();
+                            setFromDate(fD);
+                            setToDate(tD);
+                        }
+                    }
+                    fetchReport(chosen, uhidVal, fD, tD);
                 }
             } else {
                 setIpOptions([]);
@@ -403,8 +418,11 @@ const MedicineAbstractReport = () => {
     const handleUhidChange = (val) => {
         setUhid(val);
         setIpNumber('');
+        if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
         if (val && val.trim().length >= 2) {
-            fetchIpOptions(val, true, '');
+            debounceTimerRef.current = setTimeout(() => {
+                fetchIpOptions(val.trim(), true, '');
+            }, 350);
         } else {
             setIpOptions([]);
         }
@@ -414,10 +432,28 @@ const MedicineAbstractReport = () => {
         if (!adm || !adm.ip_number) return;
         const newIp = adm.ip_number;
         setIpNumber(newIp);
-        fetchReport(newIp, uhid, fromDate, toDate);
+
+        let fD = fromDate;
+        let tD = toDate;
+        if (adm.admission_date) {
+            const parsedStart = dayjs(adm.admission_date.slice(0, 10), 'DD/MM/YYYY');
+            if (parsedStart.isValid()) {
+                const parsedEnd = adm.discharge_date ? dayjs(adm.discharge_date.slice(0, 10), 'DD/MM/YYYY') : dayjs();
+                fD = parsedStart;
+                tD = parsedEnd.isValid() ? parsedEnd : dayjs();
+                setFromDate(fD);
+                setToDate(tD);
+            }
+        }
+        fetchReport(newIp, uhid, fD, tD);
     };
 
     const handleQuery = () => {
+        if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+        if (ipOptions.length === 0 && uhid && uhid.trim().length >= 2) {
+            fetchIpOptions(uhid.trim(), true, ipNumber);
+            return;
+        }
         const targetIp = ipNumber || (ipOptions.length > 0 ? ipOptions[0].ip_number : '');
         if (targetIp && !ipNumber) setIpNumber(targetIp);
         fetchReport(targetIp, uhid, fromDate, toDate);
