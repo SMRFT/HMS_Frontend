@@ -4221,9 +4221,11 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
         const totalTaxAmt = totalCgstAmt + totalSgstAmt;
         const totalAmount = calcTotal > 0 ? calcTotal : (p.total_amount != null ? Number(p.total_amount) : 0);
         const discountAmt = parseFloat(p.overall_discount_amount || p.discount || 0);
-        const netAmount = p.net_amount != null && Number(p.net_amount) > 0
-          ? Number(p.net_amount)
-          : Math.max(0, totalAmount - discountAmt);
+        const expectedNet = Math.max(0, totalAmount - discountAmt);
+        const rawNet = p.net_amount != null ? Number(p.net_amount) : NaN;
+        const netAmount = (!isNaN(rawNet) && rawNet > 0 && Math.abs(rawNet - expectedNet) <= 1.05)
+          ? rawNet
+          : Math.round(expectedNet);
 
         const handlePrintNow = () => {
           const printArea = document.getElementById("medicinechart-print-area");
