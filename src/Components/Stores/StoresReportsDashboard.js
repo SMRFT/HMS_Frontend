@@ -176,7 +176,7 @@ const StoresReportsDashboard = () => {
                             const IconComponent = iconMap[iconName] || Layers;
                             let title = page.name || page.title || page.route;
                             if (page.route === '/StoresDateGrnReport') {
-                                title = 'Date-Wise Stores GRN Report (Date-Based)';
+                                title = 'Date-Based GRN Report';
                             }
                             pages.push({
                                 id: page.page_id || page.route,
@@ -192,12 +192,12 @@ const StoresReportsDashboard = () => {
                     }
                 }
 
-                // Ensure Date-Wise Stores GRN Report is included
+                // Ensure Date-Based GRN Report is included right after Supplier-Based GRN Report
                 if (!pages.some(p => p.route === '/StoresDateGrnReport')) {
                     const supplierIdx = pages.findIndex(p => p.route === '/StoresSupplierGrnReport');
                     const dateGrnCard = {
-                        id: 'StoresDateGrnReport',
-                        title: 'Date-Wise Stores GRN Report (Date-Based)',
+                        id: 21,
+                        title: 'Date-Based GRN Report',
                         description: 'Chronological Goods Received Note (GRN) report categorized by Date with active suppliers, gross purchases, returns, and net purchases.',
                         route: '/StoresDateGrnReport',
                         icon: CalendarDays,
@@ -235,7 +235,7 @@ const StoresReportsDashboard = () => {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, []);
 
-    // Filter reports dynamically by user report permissions strictly for display inside this page, sorted alphabetically
+    // Filter reports dynamically by user report permissions strictly for display inside this page
     const filteredReports = useMemo(() => {
         return dbReports
             .filter(rep => {
@@ -249,8 +249,8 @@ const StoresReportsDashboard = () => {
                     )
                 );
 
-                // If user has access to Stores or GRN, allow Date-Wise Stores GRN report
-                const isDateGrn = rep.route === '/StoresDateGrnReport' || norm === '/StoresDateGrnReport';
+                // If user has access to Stores or GRN, allow Date-Based GRN report
+                const isDateGrn = rep.route === '/StoresDateGrnReport' || norm === '/StoresDateGrnReport' || (rep.title && rep.title.toLowerCase().includes('date') && rep.title.toLowerCase().includes('grn'));
                 const hasGrnAccess = isDateGrn && Boolean(
                     !userReportPerms ||
                     Object.keys(userReportPerms).length === 0 ||
@@ -260,6 +260,8 @@ const StoresReportsDashboard = () => {
                     userReportPerms['Supplier-Based GRN Report'] ||
                     userReportPerms['10'] ||
                     userReportPerms['21'] ||
+                    userReportPerms['/StoresDateGrnReport'] ||
+                    userReportPerms['Date-Based GRN Report'] ||
                     Object.keys(userReportPerms).some(k => k.toLowerCase().includes('stores') || k.toLowerCase().includes('grn'))
                 );
 
@@ -280,8 +282,7 @@ const StoresReportsDashboard = () => {
                     const altW = w === 'wise' ? 'based' : (w === 'based' ? 'wise' : w);
                     return repText.includes(w) || repText.includes(altW);
                 });
-            })
-            .sort((a, b) => (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' }));
+            });
     }, [dbReports, hasCustomConfig, userReportPerms, searchTerm]);
 
     const openReportModal = (report) => {

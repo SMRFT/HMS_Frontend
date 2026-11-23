@@ -701,7 +701,7 @@ export const DRUG_PURCHASE_REPORTS = [
     {
         id: 'DrugDateGrnReport',
         key: 'date_grn',
-        title: 'Date-Wise / Date-Based GRN Report (ALL (IP PHARMACY, OP PHARMACY, DRUG PURCHASE))',
+        title: 'Date-Based GRN Report (ALL (IP PHARMACY, OP PHARMACY, DRUG PURCHASE))',
         description: 'Goods Received Note (GRN) report categorized by Date with day of week, supplier count, gross purchases, returns, and net purchases from hospital_grn and hospital_vendor.',
         route: '/DrugDateGrnReport',
         icon: CalendarDays,
@@ -886,8 +886,7 @@ const DrugPurchaseReportsDashboard = () => {
                     const altW = w === 'wise' ? 'based' : (w === 'based' ? 'wise' : w);
                     return repText.includes(w) || repText.includes(altW);
                 });
-            })
-            .sort((a, b) => (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' }));
+            });
     }, [selectedCategory, searchTerm]);
 
     // Filter table rows inside modal, sorted alphabetically
