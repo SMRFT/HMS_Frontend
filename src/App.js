@@ -77,6 +77,7 @@ import DischargeReport from "./Components/Discharge/DischargeReport";
 import DischargeBilling from "./Components/Discharge/DischargeBilling";
 import MRDTracking from "./Components/MRD/MRDTracking";
 import GRNAnalysis from "./Components/InventoryMaster/GRNAnalysis";
+import GRNReceive from "./Components/InventoryMaster/GRNReceive";
 import PurchaseReturn from "./Components/InventoryMaster/PurchaseReturn";
 import Internship from "./Components/HR/Internship";
 import InternshipDashboard from "./Components/HR/InternshipDashboard";
@@ -574,6 +575,8 @@ function App() {
       "/Investigationprice": "Investigation Price",
       "/SidebarConfiguration": "Sidebar Editor",
       "/GRNGeneration": "GRN Generation",
+      "/GRNAnalysis": "GRN Analysis",
+      "/GRNReceive": "GRN Stock Receipt",
       "/Pharmacystock": "Pharmacy Stock",
       "/PharmacyExpiryReport": "Pharmacy Expiry Report",
       "/ExpiryMedicines": "Expiry Medicines",
@@ -1340,6 +1343,10 @@ function App() {
                 allowedActions,
                 dynamicPermissions,
               ) && <Route path="/GRNAnalysis" element={<GRNAnalysis />} />}
+              {(hasPagePermission("/GRNReceive", allowedActions, dynamicPermissions) ||
+                hasPagePermission("/GRNAnalysis", allowedActions, dynamicPermissions)) && (
+                <Route path="/GRNReceive" element={<GRNReceive />} />
+              )}
 
               {hasPagePermission(
                 "/StockTransfer",

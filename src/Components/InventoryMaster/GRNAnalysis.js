@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react"
+import { useNavigate } from "react-router-dom"
 import {
   PageWrapper, Container,
   Table, Th, Td, Tr, FormContent, colors,
@@ -497,6 +498,7 @@ const GRNDocument = ({ grn, vendorInfo, items = [] }) => {
 
 /* ─── Main Component ────────────────────────────────────────────────────── */
 const GRNAnalysis = () => {
+  const navigate = useNavigate();
   const { openId: menuOpenId, menuPos, openMenu, closeMenu } = useInvDropMenu();
   const [grnList, setGrnList] = useState([])
   const [vendors, setVendors] = useState([])
@@ -731,7 +733,7 @@ const GRNAnalysis = () => {
       }
       const r = await apiRequest(`${baseUrl}grn/${grn.draft_number}/`, "PUT", payload)
       if (!r.success) { toast.error(r.error || "Failed to verify GRN"); return }
-      toast.success(`GRN Verified & stock updated! GRN: ${r.data?.grn_number}`)
+      toast.success(`GRN Verified! (GRN: ${r.data?.grn_number}) — Stock ready to be received in GRN Stock Receipt.`)
       fetchGRNList(page, pageSize, search, fromDate, toDate, typeFilter, vendorFilter, statusFilter)
     } catch { toast.error("Network error") }
   }
@@ -744,6 +746,25 @@ const GRNAnalysis = () => {
             <PageTitle>📊 GRN Analysis</PageTitle>
             <PageSubtitle>View, Generate &amp; Manage Goods Receipt Notes</PageSubtitle>
           </div>
+          <button
+            type="button"
+            onClick={() => navigate("/GRNReceive")}
+            style={{
+              background: "rgba(255,255,255,0.18)",
+              color: "white",
+              border: "1px solid rgba(255,255,255,0.35)",
+              borderRadius: "6px",
+              padding: "6px 14px",
+              fontSize: "0.8rem",
+              fontWeight: 600,
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+            }}
+          >
+            📥 GRN Stock Receipt &rarr;
+          </button>
         </PageHeader>
 
         <FormContent style={{ padding: "10px 0" }}>
@@ -941,6 +962,11 @@ const GRNAnalysis = () => {
             {canGenerate && (
               <InvMenuItem $success onClick={() => { closeMenu(); handleGenerateGRN(grn); }}>
                 🧾 Generate GRN
+              </InvMenuItem>
+            )}
+            {grn.status === "Verified" && (
+              <InvMenuItem $success onClick={() => { closeMenu(); navigate("/GRNReceive"); }}>
+                📥 Go to Stock Receipt
               </InvMenuItem>
             )}
           </InvDropMenu>
