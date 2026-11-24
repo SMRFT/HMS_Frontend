@@ -30,6 +30,7 @@ import {
   Package as PackageIcon,
   Check,
   RotateCcw,
+  Copy,
 } from "lucide-react";
 
 // ─── Animations ────────────────────────────────────────────────────────────────
@@ -41,6 +42,68 @@ const fadeIn = keyframes`
 const slideDown = keyframes`
   from { max-height: 0; opacity: 0; }
   to { max-height: 2400px; opacity: 1; }
+`;
+
+// ─── Modal Styled Components ───────────────────────────────────────────────────
+const ModalOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 10050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: ${fadeIn} 0.2s ease-out;
+`;
+
+const ModalBox = styled.div`
+  background: #ffffff;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 680px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.3);
+`;
+
+const ModalHead = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+  color: #fff;
+`;
+
+const ModalTitle = styled.div`
+  font-size: 1rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+const ModalBody = styled.div`
+  padding: 18px 20px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+`;
+
+const ModalFooter = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 20px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
 `;
 
 // ─── Header & Drawer Styled Components ─────────────────────────────────────────
@@ -780,6 +843,20 @@ const Room = () => {
   const [activeTab, setActiveTab] = useState("services");
   const [editingId, setEditingId] = useState(null);
 
+  // Copy Services State
+  const [copyModalOpen, setCopyModalOpen] = useState(false);
+  const [modalSourceRoom, setModalSourceRoom] = useState("");
+  const [modalTargetRooms, setModalTargetRooms] = useState([]);
+  const [modalCopyMode, setModalCopyMode] = useState("replace"); // 'replace' | 'append'
+  const [modalSearch, setModalSearch] = useState("");
+  const [modalCategoryFilter, setModalCategoryFilter] = useState("ALL");
+  const [modalBlockFilter, setModalBlockFilter] = useState("ALL");
+  const [copyingLoading, setCopyingLoading] = useState(false);
+
+  // In-drawer quick copy state
+  const [drawerCopySourceRoom, setDrawerCopySourceRoom] = useState("");
+  const [drawerCopyMode, setDrawerCopyMode] = useState("replace");
+
   // Search & Filter state
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedBlock, setSelectedBlock] = useState("ALL");
@@ -881,12 +958,21 @@ const Room = () => {
   const handleRoomChange = (e) => {
     const { name, value } = e.target;
     if (name === "capacity") {
-      const clamped = Math.max(1, parseInt(value, 10) || 1);
-      setRoomBeds(generateBeds(clamped, roomBeds));
-      setRoomForm((p) => ({ ...p, [name]: String(clamped) }));
+      setRoomForm((p) => ({ ...p, capacity: value }));
+      const parsed = parseInt(value, 10);
+      if (!isNaN(parsed) && parsed >= 1) {
+        setRoomBeds((prev) => generateBeds(parsed, prev));
+      }
       return;
     }
     setRoomForm((p) => ({ ...p, [name]: value }));
+  };
+
+  const handleCapacityBlur = () => {
+    const parsed = parseInt(roomForm.capacity, 10);
+    const finalVal = isNaN(parsed) || parsed < 1 ? 1 : parsed;
+    setRoomForm((p) => ({ ...p, capacity: String(finalVal) }));
+    setRoomBeds((prev) => generateBeds(finalVal, prev));
   };
 
   const handleReset = () => {
@@ -895,6 +981,7 @@ const Room = () => {
     setRoomServices([]);
     setRoomBeds([makeBed(0)]);
     setRoomKits([]);
+    setDrawerCopySourceRoom("");
     setActiveTab("services");
     setServicesPage(1);
     setBedsPage(1);
@@ -922,11 +1009,142 @@ const Room = () => {
     setRoomBeds(generateBeds(parseInt(room.capacity || 1, 10), existing));
     setRoomServices(Array.isArray(room.services) ? room.services : []);
     setRoomKits(Array.isArray(room.room_kits) ? room.room_kits : []);
+    setDrawerCopySourceRoom("");
     setServicesPage(1);
     setBedsPage(1);
     setKitsPage(1);
     setShowDrawer(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  // In-Drawer Quick Copy Services From Room
+  const handleCopyServicesInForm = () => {
+    if (!drawerCopySourceRoom) {
+      toast.warning("Please select a source room to copy services from");
+      return;
+    }
+    const src = rooms.find((r) => String(r.room_number) === String(drawerCopySourceRoom));
+    if (!src || !Array.isArray(src.services) || src.services.length === 0) {
+      toast.warning(`Room ${drawerCopySourceRoom} has no services configured`);
+      return;
+    }
+    const copied = src.services.map((s) => ({
+      description: s.description || "",
+      priority: s.priority !== undefined && s.priority !== null ? String(s.priority) : "",
+      amount: s.amount !== undefined && s.amount !== null ? String(s.amount) : "",
+    }));
+
+    if (drawerCopyMode === "replace") {
+      setRoomServices(copied);
+      toast.success(`Copied ${copied.length} service(s) from Room ${drawerCopySourceRoom} (replaced existing)`);
+    } else {
+      const existingDescs = new Set(roomServices.map((s) => (s.description || "").trim().toLowerCase()));
+      const toAppend = copied.filter((s) => !existingDescs.has((s.description || "").trim().toLowerCase()));
+      if (toAppend.length === 0) {
+        toast.info("All services from source room already exist in this room");
+        return;
+      }
+      setRoomServices([...roomServices, ...toAppend]);
+      toast.success(`Appended ${toAppend.length} service(s) from Room ${drawerCopySourceRoom}`);
+    }
+    setServicesPage(1);
+  };
+
+  // Batch Transfer / Copy Services Modal Handlers
+  const handleOpenCopyModal = (preselectedRoom = null) => {
+    if (preselectedRoom) {
+      setModalSourceRoom(String(preselectedRoom.room_number));
+    } else {
+      const firstWithSvc = rooms.find((r) => Array.isArray(r.services) && r.services.length > 0);
+      setModalSourceRoom(firstWithSvc ? String(firstWithSvc.room_number) : "");
+    }
+    setModalTargetRooms([]);
+    setModalSearch("");
+    setModalCategoryFilter("ALL");
+    setModalBlockFilter("ALL");
+    setModalCopyMode("replace");
+    setCopyModalOpen(true);
+  };
+
+  const modalFilteredTargetRooms = useMemo(() => {
+    return rooms.filter((r) => {
+      if (String(r.room_number) === String(modalSourceRoom)) return false;
+      if (modalCategoryFilter !== "ALL" && r.room_category !== modalCategoryFilter) return false;
+      if (modalBlockFilter !== "ALL" && r.block !== modalBlockFilter) return false;
+      if (modalSearch.trim()) {
+        const q = modalSearch.toLowerCase();
+        const num = (r.room_number || "").toLowerCase();
+        const desc = (r.description || "").toLowerCase();
+        const block = (r.block || "").toLowerCase();
+        const cat = (r.room_category || "").toLowerCase();
+        if (!num.includes(q) && !desc.includes(q) && !block.includes(q) && !cat.includes(q)) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [rooms, modalSourceRoom, modalCategoryFilter, modalBlockFilter, modalSearch]);
+
+  const handleExecuteBatchCopyServices = async () => {
+    if (!modalSourceRoom) return toast.warning("Please select a source room");
+    if (modalTargetRooms.length === 0) return toast.warning("Please select at least one target room");
+
+    const src = rooms.find((r) => String(r.room_number) === String(modalSourceRoom));
+    if (!src || !Array.isArray(src.services) || src.services.length === 0) {
+      return toast.warning("Source room has no services configured to copy");
+    }
+
+    const copiedServices = src.services.map((s) => ({
+      description: s.description || "",
+      priority: s.priority !== undefined && s.priority !== null ? String(s.priority) : "",
+      amount: s.amount !== undefined && s.amount !== null ? String(s.amount) : "",
+    }));
+
+    setCopyingLoading(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const targetNum of modalTargetRooms) {
+      const targetRoom = rooms.find((r) => String(r.room_number) === String(targetNum));
+      if (!targetRoom) continue;
+
+      let finalServices = [];
+      if (modalCopyMode === "replace") {
+        finalServices = copiedServices;
+      } else {
+        const existing = Array.isArray(targetRoom.services) ? targetRoom.services : [];
+        const existingDescs = new Set(existing.map((s) => (s.description || "").trim().toLowerCase()));
+        const toAppend = copiedServices.filter((s) => !existingDescs.has((s.description || "").trim().toLowerCase()));
+        finalServices = [...existing, ...toAppend];
+      }
+
+      const payload = {
+        ...targetRoom,
+        services: finalServices,
+      };
+
+      try {
+        const res = await apiRequest(`${HmsBaseUrl}room/${targetNum}/`, "PUT", payload);
+        if (res && !res.error) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      } catch {
+        failCount++;
+      }
+    }
+
+    setCopyingLoading(false);
+    if (successCount > 0) {
+      toast.success(`Successfully copied services from Room ${modalSourceRoom} to ${successCount} room(s)!`);
+      fetchRooms();
+      setCopyModalOpen(false);
+      setModalTargetRooms([]);
+    }
+    if (failCount > 0) {
+      toast.error(`Failed to update ${failCount} room(s)`);
+    }
   };
 
   const handleDelete = async (id) => {
@@ -951,6 +1169,7 @@ const Room = () => {
     if (!roomForm.room_category) return toast.warning("Please select a room category");
 
     setSaving(true);
+    const finalCapacity = Math.max(1, parseInt(roomForm.capacity, 10) || 1);
     const bedsPayload = roomBeds.map((b) => ({
       ...b,
       bed_status: b.blocked ? "Blocked" : "Available",
@@ -958,6 +1177,7 @@ const Room = () => {
     const occupancy = bedsPayload.filter((b) => b.bed_status === "Available").length;
     const payload = {
       ...roomForm,
+      capacity: finalCapacity,
       occupancy,
       services: roomServices,
       beds: bedsPayload,
@@ -1186,6 +1406,17 @@ const Room = () => {
             </HeaderBtn>
             <HeaderBtn
               type="button"
+              onClick={() => handleOpenCopyModal(null)}
+              style={{
+                background: "rgba(255,255,255,0.18)",
+                color: "#fff",
+                border: "1px solid rgba(255,255,255,0.35)",
+              }}
+            >
+              <Copy size={15} /> Transfer Services
+            </HeaderBtn>
+            <HeaderBtn
+              type="button"
               onClick={() => {
                 if (showDrawer) handleReset();
                 else {
@@ -1313,8 +1544,10 @@ const Room = () => {
                         name="capacity"
                         value={roomForm.capacity}
                         onChange={handleRoomChange}
+                        onBlur={handleCapacityBlur}
                         min="1"
                         required
+                        placeholder="1"
                         style={{ height: 34, fontSize: ".85rem" }}
                       />
                     </InputWrapper>
@@ -1419,6 +1652,90 @@ const Room = () => {
                   {/* ── Services Tab ── */}
                   {activeTab === "services" && (
                     <TabPanel>
+                      {/* Quick Copy Services from Room Bar */}
+                      <div
+                        style={{
+                          background: "#f0fdfa",
+                          border: "1px solid #ccfbf1",
+                          borderRadius: 8,
+                          padding: "8px 12px",
+                          marginBottom: 12,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 8,
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: ".76rem", fontWeight: 700, color: "#0f766e" }}>
+                          <Copy size={13} />
+                          <span>Copy Services From Room:</span>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 260, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                          <select
+                            value={drawerCopySourceRoom}
+                            onChange={(e) => setDrawerCopySourceRoom(e.target.value)}
+                            style={{
+                              height: 28,
+                              fontSize: ".75rem",
+                              borderRadius: 4,
+                              border: "1px solid #99f6e4",
+                              padding: "0 6px",
+                              background: "#fff",
+                              color: "#134e4a",
+                              fontWeight: 600,
+                              maxWidth: 220,
+                              flex: 1,
+                            }}
+                          >
+                            <option value="">-- Select Room with Services --</option>
+                            {rooms
+                              .filter((rm) => rm.room_number !== roomForm.room_number && Array.isArray(rm.services) && rm.services.length > 0)
+                              .map((rm) => (
+                                <option key={rm.room_number} value={rm.room_number}>
+                                  Room {rm.room_number} ({rm.room_category || "General"} • {rm.services.length} svc)
+                                </option>
+                              ))}
+                          </select>
+
+                          <select
+                            value={drawerCopyMode}
+                            onChange={(e) => setDrawerCopyMode(e.target.value)}
+                            style={{
+                              height: 28,
+                              fontSize: ".75rem",
+                              borderRadius: 4,
+                              border: "1px solid #99f6e4",
+                              padding: "0 6px",
+                              background: "#fff",
+                              color: "#134e4a",
+                              fontWeight: 600,
+                            }}
+                          >
+                            <option value="replace">Replace All</option>
+                            <option value="append">Append</option>
+                          </select>
+
+                          <Button
+                            type="button"
+                            onClick={handleCopyServicesInForm}
+                            disabled={!drawerCopySourceRoom}
+                            style={{
+                              height: 28,
+                              padding: "0 10px",
+                              fontSize: ".74rem",
+                              background: drawerCopySourceRoom ? "#0d9488" : "#94a3b8",
+                              color: "#fff",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 4,
+                            }}
+                          >
+                            <Copy size={12} /> Apply
+                          </Button>
+                        </div>
+                      </div>
+
                       <div
                         style={{
                           display: "grid",
@@ -2008,7 +2325,7 @@ const Room = () => {
                 <Th style={{ color: "#334155", fontWeight: 700, whiteSpace: "nowrap" }}>NURSING STATION</Th>
                 <Th style={{ color: "#334155", fontWeight: 700, width: 90, textAlign: "center", whiteSpace: "nowrap" }}>CAPACITY</Th>
                 <Th style={{ color: "#334155", fontWeight: 700, width: 110, textAlign: "center", whiteSpace: "nowrap" }}>STATUS</Th>
-                <Th style={{ width: 100, textAlign: "center", color: "#334155", fontWeight: 700, whiteSpace: "nowrap" }}>ACTIONS</Th>
+                <Th style={{ width: 135, textAlign: "center", color: "#334155", fontWeight: 700, whiteSpace: "nowrap" }}>ACTIONS</Th>
               </Tr>
             </thead>
             <tbody>
@@ -2089,6 +2406,14 @@ const Room = () => {
                         <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
                           <IconButton
                             type="button"
+                            title="Copy Services to other room(s)"
+                            style={{ color: "#0d9488", background: "#f0fdfa", borderColor: "#99f6e4" }}
+                            onClick={() => handleOpenCopyModal(r)}
+                          >
+                            <Copy size={14} />
+                          </IconButton>
+                          <IconButton
+                            type="button"
                             title="Edit Room"
                             onClick={() => handleEdit(r)}
                           >
@@ -2144,6 +2469,301 @@ const Room = () => {
           </div>
         </Pager>
       </Container>
+
+      {/* ── Transfer / Copy Services Between Rooms Modal ── */}
+      {copyModalOpen && (() => {
+        const modalSourceRoomObj = rooms.find((rm) => String(rm.room_number) === String(modalSourceRoom));
+        const modalSourceServices = Array.isArray(modalSourceRoomObj?.services) ? modalSourceRoomObj.services : [];
+
+        return (
+          <ModalOverlay onClick={() => !copyingLoading && setCopyModalOpen(false)}>
+            <ModalBox onClick={(e) => e.stopPropagation()}>
+              <ModalHead>
+                <ModalTitle>
+                  <Copy size={18} /> Transfer / Copy Services Between Rooms
+                </ModalTitle>
+                <button
+                  type="button"
+                  onClick={() => !copyingLoading && setCopyModalOpen(false)}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "#fff",
+                    cursor: "pointer",
+                    padding: 4,
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                >
+                  <X size={18} />
+                </button>
+              </ModalHead>
+
+              <ModalBody>
+                {/* 1. Source Room */}
+                <div style={{ background: "#f8fafc", padding: "12px 14px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+                  <Label style={{ fontSize: ".76rem", fontWeight: 800, color: "#0f766e", textTransform: "uppercase", marginBottom: 6 }}>
+                    1. Source Room (Copy Services From)
+                  </Label>
+                  <select
+                    value={modalSourceRoom}
+                    onChange={(e) => {
+                      setModalSourceRoom(e.target.value);
+                      setModalTargetRooms((prev) => prev.filter((id) => id !== e.target.value));
+                    }}
+                    style={{
+                      width: "100%",
+                      height: 34,
+                      fontSize: ".84rem",
+                      borderRadius: 6,
+                      border: "1.5px solid #ccfbf1",
+                      padding: "0 10px",
+                      background: "#fff",
+                      fontWeight: 600,
+                      color: "#0f172a",
+                      outline: "none",
+                    }}
+                  >
+                    <option value="">-- Select Source Room with Services --</option>
+                    {rooms
+                      .filter((rm) => Array.isArray(rm.services) && rm.services.length > 0)
+                      .map((rm) => (
+                        <option key={rm.room_number} value={rm.room_number}>
+                          Room {rm.room_number} ({rm.room_category || "General"} • {rm.block || "Block"} • {rm.services.length} services)
+                        </option>
+                      ))}
+                  </select>
+
+                  {modalSourceServices.length > 0 ? (
+                    <div style={{ marginTop: 10 }}>
+                      <div style={{ fontSize: ".72rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", marginBottom: 4 }}>
+                        Services configured in Room {modalSourceRoom} ({modalSourceServices.length}):
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, maxHeight: 110, overflowY: "auto" }}>
+                        {modalSourceServices.map((s, idx) => (
+                          <span
+                            key={idx}
+                            style={{
+                              background: "#fff",
+                              border: "1px solid #cbd5e1",
+                              borderRadius: 6,
+                              padding: "3px 8px",
+                              fontSize: ".75rem",
+                              color: "#334155",
+                              display: "inline-flex",
+                              gap: 6,
+                              alignItems: "center",
+                            }}
+                          >
+                            <span>{s.description}</span>
+                            <strong style={{ color: "#0d9488" }}>₹{s.amount}</strong>
+                            {s.priority && <span style={{ color: "#94a3b8", fontSize: ".68rem" }}>(P:{s.priority})</span>}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : modalSourceRoom ? (
+                    <div style={{ marginTop: 8, fontSize: ".76rem", color: "#d97706" }}>
+                      ⚠️ Selected room has 0 services configured.
+                    </div>
+                  ) : null}
+                </div>
+
+                {/* 2. Copy Mode */}
+                <div style={{ background: "#f8fafc", padding: "10px 14px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+                  <Label style={{ fontSize: ".76rem", fontWeight: 800, color: "#0f766e", textTransform: "uppercase", marginBottom: 6 }}>
+                    2. Copy Mode
+                  </Label>
+                  <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: ".82rem", cursor: "pointer", fontWeight: 600, color: "#334155" }}>
+                      <input
+                        type="radio"
+                        name="modalCopyMode"
+                        value="replace"
+                        checked={modalCopyMode === "replace"}
+                        onChange={() => setModalCopyMode("replace")}
+                      />
+                      Replace all existing services in target room(s)
+                    </label>
+                    <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: ".82rem", cursor: "pointer", fontWeight: 600, color: "#334155" }}>
+                      <input
+                        type="radio"
+                        name="modalCopyMode"
+                        value="append"
+                        checked={modalCopyMode === "append"}
+                        onChange={() => setModalCopyMode("append")}
+                      />
+                      Append (keep existing services)
+                    </label>
+                  </div>
+                </div>
+
+                {/* 3. Target Rooms */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 6 }}>
+                    <Label style={{ fontSize: ".76rem", fontWeight: 800, color: "#0f766e", textTransform: "uppercase", margin: 0 }}>
+                      3. Select Target Room(s) to Apply <span style={{ color: "#0d9488" }}>({modalTargetRooms.length} selected)</span>
+                    </Label>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <Button
+                        type="button"
+                        secondary
+                        onClick={() => {
+                          const allMatchingIds = modalFilteredTargetRooms.map((r) => r.room_number);
+                          setModalTargetRooms(Array.from(new Set([...modalTargetRooms, ...allMatchingIds])));
+                        }}
+                        style={{ height: 24, padding: "0 8px", fontSize: ".72rem" }}
+                      >
+                        Select All Matching ({modalFilteredTargetRooms.length})
+                      </Button>
+                      <Button
+                        type="button"
+                        secondary
+                        onClick={() => setModalTargetRooms([])}
+                        style={{ height: 24, padding: "0 8px", fontSize: ".72rem" }}
+                      >
+                        Deselect All
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Quick Filters */}
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <Input
+                      value={modalSearch}
+                      onChange={(e) => setModalSearch(e.target.value)}
+                      placeholder="Search target room, desc…"
+                      style={{ height: 30, fontSize: ".78rem", flex: 1, minWidth: 140 }}
+                    />
+                    <select
+                      value={modalCategoryFilter}
+                      onChange={(e) => setModalCategoryFilter(e.target.value)}
+                      style={{ height: 30, fontSize: ".78rem", borderRadius: 6, border: "1px solid #d1d5db", padding: "0 8px" }}
+                    >
+                      <option value="ALL">All Categories</option>
+                      {categories.map((c) => (
+                        <option key={c.name} value={c.name}>{c.name}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={modalBlockFilter}
+                      onChange={(e) => setModalBlockFilter(e.target.value)}
+                      style={{ height: 30, fontSize: ".78rem", borderRadius: 6, border: "1px solid #d1d5db", padding: "0 8px" }}
+                    >
+                      <option value="ALL">All Blocks</option>
+                      {blocks.map((b) => (
+                        <option key={b.block_name} value={b.block_name}>{b.block_name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Checkable Room List */}
+                  <div
+                    style={{
+                      border: "1px solid #e2e8f0",
+                      borderRadius: 8,
+                      maxHeight: 180,
+                      overflowY: "auto",
+                      background: "#fff",
+                    }}
+                  >
+                    {modalFilteredTargetRooms.length === 0 ? (
+                      <div style={{ padding: "24px 0", textAlign: "center", color: "#94a3b8", fontSize: ".82rem" }}>
+                        No target rooms available matching filters
+                      </div>
+                    ) : (
+                      modalFilteredTargetRooms.map((r) => {
+                        const isSelected = modalTargetRooms.includes(r.room_number);
+                        const svcCount = Array.isArray(r.services) ? r.services.length : 0;
+                        return (
+                          <label
+                            key={r.room_number}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              padding: "8px 12px",
+                              borderBottom: "1px solid #f1f5f9",
+                              cursor: "pointer",
+                              background: isSelected ? "#f0fdfa" : "transparent",
+                            }}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => {
+                                  if (isSelected) {
+                                    setModalTargetRooms((prev) => prev.filter((id) => id !== r.room_number));
+                                  } else {
+                                    setModalTargetRooms((prev) => [...prev, r.room_number]);
+                                  }
+                                }}
+                              />
+                              <div>
+                                <span style={{ fontWeight: 800, fontSize: ".84rem", color: "#0f766e" }}>
+                                  Room {r.room_number}
+                                </span>
+                                <span style={{ fontSize: ".75rem", color: "#64748b", marginLeft: 8 }}>
+                                  {r.room_category || "General"} • {r.block || "Block"}
+                                </span>
+                              </div>
+                            </div>
+                            <span
+                              style={{
+                                fontSize: ".7rem",
+                                padding: "2px 8px",
+                                borderRadius: 10,
+                                background: svcCount > 0 ? "#fef3c7" : "#f1f5f9",
+                                color: svcCount > 0 ? "#92400e" : "#64748b",
+                                fontWeight: 600,
+                              }}
+                            >
+                              {svcCount} existing svc
+                            </span>
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              </ModalBody>
+
+              <ModalFooter>
+                <Button
+                  type="button"
+                  secondary
+                  onClick={() => setCopyModalOpen(false)}
+                  disabled={copyingLoading}
+                  style={{ height: 34, padding: "0 16px", fontSize: ".82rem" }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleExecuteBatchCopyServices}
+                  disabled={copyingLoading || !modalSourceRoom || modalTargetRooms.length === 0}
+                  style={{
+                    height: 34,
+                    padding: "0 20px",
+                    fontSize: ".82rem",
+                    background: "#0d9488",
+                    color: "#fff",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                  }}
+                >
+                  <Copy size={14} />
+                  {copyingLoading
+                    ? "Copying Services…"
+                    : `Copy Services to ${modalTargetRooms.length} Room(s)`}
+                </Button>
+              </ModalFooter>
+            </ModalBox>
+          </ModalOverlay>
+        );
+      })()}
     </PageWrapper>
   );
 };
