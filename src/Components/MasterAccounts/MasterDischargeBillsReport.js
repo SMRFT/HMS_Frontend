@@ -127,6 +127,7 @@ const MasterDischargeBillsReport = ({
             const fm = paymentMode.trim().toLowerCase();
             list = list.filter(b => {
                 const bm = String(b.payment_mode || "").trim().toLowerCase();
+                if (fm === "refund") return Boolean(b.is_refund || b.is_discharge_refund || cleanNum(b.discharge_refund || b.refund_amount) > 0 || bm.includes("refund"));
                 if (fm === "cash") return bm === "cash";
                 if (fm === "card" || fm === "credit card") return bm.includes("card") || bm.includes("bank") || bm.includes("pos") || bm.includes("upi");
                 if (fm.includes("multi")) return bm.includes("multi");
@@ -164,6 +165,7 @@ const MasterDischargeBillsReport = ({
                     bills: [],
                     subGross: 0,
                     subAdvAdj: 0,
+                    subRefund: 0,
                     subCash: 0,
                     subCredit: 0,
                     subNet: 0
@@ -172,6 +174,7 @@ const MasterDischargeBillsReport = ({
             map[dateOnly].bills.push(b);
             map[dateOnly].subGross += cleanNum(b.bill_amount || b.gross_amount || b.gross || b.gross_bill);
             map[dateOnly].subAdvAdj += cleanNum(b.advance_adjusted || b.advance_adjustment || b.advance_amount);
+            map[dateOnly].subRefund += cleanNum(b.discharge_refund || b.refund_amount || b.refund);
             map[dateOnly].subCash += cleanNum(b.cash || b.cash_amount);
             map[dateOnly].subCredit += cleanNum(b.credit || b.credit_amount || b.bank || b.card);
             map[dateOnly].subNet += cleanNum(b.net_settlement || b.net_paid || b.amount);
@@ -191,6 +194,7 @@ const MasterDischargeBillsReport = ({
             "Patient Name": b.patient_name,
             "Gross Bill (₹)": cleanNum(b.bill_amount || b.gross_amount || b.gross || b.gross_bill),
             "Advance Adjusted (₹)": cleanNum(b.advance_adjusted || b.advance_adjustment || b.advance_amount),
+            "Discharge Refund (₹)": cleanNum(b.discharge_refund || b.refund_amount || b.refund),
             "Cash Amount (₹)": cleanNum(b.cash || b.cash_amount),
             "Credit Amount (₹)": cleanNum(b.credit || b.credit_amount || b.bank || b.card),
             "Net Paid (₹)": cleanNum(b.net_settlement || b.net_paid || b.amount),
@@ -249,6 +253,7 @@ const MasterDischargeBillsReport = ({
                                 <Option value="Card">Card</Option>
                                 <Option value="Cheque">Cheque</Option>
                                 <Option value="Multiple Payment">Multiple Payment</Option>
+                                <Option value="Refund">Discharge Refund</Option>
                             </Select>
                         </div>
                         <div className="filter-item">
@@ -302,6 +307,13 @@ const MasterDischargeBillsReport = ({
                                 <span className="kpi-value">₹{formatINR(summary.total_advance_adjusted || filtered.reduce((a, x) => a + cleanNum(x.advance_adjusted || x.advance_adjustment || x.advance_amount), 0))}</span>
                                 <span className="kpi-subtitle">Adjusted deposits</span>
                             </KPICard>
+                            {cleanNum(summary.total_discharge_refund || summary.total_refund || filtered.reduce((a, x) => a + cleanNum(x.discharge_refund || x.refund_amount || x.refund), 0)) > 0 && (
+                                <KPICard $border="#ef4444">
+                                    <span className="kpi-title" style={{ color: "#ef4444" }}>Discharge Refund</span>
+                                    <span className="kpi-value" style={{ color: "#dc2626" }}>₹{formatINR(summary.total_discharge_refund || summary.total_refund || filtered.reduce((a, x) => a + cleanNum(x.discharge_refund || x.refund_amount || x.refund), 0))}</span>
+                                    <span className="kpi-subtitle">Refunded to patients</span>
+                                </KPICard>
+                            )}
                             <KPICard $border="#0284c7">
                                 <span className="kpi-title">Discharged Inpatients</span>
                                 <span className="kpi-value">{filtered.length}</span>
@@ -322,6 +334,7 @@ const MasterDischargeBillsReport = ({
                                     <th>Patient Name</th>
                                     <th className="text-right">Gross Bill (₹)</th>
                                     <th className="text-right">Advance Adj (₹)</th>
+                                    <th className="text-right" style={{ color: "#dc2626" }}>Discharge Refund (₹)</th>
                                     <th className="text-right" style={{ color: "#059669" }}>Cash Amount (₹)</th>
                                     <th className="text-right" style={{ color: "#4f46e5" }}>Card / Credit (₹)</th>
                                     <th className="text-right">Net Paid (₹)</th>
@@ -331,7 +344,7 @@ const MasterDischargeBillsReport = ({
                             <tbody>
                                 {dateGroupedBills.length === 0 ? (
                                     <tr>
-                                        <td colSpan={12} style={{ textAlign: "center", padding: "30px", color: "#94a3b8" }}>
+                                        <td colSpan={13} style={{ textAlign: "center", padding: "30px", color: "#94a3b8" }}>
                                             No discharge bill records found.
                                         </td>
                                     </tr>
@@ -342,7 +355,7 @@ const MasterDischargeBillsReport = ({
                                             <React.Fragment key={gIdx}>
                                                 {/* Date Banner */}
                                                 <tr className="date-group-header" style={{ background: "#f1f5f9" }}>
-                                                    <td colSpan={12} style={{ fontWeight: 700, padding: "8px 12px", color: "#1e293b", fontSize: "0.85rem" }}>
+                                                    <td colSpan={13} style={{ fontWeight: 700, padding: "8px 12px", color: "#1e293b", fontSize: "0.85rem" }}>
                                                         📅 Date: {group.date} &nbsp;
                                                         <span style={{ fontSize: "0.78rem", background: "#cbd5e1", padding: "2px 8px", borderRadius: "10px" }}>
                                                             {group.bills.length} Patient{group.bills.length !== 1 ? "s" : ""}
@@ -355,10 +368,19 @@ const MasterDischargeBillsReport = ({
                                                     const curIndex = globalIndex++;
                                                     const cAmt = cleanNum(b.cash || b.cash_amount);
                                                     const crAmt = cleanNum(b.credit || b.credit_amount || b.bank || b.card);
+                                                    const refAmt = cleanNum(b.discharge_refund || b.refund_amount || b.refund);
+                                                    const isRefund = refAmt > 0 || b.is_refund || b.is_discharge_refund;
                                                     return (
-                                                        <tr key={idx}>
+                                                        <tr key={idx} style={isRefund ? { background: "#fff5f5" } : undefined}>
                                                             <td>{curIndex}</td>
-                                                            <td className="font-mono"><strong>{b.bill_no}</strong></td>
+                                                            <td className="font-mono">
+                                                                <strong>{b.bill_no}</strong>
+                                                                {isRefund && (
+                                                                    <span style={{ fontSize: "0.7rem", background: "#fee2e2", color: "#b91c1c", padding: "1px 6px", borderRadius: "4px", marginLeft: "6px", fontWeight: 700 }}>
+                                                                        REFUND
+                                                                    </span>
+                                                                )}
+                                                            </td>
                                                             <td>{b.date || group.date}</td>
                                                             <td className="font-mono">{b.ip_number || "-"}</td>
                                                             <td className="font-mono">{b.mr_no || "-"}</td>
@@ -367,13 +389,16 @@ const MasterDischargeBillsReport = ({
                                                             <td className="text-right font-mono" style={{ color: "#d97706" }}>
                                                                 {formatINR(b.advance_adjusted || b.advance_adjustment || b.advance_amount)}
                                                             </td>
-                                                            <td className="text-right font-mono font-bold" style={{ color: cAmt > 0 ? "#059669" : "#64748b" }}>
-                                                                {cAmt > 0 ? formatINR(cAmt) : "0.00"}
+                                                            <td className="text-right font-mono font-bold" style={{ color: refAmt > 0 ? "#dc2626" : "#94a3b8" }}>
+                                                                {refAmt > 0 ? formatINR(refAmt) : "0.00"}
+                                                            </td>
+                                                            <td className="text-right font-mono font-bold" style={{ color: cAmt > 0 ? "#059669" : cAmt < 0 ? "#dc2626" : "#64748b" }}>
+                                                                {formatINR(cAmt)}
                                                             </td>
                                                             <td className="text-right font-mono font-bold" style={{ color: crAmt > 0 ? "#4f46e5" : "#64748b" }}>
                                                                 {crAmt > 0 ? formatINR(crAmt) : "0.00"}
                                                             </td>
-                                                            <td className="text-right font-mono font-bold" style={{ color: "#0284c7" }}>
+                                                            <td className="text-right font-mono font-bold" style={{ color: b.net_settlement < 0 ? "#dc2626" : "#0284c7" }}>
                                                                 {formatINR(b.net_settlement || b.net_paid || b.amount)}
                                                             </td>
                                                             <td>{b.payment_mode || "Cash"}</td>
@@ -389,6 +414,9 @@ const MasterDischargeBillsReport = ({
                                                         </td>
                                                         <td className="text-right font-mono">₹{formatINR(group.subGross)}</td>
                                                         <td className="text-right font-mono" style={{ color: "#d97706" }}>₹{formatINR(group.subAdvAdj)}</td>
+                                                        <td className="text-right font-mono font-bold" style={{ color: group.subRefund > 0 ? "#dc2626" : "#94a3b8" }}>
+                                                            {group.subRefund > 0 ? `₹${formatINR(group.subRefund)}` : "₹0.00"}
+                                                        </td>
                                                         <td className="text-right font-mono" style={{ color: "#059669" }}>₹{formatINR(group.subCash)}</td>
                                                         <td className="text-right font-mono" style={{ color: "#4f46e5" }}>₹{formatINR(group.subCredit)}</td>
                                                         <td className="text-right font-mono font-bold" style={{ color: "#0284c7" }}>₹{formatINR(group.subNet)}</td>
@@ -411,6 +439,9 @@ const MasterDischargeBillsReport = ({
                                         </td>
                                         <td className="text-right font-mono" style={{ color: "#fbbf24" }}>
                                             ₹{formatINR(filtered.reduce((a, x) => a + cleanNum(x.advance_adjusted || x.advance_adjustment || x.advance_amount), 0))}
+                                        </td>
+                                        <td className="text-right font-mono font-bold" style={{ color: "#f87171" }}>
+                                            ₹{formatINR(filtered.reduce((a, x) => a + cleanNum(x.discharge_refund || x.refund_amount || x.refund), 0))}
                                         </td>
                                         <td className="text-right font-mono" style={{ color: "#4ade80" }}>
                                             ₹{formatINR(filtered.reduce((a, x) => a + cleanNum(x.cash || x.cash_amount), 0))}
