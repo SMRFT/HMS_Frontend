@@ -93,8 +93,8 @@ const DraftBadge  = styled.span`background:#fef9c3;color:#854d0e;font-size:0.7re
 const GrnBadge    = styled.span`background:#dcfce7;color:#166534;font-size:0.7rem;font-weight:700;padding:2px 7px;border-radius:20px;`
 const PendingText = styled.span`color:#94a3b8;font-size:0.7rem;font-style:italic;`
 const StatusBadge = styled.span`
-  background: ${p => p.status === "Verified" ? "#dcfce7" : p.status === "Draft" ? "#fef9c3" : "#e0f2fe"};
-  color: ${p => p.status === "Verified" ? "#166534" : p.status === "Draft" ? "#854d0e" : "#0369a1"};
+  background: ${p => p.status === "Received" ? "#d1fae5" : p.status === "Verified" ? "#dcfce7" : p.status === "Draft" || p.status === "Pending" ? "#fef9c3" : "#e0f2fe"};
+  color: ${p => p.status === "Received" ? "#047857" : p.status === "Verified" ? "#166534" : p.status === "Draft" || p.status === "Pending" ? "#854d0e" : "#0369a1"};
   font-size: 0.68rem; font-weight: 700; padding: 2px 7px; border-radius: 20px;
 `
 const VerifiedBanner = styled.div`
@@ -2766,6 +2766,12 @@ const GRNGeneration = () => {
                 }}
                 onToDateChange={(val) => {
                   setToDate(val);
+                  setListPage(1);
+                }}
+                onReset={() => {
+                  setSearch("");
+                  setFromDate(getTodayDateString());
+                  setToDate(getTodayDateString());
                   setListPage(1);
                 }}
                 totalRecords={listTotalCount}
