@@ -960,6 +960,10 @@ export default function CentralCashCounter() {
   // ✅ NEW: Remarks state for OPPharmacy payment
   const [remarks, setRemarks] = useState("");
 
+  // ✅ Card Payment List state (fetched from get_card_payment_list)
+  const [cardPaymentList, setCardPaymentList] = useState([]);
+  const [selectedCardProvider, setSelectedCardProvider] = useState("");
+
   const [activeShift, setActiveShift] = useState(null);
 
   // ── Helper to reliably parse UTC datetimes into local Indian Time (IST) Date objects
@@ -1356,6 +1360,23 @@ export default function CentralCashCounter() {
     refreshActiveShift();
   }, [refreshActiveShift]);
 
+  // ✅ Fetch active card machines/providers (Paytm, Bajaj, 360, PNB) from backend
+  const fetchCardPaymentList = useCallback(async () => {
+    try {
+      const response = await apiRequest(`${HmsBaseUrl}get_card_payment_list/`, "GET");
+      const list = response?.data?.data || response?.data || [];
+      if (Array.isArray(list) && list.length > 0) {
+        setCardPaymentList(list);
+      }
+    } catch (err) {
+      console.error("Failed to fetch card payment list:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCardPaymentList();
+  }, [fetchCardPaymentList]);
+
 
 
   const formatBillData = (billsArray) => {
@@ -1532,7 +1553,11 @@ export default function CentralCashCounter() {
       credit: "",
     });
     setRemarks(""); // ✅ reset remarks on open
+    setSelectedCardProvider(""); // ✅ reset card machine on open
     setModalError("");
+    if (cardPaymentList.length === 0) {
+      fetchCardPaymentList();
+    }
     isSubmittingPaymentRef.current = false;
     setIsSavingPayment(false);
     setShowPaymentModal(true);
@@ -1545,6 +1570,9 @@ export default function CentralCashCounter() {
       cash: method === "cash",
       card: method === "card",
     });
+    if (method === "card") {
+      if (cardPaymentList.length === 0) fetchCardPaymentList();
+    }
     setPayments((prev) => ({
       cash: method === "cash" ? (netAmount > 0 ? String(netAmount) : "") : "",
       card: method === "card" ? (netAmount > 0 ? String(netAmount) : "") : "",
@@ -1563,6 +1591,10 @@ export default function CentralCashCounter() {
     // Don't allow 0 methods
     if (checkedKeys.length === 0) {
       return;
+    }
+
+    if (method === "card" && isChecked) {
+      if (cardPaymentList.length === 0) fetchCardPaymentList();
     }
 
     setSelectedMethods(nextSelected);
@@ -2225,12 +2257,25 @@ export default function CentralCashCounter() {
         return;
       }
 
+      // 🛑 Validate Card Machine selection if Card is used
+      if (selectedMethods.card && parseFloat(payments.card) > 0 && !selectedCardProvider) {
+        const msg = "Please select Card Machine option any one only for card.";
+        setModalError(msg);
+        showToast("error", msg);
+        return;
+      }
+
       const activeMethods = [];
       if (selectedMethods.cash && parseFloat(payments.cash) > 0) {
         activeMethods.push({ method: "cash", Paid_amount: parseFloat(payments.cash) });
       }
       if (selectedMethods.card && parseFloat(payments.card) > 0) {
-        activeMethods.push({ method: "card", Paid_amount: parseFloat(payments.card), card_no: payments.cardNo });
+        activeMethods.push({
+          method: "card",
+          Paid_amount: parseFloat(payments.card),
+          card_no: payments.cardNo,
+          "Card Machine": selectedCardProvider,
+        });
       }
       if (selectedMethods.cheque && parseFloat(payments.cheque) > 0) {
         activeMethods.push({ method: "cheque", Paid_amount: parseFloat(payments.cheque), cheque_no: payments.chequeNo });
@@ -2418,12 +2463,25 @@ export default function CentralCashCounter() {
         return;
       }
 
+      // 🛑 Validate Card Machine selection if Card is used
+      if (selectedMethods.card && parseFloat(payments.card) > 0 && !selectedCardProvider) {
+        const msg = "Please select Card Machine option any one only for card.";
+        setModalError(msg);
+        showToast("error", msg);
+        return;
+      }
+
       const activeMethods = [];
       if (selectedMethods.cash && parseFloat(payments.cash) > 0) {
         activeMethods.push({ method: "Cash", Paid_amount: parseFloat(payments.cash) });
       }
       if (selectedMethods.card && parseFloat(payments.card) > 0) {
-        activeMethods.push({ method: "Card", Paid_amount: parseFloat(payments.card), card_no: payments.cardNo });
+        activeMethods.push({
+          method: "Card",
+          Paid_amount: parseFloat(payments.card),
+          card_no: payments.cardNo,
+          "Card Machine": selectedCardProvider,
+        });
       }
       if (selectedMethods.cheque && parseFloat(payments.cheque) > 0) {
         activeMethods.push({ method: "Cheque", Paid_amount: parseFloat(payments.cheque), cheque_no: payments.chequeNo });
@@ -4203,6 +4261,46 @@ export default function CentralCashCounter() {
                       </button>
                     )}
                   </div>
+                  {cardPaymentList && cardPaymentList.length > 0 && (
+                    <FormRow style={{ marginTop: "4px", marginBottom: "6px" }}>
+                      <FormLabel>
+                        Card Machine <span style={{ color: "#ef4444" }}>*</span>
+                      </FormLabel>
+                      <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", alignItems: "center" }}>
+                        {cardPaymentList.map((c) => {
+                          const name = c.card_name || c.display_name;
+                          const isSelected = selectedCardProvider === name;
+                          return (
+                            <button
+                              key={c.card_id || name}
+                              type="button"
+                              onClick={() => {
+                                setSelectedCardProvider(name);
+                                setModalError("");
+                              }}
+                              style={{
+                                padding: "4px 10px",
+                                borderRadius: "6px",
+                                border: isSelected ? "1.5px solid #0d9488" : "1px solid #d1d5db",
+                                background: isSelected ? "#ccfbf1" : "#ffffff",
+                                color: isSelected ? "#0f766e" : "#4b5563",
+                                fontWeight: isSelected ? 700 : 500,
+                                fontSize: "12px",
+                                cursor: "pointer",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "4px",
+                                transition: "all 0.15s ease",
+                              }}
+                            >
+                              {isSelected && <span style={{ fontSize: "11px", color: "#0d9488" }}>✓</span>}
+                              <span>{c.display_name || name}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </FormRow>
+                  )}
                   <FormRow>
                     <FormLabel>Amount (₹)</FormLabel>
                     <Input
