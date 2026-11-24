@@ -436,9 +436,15 @@ const PharmacyStockDashboard = () => {
     const HMS_BASE_URL = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
     const navigate = useNavigate();
 
-    const activeOutletCode = (localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "").trim();
-    const activeOutletName = (localStorage.getItem("outlet_name") || "").trim().toLowerCase();
-    const isLoggedDrugPurchase = activeOutletCode === "OLET006" || activeOutletCode === "" || activeOutletName === "drug purchase";
+    const activeOutletCode = (localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "").replace(/['"]/g, "").trim().toUpperCase();
+    const activeOutletName = (localStorage.getItem("selected_outlet_name") || localStorage.getItem("outlet_name") || "").replace(/['"]/g, "").trim().toLowerCase();
+    const isLoggedDrugPurchase =
+        activeOutletCode === "OLET006" ||
+        activeOutletCode === "" ||
+        activeOutletCode.includes("DRUG PURCHASE") ||
+        activeOutletName.includes("drug purchase") ||
+        activeOutletName.includes("purchase") ||
+        activeOutletName.includes("central");
 
     const [selectedOutlet, setSelectedOutlet] = useState(() => {
         if (isLoggedDrugPurchase) return "ALL";
@@ -474,7 +480,7 @@ const PharmacyStockDashboard = () => {
                     else setOutletName(targetOutlet);
                 }
             }
-        } catch (_) {}
+        } catch (_) { }
 
         // Fetch all-time stock (all items)
         try {
