@@ -971,7 +971,38 @@ export default function LabWardRequest({ patient: patientProp, onClose, onBack }
         const finalBillTypes = configuredLabTypes.length > 0 ? configuredLabTypes : enriched.filter(isLab);
         setBillTypeOptions(finalBillTypes);
 
-        const defaultOpt = finalBillTypes.find(b => b.billTypeNo === "LAB01") || finalBillTypes[0];
+        // Auto-select bill type according to patient admission details
+        let defaultOpt = null;
+        const admBt = patientProp?.bill_type || patientProp?.billType;
+        const admBtNo = (patientProp?.billTypeNo || patientProp?.bill_type_no || "").toUpperCase();
+        const cType = String(patientProp?.customer_type || patientProp?.customerType || pd.customer_type || "").toUpperCase();
+        const insComp = String(patientProp?.insurance_company || patientProp?.insuranceCompany || pd.insurance_company || "").toUpperCase();
+        const pOutlet = String(patientProp?.outlet_code || pd.outlet_code || "").toUpperCase();
+
+        if (admBt) {
+          defaultOpt = finalBillTypes.find((b) => String(b.bill_type) === String(admBt));
+        }
+        if (!defaultOpt && admBtNo) {
+          defaultOpt = finalBillTypes.find((b) => String(b.billTypeNo).toUpperCase() === admBtNo);
+        }
+        if (!defaultOpt && (cType.includes("INSURANCE") || insComp)) {
+          if (insComp.includes("RAILWAY") || insComp.includes("CGHS") || insComp.includes("FCI") || insComp.includes("AIRPORT")) {
+            defaultOpt =
+              finalBillTypes.find((b) => (b.bill_name || "").toUpperCase().includes("RAILWAY") && (!pOutlet || b.outlet_code === pOutlet)) ||
+              finalBillTypes.find((b) => (b.bill_name || "").toUpperCase().includes("RAILWAY"));
+          } else if (insComp.includes("ESI") || insComp.includes("ECHS") || insComp.includes("ESIC")) {
+            defaultOpt =
+              finalBillTypes.find((b) => ((b.bill_name || "").toUpperCase().includes("ESI") || (b.bill_name || "").toUpperCase().includes("ECHS")) && (!pOutlet || b.outlet_code === pOutlet)) ||
+              finalBillTypes.find((b) => (b.bill_name || "").toUpperCase().includes("ESI") || (b.bill_name || "").toUpperCase().includes("ECHS"));
+          }
+        }
+        if (!defaultOpt) {
+          defaultOpt =
+            finalBillTypes.find((b) => (b.billTypeNo === "LAB01" || (b.bill_name || "").toUpperCase().includes("GENERAL")) && (!pOutlet || b.outlet_code === pOutlet)) ||
+            finalBillTypes.find((b) => b.billTypeNo === "LAB01") ||
+            finalBillTypes[0];
+        }
+
         if (defaultOpt) {
           setBillTypeNo(defaultOpt.billTypeNo);
           setBilltype(defaultOpt.bill_type);
