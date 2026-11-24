@@ -919,6 +919,48 @@ export default function RadiologyWardRequest({ patient, onClose, onBack }) {
 
         const finalBillTypes = configuredRadTypes.length > 0 ? configuredRadTypes : enriched.filter(isRad);
         setBillTypes(finalBillTypes);
+
+        // Auto-select bill type matching patient admission details
+        let defaultOpt = null;
+        const admBt = patient?.bill_type || patient?.billType;
+        const admBtNo = (patient?.billTypeNo || patient?.bill_type_no || "").toUpperCase();
+        const cType = String(patient?.customer_type || patient?.customerType || pd.customer_type || "").toUpperCase();
+        const insComp = String(patient?.insurance_company || patient?.insuranceCompany || pd.insurance_company || "").toUpperCase();
+        const pOutlet = String(patient?.outlet_code || pd.outlet_code || "").toUpperCase();
+
+        if (admBt) {
+          defaultOpt = finalBillTypes.find((b) => String(b.bill_type) === String(admBt));
+        }
+        if (!defaultOpt && admBtNo) {
+          defaultOpt = finalBillTypes.find((b) => String(b.billTypeNo).toUpperCase() === admBtNo);
+        }
+        if (!defaultOpt && (cType.includes("INSURANCE") || insComp)) {
+          if (insComp.includes("RAILWAY") || insComp.includes("CGHS") || insComp.includes("FCI") || insComp.includes("AIRPORT")) {
+            defaultOpt =
+              finalBillTypes.find((b) => (b.bill_name || "").toUpperCase().includes("RAILWAY") && (!pOutlet || b.outlet_code === pOutlet)) ||
+              finalBillTypes.find((b) => (b.bill_name || "").toUpperCase().includes("RAILWAY"));
+          } else if (insComp.includes("ESI") || insComp.includes("ECHS") || insComp.includes("ESIC")) {
+            defaultOpt =
+              finalBillTypes.find((b) => ((b.bill_name || "").toUpperCase().includes("ESI") || (b.bill_name || "").toUpperCase().includes("ECHS")) && (!pOutlet || b.outlet_code === pOutlet)) ||
+              finalBillTypes.find((b) => (b.bill_name || "").toUpperCase().includes("ESI") || (b.bill_name || "").toUpperCase().includes("ECHS"));
+          }
+        }
+        if (!defaultOpt) {
+          defaultOpt =
+            finalBillTypes.find((b) => (b.outlet_code === pOutlet || b.outlet_name?.toUpperCase() === "MAIN BLOCK")) ||
+            finalBillTypes[0];
+        }
+
+        if (defaultOpt) {
+          setSelectedBillType(defaultOpt.bill_type);
+          const bTypeNo = defaultOpt.billTypeNo || "";
+          const bType = defaultOpt.bill_type || "";
+          apiRequest(`${HmsBaseUrl}investigation-items/?billTypeNo=${bTypeNo}&billType=${bType}`, "GET")
+            .then((res) => {
+              if (res.success) setInvestigationItems(res.data?.items || []);
+            })
+            .catch((err) => console.error(err));
+        }
       }
     } catch (e) { console.error(e); }
   };

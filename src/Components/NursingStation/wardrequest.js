@@ -1112,7 +1112,7 @@ const formatToIST = (dateStr) => {
   return s;
 };
 
-// Flexible Room Matcher: handles prefixes (e.g. 'TS - 422' vs '422', 'SR-509' vs '509', 'SUT006' vs 'S-6')
+// Strict Prefix & Room Matcher (prevents false matches like Bed 1 vs Room 1 or Room 5 vs ICU 5)
 const isRoomMatch = (r1, r2) => {
   if (!r1 || !r2) return false;
   const s1 = String(r1).trim().toUpperCase();
@@ -1123,13 +1123,13 @@ const isRoomMatch = (r1, r2) => {
   if (c1 === c2) return true;
   if ((c1 === "DAYCAR" && c2 === "DAYCARE") || (c1 === "DAYCARE" && c2 === "DAYCAR")) return true;
   if ((c1 === "DLS" && c2.includes("DIALYSIS")) || (c2 === "DLS" && c1.includes("DIALYSIS"))) return true;
-  const n1 = s1.match(/\d+/g);
-  const n2 = s2.match(/\d+/g);
-  if (n1 && n2) {
-    const num1 = parseInt(n1[n1.length - 1], 10);
-    const num2 = parseInt(n2[n2.length - 1], 10);
-    if (num1 === num2) return true;
-  }
+
+  // Normalized prefix strip: e.g. "TS-507" vs "507", "SR-509" vs "509"
+  const stripPrefix = (str) => str.replace(/^(TS|SR|RM|ROOM|BED|W|WD|SUT|MICU|SICU|NICU)[\s-_]*/i, "").trim();
+  const p1 = stripPrefix(s1);
+  const p2 = stripPrefix(s2);
+  if (p1 && p2 && p1 === p2 && (s1.includes(p1) || s2.includes(p2))) return true;
+
   return false;
 };
 
@@ -1548,18 +1548,23 @@ const WardRequest = () => {
     const groupsMap = new Map();
 
     const getOrCreateRoom = (roomNum, roomCat, blockName, nsName) => {
-      const key = String(roomNum || "101").trim();
-      if (!groupsMap.has(key)) {
-        groupsMap.set(key, {
-          room_no: key,
+      const cleanR = String(roomNum || "101").trim();
+      const cleanB = String(blockName || "Main Block").trim();
+      const cleanNS = String(nsName || "").trim();
+      const compoundKey = `${cleanB}__${cleanNS}__${cleanR}`;
+
+      if (!groupsMap.has(compoundKey)) {
+        groupsMap.set(compoundKey, {
+          compound_key: compoundKey,
+          room_no: cleanR,
           room_category: roomCat || "General",
-          block: blockName || "Main Block",
-          nursing_station: nsName || "",
+          block: cleanB,
+          nursing_station: cleanNS,
           total_capacity: 0,
           beds: []
         });
       }
-      return groupsMap.get(key);
+      return groupsMap.get(compoundKey);
     };
 
     // 1. Populate from locationMapping master rooms/beds
@@ -1605,6 +1610,12 @@ const WardRequest = () => {
           const admission = filteredAdmissions.find(adm => {
             const r = String(getField(adm, "canonical_room_no") || getField(adm, "room_no")).trim();
             const b = String(getField(adm, "bed_no")).trim();
+            const admBlock = String(getField(adm, "block") || "").trim();
+            const admNs = String(getAdmNursingStation(adm) || "").trim();
+
+            if (admBlock && blockName && admBlock.toLowerCase() !== blockName.toLowerCase()) return false;
+            if (admNs && nsName && admNs.toLowerCase() !== nsName.toLowerCase()) return false;
+
             return isRoomMatch(r, roomNum) && (b === bedNum || b.replace(/bed\s*/i, '').trim() === bedNum.replace(/bed\s*/i, '').trim());
           });
 
@@ -1634,7 +1645,9 @@ const WardRequest = () => {
 
       let roomObj = null;
       for (const existingRoom of groupsMap.values()) {
-        if (isRoomMatch(existingRoom.room_no, roomNum) || isRoomMatch(existingRoom.room_no, rawRoom)) {
+        const blkMatch = !blockName || !existingRoom.block || existingRoom.block.toLowerCase() === blockName.toLowerCase();
+        const nsMatch = !nsName || !existingRoom.nursing_station || existingRoom.nursing_station.toLowerCase() === nsName.toLowerCase();
+        if (blkMatch && nsMatch && (isRoomMatch(existingRoom.room_no, roomNum) || isRoomMatch(existingRoom.room_no, rawRoom))) {
           roomObj = existingRoom;
           break;
         }
