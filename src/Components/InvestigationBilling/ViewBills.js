@@ -24,10 +24,36 @@ import {
 } from "../GlobalStyles";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+export const isBillDeleted = (bill) =>
+  Boolean(
+    bill &&
+      (bill.is_active === false ||
+        bill.is_deleted === true ||
+        bill.paymentStatus === "Deleted" ||
+        (bill.is_delete_requested && bill.is_approved === true)),
+  );
+
+export const isBillDeletePending = (bill) =>
+  Boolean(
+    bill &&
+      bill.is_delete_requested &&
+      !isBillDeleted(bill) &&
+      bill.is_approved !== true,
+  );
+
+export const getBillStatus = (bill) => {
+  if (isBillDeleted(bill)) return "Deleted";
+  if (isBillDeletePending(bill)) return "Delete Pending";
+  if (bill.is_fully_refunded || bill.paymentStatus === "Sales Returned")
+    return "Sales Returned";
+  return bill.paymentStatus || "Unknown";
+};
+
 // A delete request also sets is_approved=false on the backend, so the edit
 // flags must ignore bills that are in "delete requested" state.
 const hasEditActivity = (bill) =>
-  !bill.is_delete_requested &&
+  !isBillDeletePending(bill) &&
+  !isBillDeleted(bill) &&
   ((Array.isArray(bill.history) && bill.history.length > 0) ||
     bill.is_approved === false);
 
@@ -845,9 +871,22 @@ const BillsReport = () => {
     doctor: "",
     patientType: "ALL",
     uhid: "",
+    status: "",
   });
   const [billTypes, setBillTypes] = useState([]);
   const [doctors, setDoctors] = useState([]);
+
+  const statusOptions = useMemo(
+    () => [
+      { value: "Paid", label: "Paid" },
+      { value: "Pending", label: "Pending" },
+      { value: "Deleted", label: "Deleted" },
+      { value: "Delete Pending", label: "Delete Pending" },
+      { value: "Sales Returned", label: "Sales Returned" },
+      { value: "Cancelled", label: "Cancelled" },
+    ],
+    [],
+  );
 
   const billTypeOptions = useMemo(() => {
     return billTypes.map((b) => ({
@@ -882,6 +921,7 @@ const BillsReport = () => {
   const [refundRemarks, setRefundRemarks] = useState("");
   const [refundRemarksErr, setRefundRemarksErr] = useState(false);
   const [viewRefundBill, setViewRefundBill] = useState(null);
+  const [viewEditHistoryBill, setViewEditHistoryBill] = useState(null);
   const [nameSearch, setNameSearch] = useState("");
   const [actionsBill, setActionsBill] = useState(null);
 
@@ -921,7 +961,7 @@ const BillsReport = () => {
     try {
       const qp = new URLSearchParams();
       Object.entries(filters).forEach(([k, v]) => {
-        if (v && v !== "ALL") qp.append(k, v);
+        if (v && v !== "ALL" && k !== "status") qp.append(k, v);
       });
       qp.append("start_date", fromDate.format("YYYY-MM-DD"));
       qp.append("end_date", toDate.format("YYYY-MM-DD"));
@@ -943,7 +983,7 @@ const BillsReport = () => {
 
   useEffect(() => {
     fetchBills();
-  }, [filters, fromDate, toDate, HMSURL]);
+  }, [filters.billType, filters.doctor, filters.uhid, fromDate, toDate, HMSURL]);
 
   useEffect(() => {
     const fetchMeta = async () => {
@@ -962,7 +1002,7 @@ const BillsReport = () => {
     fetchMeta();
   }, [HMSURL]);
 
-  // client-side IP/OP + patient name filter
+  // client-side IP/OP + patient name + status filter
   useEffect(() => {
     const tokens = nameSearch.trim().toLowerCase().split(/\s+/).filter(Boolean);
 
@@ -985,10 +1025,18 @@ const BillsReport = () => {
             .toLowerCase();
           if (!tokens.every((t) => fullName.includes(t))) return false;
         }
+
+        if (filters.status && filters.status !== "ALL") {
+          const billStatus = getBillStatus(bill);
+          if (billStatus.toLowerCase() !== filters.status.toLowerCase()) {
+            return false;
+          }
+        }
+
         return true;
       }),
     );
-  }, [estimateBills, filters.patientType, nameSearch]);
+  }, [estimateBills, filters.patientType, filters.status, nameSearch]);
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
@@ -1036,12 +1084,21 @@ const BillsReport = () => {
   };
 
   const handlePrint = (bill) => {
-    if (bill.is_delete_requested) {
+    if (isBillDeleted(bill)) {
+      toast.warning("This bill has been deleted.");
+      return;
+    }
+    if (isBillDeletePending(bill)) {
       toast.warning("Delete is pending approval in Dept BUD Report.");
       return;
     }
+    const isCash =
+      String(bill.paymentMethod || "")
+        .trim()
+        .toLowerCase() === "cash";
     const isEdited = hasEditActivity(bill);
-    if (isEdited && bill.is_approved !== true) {
+    // Approval required only for Cash bills; Credit bills do not need approval
+    if (isCash && isEdited && bill.is_approved !== true) {
       toast.warning(
         "This bill was edited and is awaiting approval in Dept BUD Report. Printing is disabled until approved.",
       );
@@ -1071,16 +1128,22 @@ const BillsReport = () => {
     }
     const billNo = remarksBill.investBillNo || remarksBill.EstBillNo;
     const remarks = remarksValue.trim();
+    const isCash =
+      String(remarksBill.paymentMethod || "")
+        .trim()
+        .toLowerCase() === "cash";
 
     try {
       await apiRequest(`${HMSURL}request-bill-edit/`, "PATCH", {
         investBillNo: billNo,
         editRemarks: remarks,
+        is_approve: !isCash,
+        paymentMethod: remarksBill.paymentMethod,
       });
       setEstimateBills((prev) =>
         prev.map((b) =>
           (b.investBillNo || b.EstBillNo) === billNo
-            ? { ...b, is_approved: false, editRemarks: remarks }
+            ? { ...b, is_approved: !isCash, editRemarks: remarks }
             : b,
         ),
       );
@@ -1116,21 +1179,54 @@ const BillsReport = () => {
       setDeleteRemarksErr(true);
       return;
     }
+    const billNo = deleteBill.investBillNo || deleteBill.EstBillNo;
+    const isCash =
+      String(deleteBill.paymentMethod || "")
+        .trim()
+        .toLowerCase() === "cash";
+
     try {
       const result = await apiRequest(`${HMSURL}delete-bill/`, "PATCH", {
-        investBillNo: deleteBill.investBillNo || deleteBill.EstBillNo,
+        investBillNo: billNo,
         deleteRemarks: deleteRemarks.trim(),
+        paymentMethod: deleteBill.paymentMethod,
       });
       if (result.success) {
-        toast.success("Delete request sent for approval.");
-        const billNo = deleteBill.investBillNo || deleteBill.EstBillNo;
-        setEstimateBills((prev) =>
-          prev.map((b) =>
-            (b.investBillNo || b.EstBillNo) === billNo
-              ? { ...b, is_delete_requested: true, is_approved: false }
-              : b,
-          ),
-        );
+        if (isCash) {
+          toast.success(
+            "Cash bill delete request submitted for approval in Dept BUD Report.",
+          );
+          setEstimateBills((prev) =>
+            prev.map((b) =>
+              (b.investBillNo || b.EstBillNo) === billNo
+                ? {
+                    ...b,
+                    is_delete_requested: true,
+                    is_approved: false,
+                    deleteRemarks: deleteRemarks.trim(),
+                  }
+                : b,
+            ),
+          );
+        } else {
+          toast.success(
+            "Credit bill deleted successfully (audit recorded).",
+          );
+          setEstimateBills((prev) =>
+            prev.map((b) =>
+              (b.investBillNo || b.EstBillNo) === billNo
+                ? {
+                    ...b,
+                    is_active: false,
+                    is_delete_requested: true,
+                    is_approved: true,
+                    deleteRemarks: deleteRemarks.trim(),
+                    paymentStatus: "Deleted",
+                  }
+                : b,
+            ),
+          );
+        }
         handleDeleteCancel();
       } else {
         toast.error(result.error || "Failed to delete bill");
@@ -1350,6 +1446,31 @@ const BillsReport = () => {
           </InputWrapper>
 
           <InputWrapper>
+            <Label>Status</Label>
+            <ReactSelect
+              isClearable
+              isSearchable={false}
+              placeholder="All Statuses"
+              options={statusOptions}
+              value={
+                filters.status
+                  ? statusOptions.find((o) => o.value === filters.status) || null
+                  : null
+              }
+              onChange={(selected) => {
+                setFilters((prev) => ({
+                  ...prev,
+                  status: selected ? selected.value : "",
+                }));
+              }}
+              styles={searchableSelectStyles}
+              menuPortalTarget={
+                typeof document !== "undefined" ? document.body : null
+              }
+            />
+          </InputWrapper>
+
+          <InputWrapper>
             <Label>UHID</Label>
             <Input
               type="text"
@@ -1450,8 +1571,10 @@ const BillsReport = () => {
                     <StickyTd $left={COL.billNo.left} $width={COL.billNo.width}>
                       <div>{bill.investBillNo || bill.EstBillNo}</div>
 
-                      {/* Edit badge — never shown when a delete is requested */}
+                      {/* Edit badge — only show pending for Cash bills */}
                       {hasEditActivity(bill) &&
+                        !isBillDeletePending(bill) &&
+                        !isBillDeleted(bill) &&
                         (bill.is_approved === true ? (
                           <span
                             title={`Approved by ${bill.approved_by_name || bill.approved_by || bill.approvedByName || ""}`}
@@ -1468,8 +1591,9 @@ const BillsReport = () => {
                           >
                             ✓ Approved
                           </span>
-                        ) : (
+                        ) : String(bill.paymentMethod || "").trim().toLowerCase() === "cash" ? (
                           <span
+                            title="Edited bill awaiting approval in Dept BUD Report"
                             style={{
                               display: "inline-block",
                               fontSize: 10,
@@ -1483,10 +1607,10 @@ const BillsReport = () => {
                           >
                             ⏳ Edit Pending
                           </span>
-                        ))}
+                        ) : null)}
 
-                      {/* Delete badge */}
-                      {bill.is_delete_requested && (
+                      {/* Delete badge - only when delete is pending approval */}
+                      {isBillDeletePending(bill) && (
                         <span
                           style={{
                             display: "inline-block",
@@ -1598,7 +1722,60 @@ const BillsReport = () => {
                         ))
                         : "—"}
                     </RemarksTd>
-                    <Td>{bill.paymentStatus}</Td>
+                    <Td>
+                      {isBillDeleted(bill) ? (
+                        <span
+                          style={{
+                            background: "#fee2e2",
+                            color: "#b91c1c",
+                            border: "1px solid #fca5a5",
+                            padding: "2px 8px",
+                            borderRadius: "4px",
+                            fontWeight: 700,
+                            fontSize: "0.75rem",
+                            display: "inline-block",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          🗑️ Deleted
+                        </span>
+                      ) : isBillDeletePending(bill) ? (
+                        <span
+                          style={{
+                            background: "#fffbeb",
+                            color: "#b45309",
+                            border: "1px solid #fde68a",
+                            padding: "2px 8px",
+                            borderRadius: "4px",
+                            fontWeight: 700,
+                            fontSize: "0.75rem",
+                            display: "inline-block",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          ⏳ Delete Pending
+                        </span>
+                      ) : bill.is_fully_refunded ||
+                        bill.paymentStatus === "Sales Returned" ? (
+                        <span
+                          style={{
+                            background: "#fef3c7",
+                            color: "#92400e",
+                            border: "1px solid #fcd34d",
+                            padding: "2px 8px",
+                            borderRadius: "4px",
+                            fontWeight: 700,
+                            fontSize: "0.75rem",
+                            display: "inline-block",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          🔁 Sales Returned
+                        </span>
+                      ) : (
+                        bill.paymentStatus
+                      )}
+                    </Td>
                     <StickyActionsTd>
                       <ActionsEyeBtn
                         type="button"
@@ -1631,27 +1808,42 @@ const BillsReport = () => {
             close();
             fn(b);
           };
-          const deletePending = b.is_delete_requested === true;
+          const isDeleted = isBillDeleted(b);
+          const deletePending = isBillDeletePending(b);
+          const isSalesReturned =
+            b.is_fully_refunded === true || b.paymentStatus === "Sales Returned";
+
+          const isCash =
+            String(b.paymentMethod || "")
+              .trim()
+              .toLowerCase() === "cash";
           // Edit flags ignore bills that are only in "delete requested" state
           const isEdited = hasEditActivity(b);
-          const isEditApproved = b.is_approved === true;
+          const isEditApproved = b.is_approved === true || !isCash;
 
-          const editDisabled = !isPending || locked || deletePending;
-          const deleteDisabled = !isPending || locked || deletePending;
-          const refundDisabled = isPending || locked || deletePending;
+          const editDisabled =
+            isDeleted || isSalesReturned || !isPending || locked || deletePending;
+          const deleteDisabled =
+            isDeleted || isSalesReturned || !isPending || locked || deletePending;
+          const refundDisabled =
+            isDeleted || isSalesReturned || isPending || locked || deletePending;
           const printDisabled =
-            (isEdited && !isEditApproved) || deletePending;
+            isDeleted ||
+            (isCash && isEdited && !isEditApproved) ||
+            deletePending;
 
           const tiles = [
             {
               key: "print",
               icon: <PrintSVG />,
               title: "Print Bill",
-              sub: deletePending
-                ? "Disabled (Delete pending approval)"
-                : printDisabled
-                  ? "Disabled (Edit pending approval)"
-                  : "Print or export PDF",
+              sub: isDeleted
+                ? "Disabled (Bill is Deleted)"
+                : deletePending
+                  ? "Disabled (Delete pending approval)"
+                  : printDisabled
+                    ? "Disabled (Edit pending approval)"
+                    : "Print or export PDF",
               disabled: printDisabled,
               theme: printDisabled
                 ? {
@@ -1669,9 +1861,11 @@ const BillsReport = () => {
               onClick: () => {
                 if (printDisabled) {
                   toast.warning(
-                    deletePending
-                      ? "Delete is pending approval in Dept BUD Report."
-                      : "This bill was edited and is awaiting approval in Dept BUD Report. Printing is disabled until approved.",
+                    isDeleted
+                      ? "This bill has been deleted."
+                      : deletePending
+                        ? "Delete is pending approval in Dept BUD Report."
+                        : "This bill was edited and is awaiting approval in Dept BUD Report. Printing is disabled until approved.",
                   );
                   return;
                 }
@@ -1691,17 +1885,35 @@ const BillsReport = () => {
               },
               onClick: () => run(setViewBill),
             },
+            b.history &&
+            b.history.length > 0 && {
+              key: "edit-history",
+              icon: "📜",
+              title: "View Edit History",
+              sub: `${b.history.length} edit${b.history.length > 1 ? "s" : ""} on this bill`,
+              theme: {
+                bg: "#fefce8",
+                border: "#fef08a",
+                color: "#854d0e",
+                iconBg: "rgba(234,179,8,0.15)",
+              },
+              onClick: () => run(setViewEditHistoryBill),
+            },
             canEdit && {
               key: "edit",
               icon: "✏️",
               title: "Edit Bill",
-              sub: deletePending
-                ? "Delete pending approval"
-                : locked
-                  ? "Locked (Barcode generated)"
-                  : !isPending
-                    ? "Locked (Not pending)"
-                    : "Modify bill items",
+              sub: isDeleted
+                ? "Disabled (Bill is Deleted)"
+                : isSalesReturned
+                  ? "Disabled (Sales Returned)"
+                  : deletePending
+                    ? "Delete pending approval"
+                    : locked
+                      ? "Locked (Barcode generated)"
+                      : !isPending
+                        ? "Locked (Not pending)"
+                        : "Modify bill items",
               disabled: editDisabled,
               theme: {
                 bg: "#fffbeb",
@@ -1715,13 +1927,17 @@ const BillsReport = () => {
               key: "delete",
               icon: "🗑️",
               title: "Delete Bill",
-              sub: deletePending
-                ? "Delete pending approval"
-                : locked
-                  ? "Locked (Barcode generated)"
-                  : !isPending
-                    ? "Locked (Not pending)"
-                    : "Permanently remove",
+              sub: isDeleted
+                ? "Disabled (Already Deleted)"
+                : isSalesReturned
+                  ? "Disabled (Sales Returned)"
+                  : deletePending
+                    ? "Delete pending approval"
+                    : locked
+                      ? "Locked (Barcode generated)"
+                      : !isPending
+                        ? "Locked (Not pending)"
+                        : "Permanently remove",
               disabled: deleteDisabled,
               theme: {
                 bg: "#fef2f2",
@@ -1735,13 +1951,17 @@ const BillsReport = () => {
               key: "refund",
               icon: "💸",
               title: "Refund",
-              sub: deletePending
-                ? "Delete pending approval"
-                : locked
-                  ? "Locked (Barcode generated)"
-                  : isPending
-                    ? "Not available (Pending)"
-                    : "Refund selected items",
+              sub: isDeleted
+                ? "Disabled (Bill is Deleted)"
+                : isSalesReturned
+                  ? "Disabled (Already fully refunded)"
+                  : deletePending
+                    ? "Delete pending approval"
+                    : locked
+                      ? "Locked (Barcode generated)"
+                      : isPending
+                        ? "Not available (Pending)"
+                        : "Refund selected items",
               disabled: refundDisabled,
               theme: {
                 bg: "#ecfeff",
@@ -1799,8 +2019,29 @@ const BillsReport = () => {
                           b.lastName,
                         ) || "Patient"}
                       </strong>
-                      <StatusBadge $ok={!isPending}>
-                        {b.paymentStatus || "—"}
+                      <StatusBadge
+                        $ok={!isPending && !isDeleted && !isSalesReturned}
+                        style={
+                          isDeleted
+                            ? {
+                                background: "#fee2e2",
+                                color: "#b91c1c",
+                                border: "1.5px solid #fca5a5",
+                              }
+                            : isSalesReturned
+                              ? {
+                                  background: "#fef3c7",
+                                  color: "#92400e",
+                                  border: "1.5px solid #fcd34d",
+                                }
+                              : {}
+                        }
+                      >
+                        {isDeleted
+                          ? "🗑️ Deleted"
+                          : isSalesReturned
+                            ? "🔁 Sales Returned"
+                            : b.paymentStatus || "—"}
                       </StatusBadge>
                     </div>
                     <ActionsInfoGrid>
@@ -1916,32 +2157,63 @@ const BillsReport = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {Array.isArray(viewBill.item) && viewBill.item.length > 0 ? (
-                    viewBill.item.map((item, idx) => (
-                      <tr key={idx}>
-                        <ModalTd>{idx + 1}</ModalTd>
-                        <ModalTd>{item.itemName}</ModalTd>
-                        <ModalTd>{item.quantity || 1}</ModalTd>
-                        <ModalTd>₹ {parseFloat(item.price).toFixed(2)}</ModalTd>
-                        <ModalTd>
-                          ₹{" "}
-                          {(
-                            parseFloat(item.price) *
-                            parseInt(item.quantity || 1)
-                          ).toFixed(2)}
+                  {(() => {
+                    const displayItems =
+                      Array.isArray(viewBill.item) && viewBill.item.length > 0
+                        ? viewBill.item
+                        : Array.isArray(viewBill.original_items) &&
+                            viewBill.original_items.length > 0
+                          ? viewBill.original_items
+                          : [];
+                    const isBillReturned =
+                      viewBill.is_fully_refunded ||
+                      viewBill.paymentStatus === "Sales Returned";
+
+                    return displayItems.length > 0 ? (
+                      displayItems.map((item, idx) => (
+                        <tr key={idx}>
+                          <ModalTd>{idx + 1}</ModalTd>
+                          <ModalTd>
+                            {item.itemName || item.test_name || item.name || "—"}
+                            {isBillReturned ? (
+                              <span
+                                style={{
+                                  marginLeft: 8,
+                                  fontSize: "0.7rem",
+                                  color: "#92400e",
+                                  background: "#fef3c7",
+                                  border: "1px solid #fde68a",
+                                  padding: "1px 6px",
+                                  borderRadius: 4,
+                                  fontWeight: 600,
+                                }}
+                              >
+                                Refunded
+                              </span>
+                            ) : null}
+                          </ModalTd>
+                          <ModalTd>{item.quantity || 1}</ModalTd>
+                          <ModalTd>₹ {parseFloat(item.price || 0).toFixed(2)}</ModalTd>
+                          <ModalTd>
+                            ₹{" "}
+                            {(
+                              parseFloat(item.price || 0) *
+                              parseInt(item.quantity || 1)
+                            ).toFixed(2)}
+                          </ModalTd>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <ModalTd
+                          colSpan={5}
+                          style={{ textAlign: "center", color: colors.textMuted }}
+                        >
+                          No items found
                         </ModalTd>
                       </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <ModalTd
-                        colSpan={5}
-                        style={{ textAlign: "center", color: colors.textMuted }}
-                      >
-                        No items found
-                      </ModalTd>
-                    </tr>
-                  )}
+                    );
+                  })()}
                 </tbody>
               </ModalTable>
               <ModalTotalRow>
@@ -2299,6 +2571,356 @@ const BillsReport = () => {
           </ModalBox>
         </ModalOverlay>
       )}
+      {/* ── Edit History Modal ── */}
+      {viewEditHistoryBill && (
+        <ModalOverlay onClick={() => setViewEditHistoryBill(null)}>
+          <ModalBox
+            style={{
+              maxWidth: 760,
+              maxHeight: "90vh",
+              overflow: "hidden",
+              display: "flex",
+              flexDirection: "column",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ModalHeader style={{ background: "#78350f" }}>
+              <ModalTitle>
+                📜 Edit History — Bill No:{" "}
+                {viewEditHistoryBill.investBillNo ||
+                  viewEditHistoryBill.EstBillNo}
+              </ModalTitle>
+              <ModalClose onClick={() => setViewEditHistoryBill(null)}>
+                ✕
+              </ModalClose>
+            </ModalHeader>
+
+            <ModalBody style={{ overflowY: "auto", padding: 16 }}>
+              {Array.isArray(viewEditHistoryBill.history) &&
+              viewEditHistoryBill.history.length > 0 ? (
+                [...viewEditHistoryBill.history].reverse().map((entry, idx) => {
+                  const editNum = viewEditHistoryBill.history.length - idx;
+                  const isCash =
+                    String(
+                      entry.paymentMethod ||
+                        viewEditHistoryBill.paymentMethod ||
+                        "",
+                    )
+                      .trim()
+                      .toLowerCase() === "cash";
+                  return (
+                    <div
+                      key={idx}
+                      style={{
+                        marginBottom: 16,
+                        border: `1px solid ${colors.border}`,
+                        borderRadius: 8,
+                        overflow: "hidden",
+                        background: "#fff",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+                      }}
+                    >
+                      {/* Header */}
+                      <div
+                        style={{
+                          background: "#f8fafc",
+                          padding: "8px 12px",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          borderBottom: `1px solid ${colors.border}`,
+                          flexWrap: "wrap",
+                          gap: 8,
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          <span
+                            style={{
+                              background: "#fef3c7",
+                              color: "#92400e",
+                              fontWeight: 700,
+                              fontSize: "0.74rem",
+                              padding: "2px 8px",
+                              borderRadius: 4,
+                            }}
+                          >
+                            Edit #{editNum}
+                          </span>
+                          <span
+                            style={{
+                              background: isCash ? "#ecfdf5" : "#eff6ff",
+                              color: isCash ? "#047857" : "#1d4ed8",
+                              fontWeight: 700,
+                              fontSize: "0.72rem",
+                              padding: "2px 6px",
+                              borderRadius: 4,
+                              textTransform: "uppercase",
+                            }}
+                          >
+                            {entry.paymentMethod ||
+                              viewEditHistoryBill.paymentMethod ||
+                              "—"}
+                          </span>
+                          {entry.is_approved === true ? (
+                            <span
+                              style={{
+                                background: "#dcfce7",
+                                color: "#166534",
+                                fontWeight: 700,
+                                fontSize: "0.72rem",
+                                padding: "2px 6px",
+                                borderRadius: 4,
+                              }}
+                            >
+                              ✓ Approved
+                            </span>
+                          ) : isCash && entry.is_approved === false ? (
+                            <span
+                              style={{
+                                background: "#fef3c7",
+                                color: "#b45309",
+                                fontWeight: 700,
+                                fontSize: "0.72rem",
+                                padding: "2px 6px",
+                                borderRadius: 4,
+                              }}
+                            >
+                              ⏳ Approval Pending
+                            </span>
+                          ) : null}
+                          <span
+                            style={{
+                              fontSize: "0.76rem",
+                              color: colors.textMuted,
+                            }}
+                          >
+                            👤 Edited by:{" "}
+                            <strong>
+                              {entry.modified_by_name ||
+                                entry.modified_by ||
+                                "—"}
+                            </strong>
+                          </span>
+                        </div>
+                        <span
+                          style={{
+                            fontSize: "0.74rem",
+                            color: colors.textMuted,
+                          }}
+                        >
+                          🕒 {formatBillDate(entry.modified_date)}
+                        </span>
+                      </div>
+
+                      {/* Edit Remarks */}
+                      {entry.editRemarks && (
+                        <div
+                          style={{
+                            padding: "6px 12px",
+                            background: "#fffbeb",
+                            borderBottom: `1px solid ${colors.border}`,
+                            fontSize: "0.78rem",
+                            color: "#92400e",
+                          }}
+                        >
+                          <strong>Remarks:</strong> {entry.editRemarks}
+                        </div>
+                      )}
+
+                      {/* Changes breakdown */}
+                      <div style={{ padding: "8px 12px" }}>
+                        {!entry.changes ||
+                        Object.keys(entry.changes).length === 0 ? (
+                          <div
+                            style={{
+                              fontSize: "0.76rem",
+                              color: "#64748b",
+                              fontStyle: "italic",
+                            }}
+                          >
+                            No specific field value changes recorded; remarks: "
+                            {entry.editRemarks || "—"}"
+                          </div>
+                        ) : (
+                          <table
+                            style={{
+                              width: "100%",
+                              borderCollapse: "collapse",
+                              fontSize: "0.75rem",
+                            }}
+                          >
+                            <thead>
+                              <tr
+                                style={{
+                                  background: "#f1f5f9",
+                                  textAlign: "left",
+                                }}
+                              >
+                                <th
+                                  style={{
+                                    padding: "6px 8px",
+                                    border: `1px solid ${colors.border}`,
+                                    width: "25%",
+                                  }}
+                                >
+                                  Field Changed
+                                </th>
+                                <th
+                                  style={{
+                                    padding: "6px 8px",
+                                    border: `1px solid ${colors.border}`,
+                                    width: "37.5%",
+                                    color: "#991b1b",
+                                  }}
+                                >
+                                  Previous Value
+                                </th>
+                                <th
+                                  style={{
+                                    padding: "6px 8px",
+                                    border: `1px solid ${colors.border}`,
+                                    width: "37.5%",
+                                    color: "#166534",
+                                  }}
+                                >
+                                  Updated Value
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {Object.entries(entry.changes).map(
+                                ([k, changeVal]) => {
+                                  const isOldNewObj =
+                                    changeVal &&
+                                    typeof changeVal === "object" &&
+                                    !Array.isArray(changeVal) &&
+                                    ("old" in changeVal || "new" in changeVal);
+                                  const oldVal = isOldNewObj
+                                    ? changeVal.old
+                                    : changeVal;
+                                  const newVal = isOldNewObj
+                                    ? changeVal.new
+                                    : viewEditHistoryBill[k];
+
+                                  const renderHistoryValue = (v) => {
+                                    if (
+                                      v === null ||
+                                      v === undefined ||
+                                      v === ""
+                                    )
+                                      return (
+                                        <span
+                                          style={{
+                                            color: "#94a3b8",
+                                            fontStyle: "italic",
+                                          }}
+                                        >
+                                          — Empty —
+                                        </span>
+                                      );
+                                    if (Array.isArray(v)) {
+                                      return (
+                                        <div
+                                          style={{
+                                            display: "flex",
+                                            flexDirection: "column",
+                                            gap: 3,
+                                          }}
+                                        >
+                                          {v.map((item, ii) => (
+                                            <div
+                                              key={ii}
+                                              style={{
+                                                padding: "1px 4px",
+                                                background: "#f8fafc",
+                                                borderRadius: 3,
+                                                border: "1px solid #e2e8f0",
+                                              }}
+                                            >
+                                              •{" "}
+                                              {typeof item === "string"
+                                                ? item
+                                                : item.itemName ||
+                                                  item.test_name ||
+                                                  JSON.stringify(item)}
+                                              {item.price
+                                                ? ` (₹${parseFloat(item.price).toFixed(2)})`
+                                                : ""}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      );
+                                    }
+                                    return String(v);
+                                  };
+
+                                  return (
+                                    <tr key={k}>
+                                      <td
+                                        style={{
+                                          padding: "6px 8px",
+                                          border: `1px solid ${colors.border}`,
+                                          fontWeight: 600,
+                                        }}
+                                      >
+                                        {k
+                                          .replace(/([A-Z])/g, " $1")
+                                          .replace(/^./, (s) =>
+                                            s.toUpperCase(),
+                                          )}
+                                      </td>
+                                      <td
+                                        style={{
+                                          padding: "6px 8px",
+                                          border: `1px solid ${colors.border}`,
+                                          background: "#fff5f5",
+                                        }}
+                                      >
+                                        {renderHistoryValue(oldVal)}
+                                      </td>
+                                      <td
+                                        style={{
+                                          padding: "6px 8px",
+                                          border: `1px solid ${colors.border}`,
+                                          background: "#f0fdf4",
+                                        }}
+                                      >
+                                        {renderHistoryValue(newVal)}
+                                      </td>
+                                    </tr>
+                                  );
+                                },
+                              )}
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div
+                  style={{
+                    textAlign: "center",
+                    padding: 24,
+                    color: colors.textMuted,
+                  }}
+                >
+                  No edit history available for this bill.
+                </div>
+              )}
+            </ModalBody>
+          </ModalBox>
+        </ModalOverlay>
+      )}
+
       {/* ── Print Modal (fast in-page preview, replaces window.open) ── */}
       {printJob && (
         <PrintModal

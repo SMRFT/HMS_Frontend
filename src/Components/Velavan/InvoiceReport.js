@@ -1246,6 +1246,224 @@ const InvoiceReport = () => {
     openPrintWindow("Velavan Purchase Report", css, body);
   };
 
+  // ── Velavan Date-wise Purchase Report ─────────────────────────────
+  const handleDateWisePurchasePrint = () => {
+    const getGroupDateKey = (row) => {
+      const raw = (row.invoice_date || row.date || "").substring(0, 10);
+      return raw || "No Date";
+    };
+
+    const formatGroupDate = (dateKey) => {
+      if (!dateKey || dateKey === "No Date") return "No Date";
+      const parts = dateKey.split("-");
+      if (parts.length === 3) {
+        const [y, m, d] = parts;
+        return `${d.padStart(2, "0")}/${m.padStart(2, "0")}/${y}`;
+      }
+      return formatDate(dateKey);
+    };
+
+    const dateGroups = {};
+    filteredData.forEach((row) => {
+      const dateKey = getGroupDateKey(row);
+      if (!dateGroups[dateKey]) {
+        dateGroups[dateKey] = {
+          dateKey,
+          displayDate: formatGroupDate(dateKey),
+          rows: [],
+          total: 0,
+        };
+      }
+      const amt =
+        parseFloat(row.net_invoice_amount || row.total_amount || 0) || 0;
+      dateGroups[dateKey].rows.push(row);
+      dateGroups[dateKey].total += amt;
+    });
+
+    const sortedDateKeys = Object.keys(dateGroups).sort((a, b) => {
+      if (a === "No Date") return 1;
+      if (b === "No Date") return -1;
+      return a.localeCompare(b);
+    });
+
+    let grossTotal = 0;
+    let sl = 1;
+    let tableRows = "";
+
+    sortedDateKeys.forEach((key) => {
+      const grp = dateGroups[key];
+      grossTotal += grp.total;
+
+      // Sort rows inside date by GRN No
+      grp.rows.sort((a, b) =>
+        (a.grn_number || "").localeCompare(b.grn_number || ""),
+      );
+
+      // Invoice Date Header Row
+      tableRows += `<tr style="background:#e0f2fe">
+        <td colspan="4" style="font-weight:bold;padding:7px 10px;color:#1e40af;font-size:13px;border:1px solid #999">
+          Invoice Date: ${grp.displayDate}
+        </td>
+      </tr>`;
+
+      grp.rows.forEach((row) => {
+        const amt =
+          parseFloat(row.net_invoice_amount || row.total_amount || 0) || 0;
+        const supplierName = row.vendor || row.vendor_id || "—";
+        const grnNo = row.grn_number || "—";
+
+        tableRows += `<tr>
+          <td style="text-align:center">${sl++}</td>
+          <td style="text-align:center;font-weight:600">${grnNo}</td>
+          <td>${supplierName}</td>
+          <td style="text-align:right;font-weight:600">${formatCurrency(amt)}</td>
+        </tr>`;
+      });
+
+      // Total for each date
+      tableRows += `<tr style="background:#fffbe0;font-weight:bold">
+        <td colspan="3" style="text-align:right;padding:6px 10px;border:1px solid #999">Total</td>
+        <td style="text-align:right;padding:6px 10px;border:1px solid #999">${formatCurrency(grp.total)}</td>
+      </tr>`;
+    });
+
+    const css = `
+      body { font-family: Arial, sans-serif; padding: 12px; font-size: 12.5px; }
+      h1 { text-align: center; font-size: 18px; margin: 8px 0; text-decoration: underline; color: #1e293b; }
+      h2 { text-align: center; font-size: 13px; color: #555; margin: 0 0 14px; }
+      table { border-collapse: collapse; width: 100%; border: 1px solid #333; margin-top: 10px; }
+      th, td { border: 1px dashed #999; padding: 6px 10px; }
+      th { background: #d0d0d0; font-weight: bold; text-align: center; font-size: 12px; }
+      .gross-row td { background: #d4edda; font-weight: bold; font-size: 13px; border-top: 2px solid #333; }
+    `;
+
+    const body = `
+      <h1>Velavan Date-wise Purchase Report</h1>
+      <h2>${getDateRangeLabel()}</h2>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:55px">Sl.No</th>
+            <th style="width:160px">GRN No</th>
+            <th>Supplier Name</th>
+            <th style="width:150px;text-align:right">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tableRows || `<tr><td colspan="4" style="text-align:center;padding:16px;color:#888">No purchase records found</td></tr>`}
+          <tr class="gross-row">
+            <td colspan="3" style="text-align:right;padding:8px">Gross Total:</td>
+            <td style="text-align:right;padding:8px">${formatCurrency(grossTotal)}</td>
+          </tr>
+        </tbody>
+      </table>
+    `;
+
+    openPrintWindow("Velavan Date-wise Purchase Report", css, body);
+  };
+
+  // ── Export Date-wise Purchase to Excel ───────────────────────────
+  const exportDateWisePurchaseToExcel = () => {
+    const XLSX = require("xlsx");
+    const getGroupDateKey = (row) => {
+      const raw = (row.invoice_date || row.date || "").substring(0, 10);
+      return raw || "No Date";
+    };
+
+    const formatGroupDate = (dateKey) => {
+      if (!dateKey || dateKey === "No Date") return "No Date";
+      const parts = dateKey.split("-");
+      if (parts.length === 3) {
+        const [y, m, d] = parts;
+        return `${d.padStart(2, "0")}/${m.padStart(2, "0")}/${y}`;
+      }
+      return formatDate(dateKey);
+    };
+
+    const dateGroups = {};
+    filteredData.forEach((row) => {
+      const dateKey = getGroupDateKey(row);
+      if (!dateGroups[dateKey]) {
+        dateGroups[dateKey] = {
+          dateKey,
+          displayDate: formatGroupDate(dateKey),
+          rows: [],
+          total: 0,
+        };
+      }
+      const amt =
+        parseFloat(row.net_invoice_amount || row.total_amount || 0) || 0;
+      dateGroups[dateKey].rows.push(row);
+      dateGroups[dateKey].total += amt;
+    });
+
+    const sortedDateKeys = Object.keys(dateGroups).sort((a, b) => {
+      if (a === "No Date") return 1;
+      if (b === "No Date") return -1;
+      return a.localeCompare(b);
+    });
+
+    let grossTotal = 0;
+    let sl = 1;
+
+    const wsData = [
+      [`Velavan Date-wise Purchase Report - ${getDateRangeLabel()}`],
+      [],
+    ];
+
+    sortedDateKeys.forEach((key) => {
+      const grp = dateGroups[key];
+      grossTotal += grp.total;
+
+      grp.rows.sort((a, b) =>
+        (a.grn_number || "").localeCompare(b.grn_number || ""),
+      );
+
+      wsData.push([`Invoice Date: ${grp.displayDate}`]);
+      wsData.push(["Sl.No", "GRN No", "Supplier Name", "Amount"]);
+
+      grp.rows.forEach((row) => {
+        const amt =
+          parseFloat(row.net_invoice_amount || row.total_amount || 0) || 0;
+        wsData.push([
+          sl++,
+          row.grn_number || "—",
+          row.vendor || row.vendor_id || "—",
+          parseFloat(amt.toFixed(2)),
+        ]);
+      });
+
+      wsData.push([
+        "",
+        "",
+        "Total:",
+        parseFloat(grp.total.toFixed(2)),
+      ]);
+      wsData.push([]);
+    });
+
+    wsData.push([
+      "",
+      "",
+      "Gross Total:",
+      parseFloat(grossTotal.toFixed(2)),
+    ]);
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws["!cols"] = [
+      { wch: 8 },
+      { wch: 22 },
+      { wch: 38 },
+      { wch: 18 },
+    ];
+    XLSX.utils.book_append_sheet(wb, ws, "Date-wise Purchase");
+    XLSX.writeFile(
+      wb,
+      `Velavan_Date_wise_Purchase_Report_${filters.from_date}_to_${filters.to_date}.xlsx`,
+    );
+  };
+
   // ── Export Excel / CSV ───────────────────────────────────────────
   const exportToExcel = async () => {
     const XLSX = require("xlsx");
@@ -3144,7 +3362,16 @@ const InvoiceReport = () => {
                     setShowReportDropdown(false);
                   }}
                 >
-                  <Printer size={14} color="#7c3aed" /> Purchase Report
+                  <Printer size={14} color="#7c3aed" /> Supplier Wise Purchase
+                </button>
+                <button
+                  style={dropdownItem}
+                  onClick={() => {
+                    handleDateWisePurchasePrint();
+                    setShowReportDropdown(false);
+                  }}
+                >
+                  <Printer size={14} color="#2563eb" /> Date Wise Purchase Report
                 </button>
                 <button
                   style={dropdownItem}
@@ -3233,7 +3460,16 @@ const InvoiceReport = () => {
                     setShowExportDropdown(false);
                   }}
                 >
-                  <Download size={14} color="#7c3aed" /> Purchase Report
+                  <Download size={14} color="#7c3aed" /> Supplier Wise Purchase
+                </button>
+                <button
+                  style={dropdownItem}
+                  onClick={() => {
+                    exportDateWisePurchaseToExcel();
+                    setShowExportDropdown(false);
+                  }}
+                >
+                  <Download size={14} color="#2563eb" /> Date Wise Purchase Report
                 </button>
                 <button
                   style={dropdownItem}

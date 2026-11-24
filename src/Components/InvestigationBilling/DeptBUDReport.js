@@ -184,6 +184,35 @@ const RefundBadge = styled.span`
   font-weight: 600;
 `;
 
+const PaymentMethodBadge = styled.span`
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  background: ${(props) =>
+    String(props.$method).toLowerCase() === "cash"
+      ? "#ecfdf5"
+      : String(props.$method).toLowerCase() === "credit"
+        ? "#eff6ff"
+        : "#f8fafc"};
+  color: ${(props) =>
+    String(props.$method).toLowerCase() === "cash"
+      ? "#047857"
+      : String(props.$method).toLowerCase() === "credit"
+        ? "#1d4ed8"
+        : "#475569"};
+  border: 1px solid
+    ${(props) =>
+      String(props.$method).toLowerCase() === "cash"
+        ? "#a7f3d0"
+        : String(props.$method).toLowerCase() === "credit"
+          ? "#bfdbfe"
+          : "#e2e8f0"};
+`;
+
 const ApprovedStatusBadge = styled.span`
   display: inline-flex;
   align-items: center;
@@ -625,6 +654,7 @@ const printTable = (rows, reportType, fromDate, toDate) => {
         <th>Patient Name</th>
         <th>Outlet</th>
         <th>Bill Type</th>
+        <th>Payment Method</th>
         <th>Refund Amount (₹)</th>
         <th>Refunded By</th>
         <th>Refund Remarks</th>
@@ -645,6 +675,7 @@ const printTable = (rows, reportType, fromDate, toDate) => {
           <td>${bill.patientName || "—"}</td>
           <td>${bill.outlet_name || "—"}</td>
           <td>${bill.bill_name || bill.bill_type || "—"}</td>
+          <td style="font-weight: 600;">${bill.paymentMethod || "—"}</td>
           <td style="text-align: right; font-weight: bold;">₹ ${parseFloat(bill.refund_finalPrice || 0).toFixed(2)}</td>
           <td>${bill.created_by_name || bill.created_by || "—"}</td>
           <td>${bill.refundRemarks || "—"}</td>
@@ -664,6 +695,7 @@ const printTable = (rows, reportType, fromDate, toDate) => {
         <th>Patient Name</th>
         <th>Outlet</th>
         <th>Bill Type</th>
+        <th>Payment Method</th>
         <th>Deleted By</th>
         <th>Delete Remarks</th>
         <th>Deleted Date & Time</th>
@@ -674,7 +706,9 @@ const printTable = (rows, reportType, fromDate, toDate) => {
     `;
     rowsHtml = rows
       .map(
-        (bill, i) => `
+        (bill, i) => {
+          const isCred = String(bill.paymentMethod || "").trim().toLowerCase() === "credit";
+          return `
         <tr>
           <td>${i + 1}</td>
           <td>${bill.investBillNo || bill.EstBillNo || "—"}</td>
@@ -682,13 +716,15 @@ const printTable = (rows, reportType, fromDate, toDate) => {
           <td>${bill.patientName || "—"}</td>
           <td>${bill.outlet_name || "—"}</td>
           <td>${bill.bill_name || bill.bill_type || "—"}</td>
+          <td style="font-weight: 600;">${bill.paymentMethod || "—"}</td>
           <td>${bill.deletedByName || bill.deletedBy || "—"}</td>
           <td>${bill.deleteRemarks || "—"}</td>
           <td>${formatDateTime(bill.deletedAt || bill.lastmodified_date)}</td>
           <td>${bill.is_approved ? '<span style="color:#166534;font-weight:bold;">Approved</span>' : '<span style="color:#b45309;font-weight:bold;">Pending</span>'}</td>
           <td>${bill.is_approved ? bill.approved_by_name || bill.approvedByName || bill.approved_by || "—" : "—"}</td>
           <td>${bill.is_approved ? formatDateTime(bill.approved_date || bill.approvedDate) : "—"}</td>
-        </tr>`,
+        </tr>`;
+        },
       )
       .join("");
   } else {
@@ -701,6 +737,7 @@ const printTable = (rows, reportType, fromDate, toDate) => {
         <th>Patient Name</th>
         <th>Outlet</th>
         <th>Bill Type</th>
+        <th>Payment Method</th>
         <th>Edited By</th>
         <th>Edit Remarks</th>
         <th>Last Modified Date & Time</th>
@@ -711,7 +748,9 @@ const printTable = (rows, reportType, fromDate, toDate) => {
     `;
     rowsHtml = rows
       .map(
-        (bill, i) => `
+        (bill, i) => {
+          const isCred = String(bill.paymentMethod || "").trim().toLowerCase() === "credit";
+          return `
         <tr>
           <td>${i + 1}</td>
           <td>${bill.investBillNo || bill.EstBillNo || "—"}</td>
@@ -719,13 +758,15 @@ const printTable = (rows, reportType, fromDate, toDate) => {
           <td>${bill.patientName || "—"}</td>
           <td>${bill.outlet_name || "—"}</td>
           <td>${bill.bill_name || bill.bill_type || "—"}</td>
+          <td style="font-weight: 600;">${bill.paymentMethod || "—"}</td>
           <td>${bill.lastmodified_by_name || bill.lastmodified_by || "—"}</td>
           <td>${getRemarks(bill, reportType)}</td>
           <td>${formatDateTime(bill.lastmodified_date)}</td>
           <td>${bill.is_approved ? '<span style="color:#166534;font-weight:bold;">Approved</span>' : '<span style="color:#b45309;font-weight:bold;">Pending</span>'}</td>
           <td>${bill.is_approved ? bill.approved_by_name || bill.approvedByName || bill.approved_by || "—" : "—"}</td>
           <td>${bill.is_approved ? formatDateTime(bill.approved_date || bill.approvedDate) : "—"}</td>
-        </tr>`,
+        </tr>`;
+        },
       )
       .join("");
   }
@@ -1027,6 +1068,7 @@ const DeptBUDReport = () => {
                     <Th style={{ minWidth: 135 }}>Patient Name</Th>
                     <Th style={{ minWidth: 100 }}>OUTLET</Th>
                     <Th style={{ minWidth: 110 }}>Bill Type</Th>
+                    <Th style={{ minWidth: 110 }}>Payment Method</Th>
                     {reportType === "refund" && (
                       <Th style={{ minWidth: 110 }}>Refund Amount</Th>
                     )}
@@ -1051,9 +1093,7 @@ const DeptBUDReport = () => {
                           ? "Refund Date & Time"
                           : "Last Modified Date & Time"}
                     </Th>
-                    {(reportType === "edited" || reportType === "refund") && (
-                      <Th style={{ width: 85, textAlign: "center" }}>Details</Th>
-                    )}
+                    <Th style={{ width: 85, textAlign: "center" }}>Details</Th>
                     <Th style={{ minWidth: 130 }}>Approval Status</Th>
                     <Th style={{ minWidth: 145 }}>Approved By</Th>
                     <FrozenTh>Action</FrozenTh>
@@ -1062,6 +1102,7 @@ const DeptBUDReport = () => {
                 <tbody>
                   {bills.map((bill, index) => {
                     const isApproved = Boolean(bill.is_approved);
+                    const isCredit = String(bill.paymentMethod || "").trim().toLowerCase() === "credit";
                     const billId = bill._id;
 
                     return (
@@ -1086,6 +1127,11 @@ const DeptBUDReport = () => {
                           </Td>
                           <Td>{bill.outlet_name || "—"}</Td>
                           <Td>{bill.bill_name || bill.bill_type || "—"}</Td>
+                          <Td>
+                            <PaymentMethodBadge $method={bill.paymentMethod}>
+                              {bill.paymentMethod || "—"}
+                            </PaymentMethodBadge>
+                          </Td>
                           {reportType === "refund" && (
                             <Td style={{ fontWeight: 700, color: "#0369a1" }}>
                               ₹ {parseFloat(bill.refund_finalPrice || 0).toFixed(2)}
@@ -1122,25 +1168,39 @@ const DeptBUDReport = () => {
                           </Td>
                           {reportType === "edited" && (
                             <Td style={{ textAlign: "center" }}>
-                              {bill.history?.length > 0 && (
+                              {bill.history?.length > 0 ? (
                                 <ExpandBtn onClick={() => toggleRow(bill._id)}>
                                   {expandedRows.has(bill._id)
                                     ? "▲ Hide"
                                     : "▼ History"}{" "}
                                   ({bill.history.length})
                                 </ExpandBtn>
+                              ) : (
+                                <span style={{ color: colors.textMuted, fontSize: "0.75rem" }}>—</span>
                               )}
+                            </Td>
+                          )}
+                          {reportType === "deleted" && (
+                            <Td style={{ textAlign: "center" }}>
+                              <ExpandBtn onClick={() => toggleRow(bill._id)}>
+                                {expandedRows.has(bill._id)
+                                  ? "▲ Hide"
+                                  : "▼ History"}{" "}
+                                ({bill.history?.length || 1})
+                              </ExpandBtn>
                             </Td>
                           )}
                           {reportType === "refund" && (
                             <Td style={{ textAlign: "center" }}>
-                              {Array.isArray(bill.item) && bill.item.length > 0 && (
+                              {Array.isArray(bill.item) && bill.item.length > 0 ? (
                                 <ExpandBtn onClick={() => toggleRow(bill._id)}>
                                   {expandedRows.has(bill._id)
                                     ? "▲ Hide"
                                     : "▼ Items"}{" "}
                                   ({bill.item.length})
                                 </ExpandBtn>
+                              ) : (
+                                <span style={{ color: colors.textMuted, fontSize: "0.75rem" }}>—</span>
                               )}
                             </Td>
                           )}
@@ -1192,12 +1252,12 @@ const DeptBUDReport = () => {
                           </FrozenTd>
                         </StyledTr>
 
-                        {/* ── Edit History Accordion ── */}
-                        {reportType === "edited" && expandedRows.has(bill._id) && (
+                        {/* ── Edit / Delete History Accordion ── */}
+                        {(reportType === "edited" || reportType === "deleted") && expandedRows.has(bill._id) && (
                           <tr>
-                            <td colSpan={13} style={{ padding: 0 }}>
+                            <td colSpan={16} style={{ padding: 0 }}>
                               <HistoryPanel>
-                                {[...bill.history].reverse().map((entry, i) => (
+                                {[...(bill.history || [])].reverse().map((entry, i) => (
                                   <HistoryCard key={i}>
                                     <HistoryCardHeader>
                                       <div
@@ -1208,20 +1268,63 @@ const DeptBUDReport = () => {
                                           flexWrap: "wrap",
                                         }}
                                       >
-                                        <EditNumBadge>
-                                          Edit #{bill.history.length - i}
+                                        <EditNumBadge
+                                          style={
+                                            entry.action === "delete"
+                                              ? {
+                                                  background: "#fee2e2",
+                                                  color: "#b91c1c",
+                                                  borderColor: "#fca5a5",
+                                                }
+                                              : {}
+                                          }
+                                        >
+                                          {entry.action === "delete"
+                                            ? "🗑️ Delete Request"
+                                            : `Edit #${bill.history.length - i}`}
                                         </EditNumBadge>
+                                        <PaymentMethodBadge
+                                          $method={entry.paymentMethod || bill.paymentMethod}
+                                        >
+                                          {entry.paymentMethod || bill.paymentMethod || "—"}
+                                        </PaymentMethodBadge>
+                                        {isCredit || String(entry.paymentMethod || "").trim().toLowerCase() === "credit" ? (
+                                          <span
+                                            style={{
+                                              padding: "2px 6px",
+                                              fontSize: "0.68rem",
+                                              background: "#f1f5f9",
+                                              color: "#475569",
+                                              border: "1px solid #cbd5e1",
+                                              borderRadius: 4,
+                                              fontWeight: 600,
+                                            }}
+                                          >
+                                            No Approval Needed
+                                          </span>
+                                        ) : entry.is_approved === true ? (
+                                          <ApprovedStatusBadge style={{ padding: "2px 6px", fontSize: "0.68rem" }}>
+                                            ✓ Approved
+                                          </ApprovedStatusBadge>
+                                        ) : entry.is_approved === false ? (
+                                          <PendingBadge style={{ padding: "2px 6px", fontSize: "0.68rem" }}>
+                                            ⏳ Approval Pending
+                                          </PendingBadge>
+                                        ) : null}
                                         <span>
                                           🕒{" "}
                                           <strong>
-                                            {formatDateTime(entry.modified_date)}
+                                            {formatDateTime(entry.modified_date || entry.deletedAt || bill.deletedAt)}
                                           </strong>
                                         </span>
                                         <span>
-                                          👤 Edited by:{" "}
+                                          👤 {entry.action === "delete" ? "Deleted by: " : "Edited by: "}
                                           <strong>
                                             {entry.modified_by_name ||
-                                              entry.modified_by}
+                                              entry.modified_by ||
+                                              bill.deletedByName ||
+                                              bill.deletedBy ||
+                                              "—"}
                                             {entry.modified_by_name &&
                                               entry.modified_by_name !==
                                               entry.modified_by
@@ -1230,9 +1333,9 @@ const DeptBUDReport = () => {
                                           </strong>
                                         </span>
                                       </div>
-                                      {entry.editRemarks && (
+                                      {(entry.deleteRemarks || entry.editRemarks || bill.deleteRemarks) && (
                                         <RemarksPill>
-                                          Remarks: <strong>{entry.editRemarks}</strong>
+                                          Remarks: <strong>{entry.deleteRemarks || entry.editRemarks || bill.deleteRemarks}</strong>
                                         </RemarksPill>
                                       )}
                                     </HistoryCardHeader>
@@ -1256,7 +1359,7 @@ const DeptBUDReport = () => {
                                               color: "#9f1239",
                                             }}
                                           >
-                                            ⏮️ Previous Value (Before Edit)
+                                            {entry.action === "delete" ? "Before Deletion" : "⏮️ Previous Value (Before Edit)"}
                                           </th>
                                           <th
                                             style={{
@@ -1265,45 +1368,84 @@ const DeptBUDReport = () => {
                                               color: "#166534",
                                             }}
                                           >
-                                            ⏭️ Updated Value (After Edit)
+                                            {entry.action === "delete" ? "Deletion Status" : "⏭️ Updated Value (After Edit)"}
                                           </th>
                                         </tr>
                                       </thead>
                                       <tbody>
-                                        {Object.entries(
-                                          entry.changes || {},
-                                        ).map(([key, oldVal]) => (
-                                          <tr key={key}>
+                                        {!entry.changes || Object.keys(entry.changes).length === 0 ? (
+                                          <tr>
                                             <td
+                                              colSpan={3}
                                               style={{
-                                                fontWeight: 600,
-                                                color: colors.text,
+                                                textAlign: "center",
+                                                color: "#64748b",
+                                                fontStyle: "italic",
+                                                padding: 12,
                                               }}
                                             >
-                                              {formatFieldName(key)}
-                                            </td>
-                                            <td
-                                              style={{
-                                                background: "#fffafb",
-                                              }}
-                                            >
-                                              <DiffBox>
-                                                {renderVal(oldVal, false)}
-                                              </DiffBox>
-                                            </td>
-                                            <td
-                                              style={{
-                                                background: "#fcfdfc",
-                                              }}
-                                            >
-                                              <DiffBox>
-                                                {renderVal(bill[key], true)}
-                                              </DiffBox>
+                                              {entry.action === "delete"
+                                                ? `Delete request submitted. Remarks: "${entry.deleteRemarks || entry.editRemarks || bill.deleteRemarks || "—"}"`
+                                                : `No field values changed. Edit remarks: "${entry.editRemarks || "—"}"`}
                                             </td>
                                           </tr>
-                                        ))}
+                                        ) : (
+                                          Object.entries(entry.changes).map(([key, changeVal]) => {
+                                            const isOldNewObj =
+                                              changeVal &&
+                                              typeof changeVal === "object" &&
+                                              !Array.isArray(changeVal) &&
+                                              ("old" in changeVal || "new" in changeVal);
+                                            const oldVal = isOldNewObj ? changeVal.old : changeVal;
+                                            const newVal = isOldNewObj ? changeVal.new : bill[key];
+                                            return (
+                                              <tr key={key}>
+                                                <td
+                                                  style={{
+                                                    fontWeight: 600,
+                                                    color: colors.text,
+                                                  }}
+                                                >
+                                                  {formatFieldName(key)}
+                                                </td>
+                                                <td
+                                                  style={{
+                                                    background: "#fffafb",
+                                                  }}
+                                                >
+                                                  <DiffBox>
+                                                    {renderVal(oldVal, false)}
+                                                  </DiffBox>
+                                                </td>
+                                                <td
+                                                  style={{
+                                                    background: "#fcfdfc",
+                                                  }}
+                                                >
+                                                  <DiffBox>
+                                                    {renderVal(newVal, true)}
+                                                  </DiffBox>
+                                                </td>
+                                              </tr>
+                                            );
+                                          })
+                                        )}
                                       </tbody>
                                     </ChangesTable>
+                                    {entry.action === "delete" && Array.isArray(bill.item) && bill.item.length > 0 && (
+                                      <div style={{ marginTop: 10, padding: 8, background: "#fff", borderRadius: 6, border: "1px solid #e2e8f0" }}>
+                                        <div style={{ fontSize: "0.75rem", fontWeight: 700, color: colors.textMain, marginBottom: 6 }}>
+                                          🔬 Billed Investigations ({bill.item.length} item{bill.item.length > 1 ? "s" : ""}) — Total: ₹{parseFloat(bill.finalPrice || bill.total || 0).toFixed(2)}
+                                        </div>
+                                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                                          {bill.item.map((it, idx) => (
+                                            <span key={idx} style={{ fontSize: "0.72rem", background: "#f1f5f9", padding: "2px 8px", borderRadius: 4, border: "1px solid #cbd5e1" }}>
+                                              {it.itemName || it.test_name || it.name || "Test"} {it.price ? `(₹${parseFloat(it.price).toFixed(2)})` : ""}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
                                   </HistoryCard>
                                 ))}
                               </HistoryPanel>

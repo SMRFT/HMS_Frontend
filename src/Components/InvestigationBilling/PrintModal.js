@@ -228,6 +228,33 @@ const resolveDoctor = (idOrName, doctors) => {
 
 function buildBillHtml(bill, doctors, size, isEstimate = false, isDuplicate = false) {
   const items = resolveItems(bill.item || bill.items);
+
+  // Recalculate totals based on the items actually present on the bill receipt
+  const calculatedItemsTotal = items.reduce(
+    (acc, it) => acc + parseFloat(it.price || 0) * parseInt(it.quantity || 1, 10),
+    0,
+  );
+
+  const billTotal =
+    items.length > 0 ? calculatedItemsTotal : parseFloat(bill.total || 0);
+
+  const originalTotal = parseFloat(bill.total || calculatedItemsTotal || 0);
+  let billDiscount = parseFloat(bill.discount || 0);
+  const discountPercent = parseFloat(bill.discountPercent || 0);
+
+  if (discountPercent > 0) {
+    billDiscount = (billTotal * discountPercent) / 100;
+  } else if (originalTotal > 0 && billTotal < originalTotal && billDiscount > 0) {
+    billDiscount = (billTotal / originalTotal) * billDiscount;
+  } else if (billTotal === 0) {
+    billDiscount = 0;
+  }
+  billDiscount = Math.round(billDiscount * 100) / 100;
+
+  const billFinalPrice = Math.max(
+    0,
+    Math.round((billTotal - billDiscount) * 100) / 100,
+  );
   const doctorName = resolveDoctor(bill.doctor, doctors);
   const roomNo = bill.roomNo ? String(bill.roomNo).trim() : "";
   const patientName = fmtName(bill.salutation, bill.firstName, bill.lastName);
@@ -242,6 +269,20 @@ function buildBillHtml(bill, doctors, size, isEstimate = false, isDuplicate = fa
   const isA4 = size === "a4";
   const isA5 = size === "a5";
   const isThermal = size === "thermal";
+
+  const patientMetaHtml = `
+      <div class="meta-row"><span class="meta-label">Name</span><span class="meta-colon">:</span><span class="meta-val">${patientName}</span></div>
+      <div class="meta-row"><span class="meta-label">Age / Gender</span><span class="meta-colon">:</span><span class="meta-val">${age} / ${bill.gender || ""}</span></div>
+      <div class="meta-row"><span class="meta-label">Doctor</span><span class="meta-colon">:</span><span class="meta-val">${doctorName}</span></div>
+      ${roomNo ? `<div class="meta-row"><span class="meta-label">Room No</span><span class="meta-colon">:</span><span class="meta-val">${roomNo}</span></div>` : ""}
+  `;
+
+  const billMetaHtml = `
+      <div class="meta-row"><span class="meta-label">${isEstimate ? "Estimate No" : "Bill Number"}</span><span class="meta-colon">:</span><span class="meta-val">${billNo}</span></div>
+      <div class="meta-row"><span class="meta-label">OP Number</span><span class="meta-colon">:</span><span class="meta-val">${bill.uhid || ""}</span></div>
+      ${bill.ipNumber ? `<div class="meta-row"><span class="meta-label">IP Number</span><span class="meta-colon">:</span><span class="meta-val">${bill.ipNumber}</span></div>` : ""}
+      <div class="meta-row"><span class="meta-label">Date & Time</span><span class="meta-colon">:</span><span class="meta-val">${fmtDate(billDate)} ${fmtTime12(bill.time)}</span></div>
+  `;
 
   // ── per-size CSS ────────────────────────────────────────────────────────────
   const sizeCSS = isThermal
@@ -381,16 +422,10 @@ table td { font-size: 14px; padding: 13px 8px; }
 
   <div class="bill-meta">
     <div class="meta-col">
-      <div class="meta-row"><span class="meta-label">Name</span><span class="meta-colon">:</span><span class="meta-val">${patientName}</span></div>
-      <div class="meta-row"><span class="meta-label">Age / Gender</span><span class="meta-colon">:</span><span class="meta-val">${age} / ${bill.gender || ""}</span></div>
-      <div class="meta-row"><span class="meta-label">Doctor</span><span class="meta-colon">:</span><span class="meta-val">${doctorName}</span></div>
-      ${roomNo ? `<div class="meta-row"><span class="meta-label">Room No</span><span class="meta-colon">:</span><span class="meta-val">${roomNo}</span></div>` : ""}
+      ${isA4 || isA5 ? patientMetaHtml : billMetaHtml}
     </div>
     <div class="meta-col">
-      <div class="meta-row"><span class="meta-label">${isEstimate ? "Estimate No" : "Bill Number"}</span><span class="meta-colon">:</span><span class="meta-val">${billNo}</span></div>
-      <div class="meta-row"><span class="meta-label">OP Number</span><span class="meta-colon">:</span><span class="meta-val">${bill.uhid || ""}</span></div>
-      ${bill.ipNumber ? `<div class="meta-row"><span class="meta-label">IP Number</span><span class="meta-colon">:</span><span class="meta-val">${bill.ipNumber}</span></div>` : ""}
-      <div class="meta-row"><span class="meta-label">Date & Time</span><span class="meta-colon">:</span><span class="meta-val">${fmtDate(billDate)} ${fmtTime12(bill.time)}</span></div>
+      ${isA4 || isA5 ? billMetaHtml : patientMetaHtml}
     </div>
   </div>
 
@@ -408,9 +443,9 @@ table td { font-size: 14px; padding: 13px 8px; }
   </table>
 
   <div class="totals">
-    <div class="total-row"><span>Total</span><span>₹ ${parseFloat(bill.total || 0).toFixed(2)}</span></div>
-    <div class="total-row"><span>Discount</span><span>₹ ${parseFloat(bill.discount || 0).toFixed(2)}</span></div>
-    <div class="total-row net-row"><span>${isEstimate ? "Estimated Net Amount" : "Net Amount"}</span><span>₹ ${parseFloat(bill.finalPrice || 0).toFixed(2)}</span></div>
+    <div class="total-row"><span>Total</span><span>₹ ${billTotal.toFixed(2)}</span></div>
+    <div class="total-row"><span>Discount</span><span>₹ ${billDiscount.toFixed(2)}</span></div>
+    <div class="total-row net-row"><span>${isEstimate ? "Estimated Net Amount" : "Net Amount"}</span><span>₹ ${billFinalPrice.toFixed(2)}</span></div>
   </div>
 
   ${isEstimate ? `<div class="note"><strong>Note:</strong> This is an estimate. Final charges may vary.</div>` : ""}

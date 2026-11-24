@@ -450,7 +450,7 @@ const DoctorFeeCuts = () => {
         {
             title: "Patient Details",
             key: "patient",
-            width: 190,
+            width: 220,
             render: (text, record) => (
                 <div>
                     <div style={{ fontWeight: 700, color: colors.primary, fontSize: '0.92rem' }}>
@@ -476,6 +476,16 @@ const DoctorFeeCuts = () => {
                             Date: {dayjs(record.bill_date || record.admission_date).format('DD/MM/YYYY')}
                         </div>
                     )}
+                    {record.surgery_name ? (
+                        <div style={{ fontSize: '0.78rem', color: '#0f766e', marginTop: 3, lineHeight: 1.3 }}>
+                            <span style={{ fontWeight: 600 }}>🩺 Surgery:</span> {record.surgery_name}
+                        </div>
+                    ) : null}
+                    {record.diagnosis ? (
+                        <div style={{ fontSize: '0.78rem', color: '#b45309', marginTop: 2, lineHeight: 1.3 }}>
+                            <span style={{ fontWeight: 600 }}>📋 Diagnosis:</span> {record.diagnosis}
+                        </div>
+                    ) : null}
                 </div>
             )
         },
