@@ -26,6 +26,9 @@ import {
   FlaskConical,
   Pill,
   Hammer,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import apiRequest from "../../Auth/apiRequest";
@@ -1529,6 +1532,13 @@ const SurgerySchedule = () => {
   const [postponeRemarks, setPostponeRemarks] = useState("");
   const [isSubmittingPostpone, setIsSubmittingPostpone] = useState(false);
 
+  // ── Print Pending Medicine Tab State ────────────────────────────────────
+  const [activeTab, setActiveTab] = useState("schedule"); // "schedule" | "pendingMedicine"
+  const [pendingMedicineList, setPendingMedicineList] = useState([]);
+  const [pendingLoading, setPendingLoading] = useState(false);
+  const [pendingSearch, setPendingSearch] = useState("");
+  const [expandedPendingReqs, setExpandedPendingReqs] = useState(new Set());
+
 
   // ── Helper to check if time slot is disabled due to active schedule ──
   const isTimeDisabled = useCallback(
@@ -2740,6 +2750,314 @@ const SurgerySchedule = () => {
     return "Cancelled";
   };
 
+  // ── Fetch Pending Medicine Requests ─────────────────────────────────────
+  const fetchPendingMedicineRequests = useCallback(
+    async (from = fromDate, to = toDate) => {
+      setPendingLoading(true);
+      try {
+        let url = `${HMSURL}get_ot_medicine_ward_requests/?pending_only=true`;
+        if (from) url += `&from_date=${from}`;
+        if (to) url += `&to_date=${to}`;
+        const res = await apiRequest(url, "GET");
+        const raw = res?.data;
+        const list = Array.isArray(raw)
+          ? raw
+          : Array.isArray(raw?.data)
+            ? raw.data
+            : [];
+        setPendingMedicineList(list);
+      } catch (err) {
+        console.error("Error fetching pending medicine requests:", err);
+        setPendingMedicineList([]);
+      } finally {
+        setPendingLoading(false);
+      }
+    },
+    [HMSURL, fromDate, toDate],
+  );
+
+  useEffect(() => {
+    fetchPendingMedicineRequests();
+  }, [fetchPendingMedicineRequests]);
+
+  const togglePendingExpand = (id) => {
+    setExpandedPendingReqs((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const filteredPendingMedicine = useMemo(() => {
+    return pendingMedicineList.filter((req) => {
+      if (!pendingSearch) return true;
+      const q = pendingSearch.toLowerCase().trim();
+      const pName = (req.patientName || "").toLowerCase();
+      const uhid = (req.uhid || "").toLowerCase();
+      const ip = (req.ipNumber || "").toLowerCase();
+      const reqNo = String(req.requestNo || req.bill_id || "").toLowerCase();
+      const doc = (req.doctorName || "").toLowerCase();
+      const ward = (req.wardName || "").toLowerCase();
+      const medMatch = (req.medicines || []).some((m) =>
+        (m.name || "").toLowerCase().includes(q),
+      );
+      return (
+        pName.includes(q) ||
+        uhid.includes(q) ||
+        ip.includes(q) ||
+        reqNo.includes(q) ||
+        doc.includes(q) ||
+        ward.includes(q) ||
+        medMatch
+      );
+    });
+  }, [pendingMedicineList, pendingSearch]);
+
+  const handlePrintAllPendingMedicine = () => {
+    const listToPrint = filteredPendingMedicine;
+    if (!listToPrint.length) {
+      toast.info("No pending medicine requests to print");
+      return;
+    }
+
+    let grandPendingQty = 0;
+    let grandPendingAmount = 0;
+    let grandTotalAmount = 0;
+
+    const reqCardsHtml = listToPrint
+      .map((req, idx) => {
+        const meds = (req.medicines || []).filter(
+          (m) => (Number(m.pending_qty) || 0) > 0,
+        );
+        const reqPendingQty = meds.reduce(
+          (s, m) => s + (Number(m.pending_qty) || 0),
+          0,
+        );
+        const reqPendingAmount = meds.reduce((s, m) => {
+          const rate = Number(m.rate || m.price || 0);
+          return s + (Number(m.pending_qty) || 0) * rate;
+        }, 0);
+        const reqTotalAmount = Number(req.net_amount || req.total_amount || 0);
+
+        grandPendingQty += reqPendingQty;
+        grandPendingAmount += reqPendingAmount;
+        grandTotalAmount += reqTotalAmount;
+
+        const itemRows = meds
+          .map((m, mIdx) => {
+            const rate = Number(m.rate || m.price || 0);
+            const itemPendingAmt = (Number(m.pending_qty) || 0) * rate;
+
+            return `<tr>
+          <td style="text-align:center;padding:5px 6px;border:1px solid #cbd5e1;font-size:11px">${mIdx + 1}</td>
+          <td style="padding:5px 8px;border:1px solid #cbd5e1;font-size:11px">
+            <b>${m.name || "—"}</b>
+            ${m.dosage ? `<span style="font-size:10px;color:#64748b"> (${m.dosage})</span>` : ""}
+            ${m.remark ? `<div style="font-size:10px;color:#7c3aed">Remark: ${m.remark}</div>` : ""}
+          </td>
+          <td style="text-align:center;padding:5px 6px;border:1px solid #cbd5e1;font-size:11px">${m.qty || 0}</td>
+          <td style="text-align:center;padding:5px 6px;border:1px solid #cbd5e1;font-size:11px;color:#047857">${m.dispatched_qty || 0}</td>
+          <td style="text-align:center;padding:5px 6px;border:1px solid #cbd5e1;font-size:11px;font-weight:700;color:#dc2626;background:#fef2f2">${m.pending_qty || 0}</td>
+          <td style="text-align:right;padding:5px 8px;border:1px solid #cbd5e1;font-size:11px">₹${rate.toFixed(2)}</td>
+          <td style="text-align:right;padding:5px 8px;border:1px solid #cbd5e1;font-size:11px;font-weight:600">₹${itemPendingAmt.toFixed(2)}</td>
+        </tr>`;
+          })
+          .join("");
+
+        return `
+      <div style="margin-bottom:16px;border:1px solid #cbd5e1;border-radius:6px;overflow:hidden;page-break-inside:avoid">
+        <div style="background:#f8fafc;padding:8px 12px;border-bottom:1px solid #cbd5e1;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+          <div>
+            <span style="background:#7c3aed;color:#fff;padding:2px 8px;border-radius:4px;font-weight:700;font-size:11px;margin-right:8px">#${req.requestNo || req.bill_id}</span>
+            <b style="font-size:12px;color:#0f172a">${req.patientName || "—"}</b>
+            <span style="font-size:11px;color:#475569;margin-left:8px">(UHID: <b>${req.uhid}</b> | IP: <b>${req.ipNumber}</b>)</span>
+          </div>
+          <div style="font-size:11px;color:#334155">
+            <span><b>Date:</b> ${req.reqDate} ${req.reqTime}</span>
+            ${req.doctorName ? `<span style="margin-left:12px"><b>Doctor:</b> ${req.doctorName}</span>` : ""}
+            ${req.wardName ? `<span style="margin-left:12px"><b>Room:</b> ${req.wardName}</span>` : ""}
+            <span style="margin-left:12px;background:#fef3c7;color:#b45309;padding:1px 6px;border-radius:3px;font-weight:600">${req.billingStatus || "Pending"}</span>
+          </div>
+        </div>
+        <table style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr style="background:#f1f5f9;color:#334155;font-size:11px">
+              <th style="width:35px;padding:6px;border:1px solid #cbd5e1;text-align:center">#</th>
+              <th style="padding:6px 8px;border:1px solid #cbd5e1;text-align:left">Medicine Item</th>
+              <th style="width:65px;padding:6px;border:1px solid #cbd5e1;text-align:center">Req Qty</th>
+              <th style="width:70px;padding:6px;border:1px solid #cbd5e1;text-align:center">Disp Qty</th>
+              <th style="width:75px;padding:6px;border:1px solid #cbd5e1;text-align:center;background:#fee2e2;color:#991b1b">Pending Qty</th>
+              <th style="width:80px;padding:6px;border:1px solid #cbd5e1;text-align:right">Rate (₹)</th>
+              <th style="width:95px;padding:6px;border:1px solid #cbd5e1;text-align:right">Pending Amt (₹)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemRows}
+          </tbody>
+          <tfoot>
+            <tr style="background:#fafafa;font-weight:700;font-size:11px">
+              <td colspan="4" style="text-align:right;padding:6px 10px;border:1px solid #cbd5e1">Request Total:</td>
+              <td style="text-align:center;padding:6px;border:1px solid #cbd5e1;color:#dc2626">${reqPendingQty}</td>
+              <td style="text-align:right;padding:6px 8px;border:1px solid #cbd5e1">Bill Total: ₹${reqTotalAmount.toFixed(2)}</td>
+              <td style="text-align:right;padding:6px 8px;border:1px solid #cbd5e1;color:#7c3aed">₹${reqPendingAmount.toFixed(2)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>`;
+      })
+      .join("");
+
+    const printHtml = `<!DOCTYPE html>
+<html>
+<head>
+  <title>OT REQUEST Pending Medicine List</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 15px; color: #1e293b; font-size: 12px; }
+    .header { text-align: center; border-bottom: 2px solid #0f766e; padding-bottom: 8px; margin-bottom: 12px; }
+    .h-name { font-size: 16px; font-weight: bold; color: #0f766e; }
+    .h-addr { font-size: 11px; color: #475569; }
+    .title { font-size: 14px; font-weight: bold; color: #7c3aed; margin: 6px 0 2px; }
+    .meta-bar { display: flex; justify-content: space-between; font-size: 11px; color: #64748b; margin-bottom: 12px; }
+    .summary-card { background: #ede9fe; border: 1.5px solid #c4b5fd; border-radius: 6px; padding: 8px 14px; display: flex; justify-content: space-between; margin-bottom: 14px; font-size: 12px; font-weight: 600; }
+    @media print {
+      body { margin: 8mm; }
+      @page { size: A4 portrait; margin: 8mm; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="h-name">SHANMUGA HOSPITAL LIMITED</div>
+    <div class="h-addr">51/24, Saradha College Road, Salem - 636007 | Phone: 0427-2706666</div>
+    <div class="title">OT REQUEST — PENDING MEDICINE & BILLING LIST</div>
+  </div>
+  <div class="meta-bar">
+    <span><b>Period:</b> ${fromDate} to ${toDate}</span>
+    <span><b>Printed:</b> ${new Date().toLocaleString()}</span>
+  </div>
+  <div class="summary-card">
+    <span>Total Pending Requests: <b style="color:#7c3aed">${listToPrint.length}</b></span>
+    <span>Total Pending Medicine Items: <b style="color:#dc2626">${grandPendingQty}</b></span>
+    <span>Total Pending Value: <b style="color:#047857">₹${grandPendingAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</b></span>
+  </div>
+  ${reqCardsHtml}
+  <div style="margin-top:14px;padding:10px 14px;background:#f8fafc;border:2px solid #1e293b;border-radius:6px;display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:13px">
+    <span>GROSS PENDING TOTAL (${listToPrint.length} Requests):</span>
+    <span style="color:#7c3aed">₹${grandPendingAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+  </div>
+  <script>window.onload = () => { window.print(); }</script>
+</body>
+</html>`;
+
+    const win = window.open("", "_blank", "width=1000,height=700");
+    win.document.write(printHtml);
+    win.document.close();
+  };
+
+  const handlePrintSinglePendingSlip = (req) => {
+    if (!req) return;
+    const meds = (req.medicines || []).filter(
+      (m) => (Number(m.pending_qty) || 0) > 0,
+    );
+    const totalPendingQty = meds.reduce(
+      (a, m) => a + (Number(m.pending_qty) || 0),
+      0,
+    );
+    const totalPendingAmt = meds.reduce(
+      (a, m) =>
+        a + (Number(m.pending_qty) || 0) * Number(m.rate || m.price || 0),
+      0,
+    );
+
+    const rows = meds
+      .map(
+        (m, idx) => `
+      <tr>
+        <td style="text-align:center;padding:6px;border:1px solid #cbd5e1">${idx + 1}</td>
+        <td style="padding:6px 8px;border:1px solid #cbd5e1">
+          <b>${m.name || "—"}</b>
+          ${m.dosage ? `<div style="font-size:10px;color:#64748b">Dosage: ${m.dosage}</div>` : ""}
+          ${m.remark ? `<div style="font-size:10px;color:#7c3aed">Remark: ${m.remark}</div>` : ""}
+        </td>
+        <td style="text-align:center;padding:6px;border:1px solid #cbd5e1">${m.qty || 0}</td>
+        <td style="text-align:center;padding:6px;border:1px solid #cbd5e1;color:#047857">${m.dispatched_qty || 0}</td>
+        <td style="text-align:center;padding:6px;border:1px solid #cbd5e1;font-weight:bold;color:#dc2626;background:#fef2f2">${m.pending_qty || 0}</td>
+        <td style="text-align:right;padding:6px 8px;border:1px solid #cbd5e1">₹${Number(m.rate || m.price || 0).toFixed(2)}</td>
+        <td style="text-align:right;padding:6px 8px;border:1px solid #cbd5e1;font-weight:600">₹${((Number(m.pending_qty) || 0) * Number(m.rate || m.price || 0)).toFixed(2)}</td>
+      </tr>`,
+      )
+      .join("");
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <title>OT Medicine Pending Slip - ${req.requestNo || req.bill_id}</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 15px; font-size: 12px; color: #1e293b; }
+    .header { text-align: center; border-bottom: 2px solid #0f766e; padding-bottom: 6px; margin-bottom: 10px; }
+    .h-name { font-size: 16px; font-weight: bold; color: #0f766e; }
+    .h-sub { font-size: 11px; color: #475569; }
+    .slip-title { font-size: 13px; font-weight: bold; margin: 6px 0; color: #7c3aed; }
+    .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: #f8fafc; border: 1px solid #cbd5e1; padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; font-size: 11.5px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    th { background: #1e293b; color: #fff; padding: 6px 8px; border: 1px solid #cbd5e1; font-size: 11px; text-align: left; }
+    @media print { body { margin: 8mm; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="h-name">SHANMUGA HOSPITAL LIMITED</div>
+    <div class="h-sub">51/24, Saradha College Road, Salem - 636007</div>
+    <div class="slip-title">OT MEDICINE REQUISITION — PENDING SLIP</div>
+  </div>
+  <div class="meta-grid">
+    <div><b>Request No:</b> ${req.requestNo || req.bill_id}</div>
+    <div><b>Date & Time:</b> ${req.reqDate} ${req.reqTime}</div>
+    <div><b>Patient Name:</b> ${req.patientName || "—"}</div>
+    <div><b>UHID:</b> ${req.uhid || "—"} &nbsp;|&nbsp; <b>IP No:</b> ${req.ipNumber || "—"}</div>
+    <div><b>Doctor:</b> ${req.doctorName || "—"}</div>
+    <div><b>Ward / Room:</b> ${req.wardName || "OT"}</div>
+    <div><b>Status:</b> ${req.billingStatus || "Pending"}</div>
+    <div><b>Total Bill Amount:</b> ₹${Number(req.net_amount || req.total_amount || 0).toFixed(2)}</div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:35px;text-align:center">#</th>
+        <th>Medicine Item</th>
+        <th style="width:65px;text-align:center">Req Qty</th>
+        <th style="width:65px;text-align:center">Disp Qty</th>
+        <th style="width:75px;text-align:center;background:#991b1b">Pending Qty</th>
+        <th style="width:80px;text-align:right">Rate (₹)</th>
+        <th style="width:95px;text-align:right">Pending Amt (₹)</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows}
+    </tbody>
+    <tfoot>
+      <tr style="background:#f1f5f9;font-weight:bold">
+        <td colspan="4" style="text-align:right;padding:7px;border:1px solid #cbd5e1">Total Pending:</td>
+        <td style="text-align:center;padding:7px;border:1px solid #cbd5e1;color:#dc2626">${totalPendingQty}</td>
+        <td style="text-align:right;padding:7px;border:1px solid #cbd5e1">Total Value:</td>
+        <td style="text-align:right;padding:7px;border:1px solid #cbd5e1;color:#7c3aed">₹${totalPendingAmt.toFixed(2)}</td>
+      </tr>
+    </tfoot>
+  </table>
+  <div style="margin-top:25px;display:flex;justify-content:space-between;font-size:11px;color:#475569">
+    <div>Prepared by: ${req.userName || req.created_by || "Staff"}</div>
+    <div>Authorized Signatory</div>
+  </div>
+  <script>window.onload = () => { window.print(); }</script>
+</body>
+</html>`;
+
+    const win = window.open("", "_blank", "width=900,height=650");
+    win.document.write(html);
+    win.document.close();
+  };
+
   // ─────────────────────────────────────────────────────────────────────────
   return (
     <Container>
@@ -2767,21 +3085,87 @@ const SurgerySchedule = () => {
               onClick={() => {
                 setFromDate(today());
                 setToDate(today());
+                if (activeTab === "pendingMedicine") {
+                  fetchPendingMedicineRequests(today(), today());
+                } else {
+                  fetchSchedules(today(), today());
+                }
               }}
             >
               <RotateCcw size={14} /> Reset
             </TealBtn>
-            <TealBtn onClick={() => fetchSchedules(fromDate, toDate)}>
+            <TealBtn
+              onClick={() => {
+                if (activeTab === "pendingMedicine") {
+                  fetchPendingMedicineRequests(fromDate, toDate);
+                } else {
+                  fetchSchedules(fromDate, toDate);
+                }
+              }}
+            >
               <Search size={14} /> Search
             </TealBtn>
           </DateRow>
 
-          {!showForm && (
+          {activeTab === "schedule" && !showForm && (
             <OrangeBtn onClick={openNew}>
               <Plus size={14} /> New Surgery Schedule
             </OrangeBtn>
           )}
         </TopBar>
+
+        {/* ── Top Tabs: Surgery Schedule vs Print Pending Medicine ── */}
+        <div style={{ display: "flex", gap: 10, margin: "14px 0 14px", flexWrap: "wrap" }}>
+          <button
+            type="button"
+            onClick={() => setActiveTab("schedule")}
+            style={{
+              padding: "9px 20px",
+              borderRadius: 8,
+              border: `1.5px solid ${activeTab === "schedule" ? colors.primary : colors.border}`,
+              background: activeTab === "schedule" ? colors.primary : "#ffffff",
+              color: activeTab === "schedule" ? "#ffffff" : colors.textMain,
+              fontWeight: 700,
+              fontSize: "0.85rem",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 7,
+              transition: "all 0.2s",
+              boxShadow: activeTab === "schedule" ? "0 2px 6px rgba(19, 106, 99, 0.25)" : "none",
+            }}
+          >
+            📅 Surgery Schedule ({scheduleList.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab("pendingMedicine");
+              fetchPendingMedicineRequests(fromDate, toDate);
+            }}
+            style={{
+              padding: "9px 20px",
+              borderRadius: 8,
+              border: `1.5px solid ${activeTab === "pendingMedicine" ? "#7c3aed" : colors.border}`,
+              background: activeTab === "pendingMedicine" ? "#7c3aed" : "#ffffff",
+              color: activeTab === "pendingMedicine" ? "#ffffff" : colors.textMain,
+              fontWeight: 700,
+              fontSize: "0.85rem",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 7,
+              transition: "all 0.2s",
+              boxShadow: activeTab === "pendingMedicine" ? "0 2px 6px rgba(124, 58, 237, 0.25)" : "none",
+            }}
+          >
+            💊 Print Pending Medicine ({pendingMedicineList.length})
+          </button>
+        </div>
+
+        {/* ── Schedule Tab Content ── */}
+        {activeTab === "schedule" && (
+          <>
 
         {/* ── Form Panel ──────────────────────────────────────────────────── */}
         {showForm && (
@@ -3986,6 +4370,455 @@ const SurgerySchedule = () => {
             </Table>
           </TableWrapper>
         </TableCard>
+        </>
+        )}
+
+        {/* ── Pending Medicine Table Card ── */}
+        {activeTab === "pendingMedicine" && (
+          <TableCard>
+            <TableTopRow>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                }}
+              >
+                <span
+                  style={{
+                    padding: "4px 12px",
+                    borderRadius: 16,
+                    background: "#ede9fe",
+                    color: "#7c3aed",
+                    fontWeight: 700,
+                    fontSize: "0.78rem",
+                    border: "1px solid #c4b5fd",
+                  }}
+                >
+                  Pending Requests: {filteredPendingMedicine.length}
+                </span>
+                <span
+                  style={{
+                    padding: "4px 12px",
+                    borderRadius: 16,
+                    background: "#fee2e2",
+                    color: "#b91c1c",
+                    fontWeight: 700,
+                    fontSize: "0.78rem",
+                    border: "1px solid #fecaca",
+                  }}
+                >
+                  Total Pending Items:{" "}
+                  {filteredPendingMedicine.reduce(
+                    (sum, r) =>
+                      sum +
+                      (r.medicines || []).reduce(
+                        (s, m) => s + (Number(m.pending_qty) || 0),
+                        0,
+                      ),
+                    0,
+                  )}
+                </span>
+                <span
+                  style={{
+                    padding: "4px 12px",
+                    borderRadius: 16,
+                    background: "#ecfdf5",
+                    color: "#047857",
+                    fontWeight: 700,
+                    fontSize: "0.78rem",
+                    border: "1px solid #a7f3d0",
+                  }}
+                >
+                  Pending Value: ₹
+                  {filteredPendingMedicine
+                    .reduce(
+                      (sum, r) =>
+                        sum +
+                        (r.medicines || []).reduce(
+                          (s, m) =>
+                            s +
+                            (Number(m.pending_qty) || 0) *
+                              Number(m.rate || m.price || 0),
+                          0,
+                        ),
+                      0,
+                    )
+                    .toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                }}
+              >
+                <TealBtn
+                  onClick={() => fetchPendingMedicineRequests(fromDate, toDate)}
+                  style={{ padding: "5px 12px", fontSize: "0.78rem" }}
+                  title="Refresh pending medicine list"
+                >
+                  <RotateCcw size={13} /> Refresh
+                </TealBtn>
+
+                <button
+                  type="button"
+                  onClick={handlePrintAllPendingMedicine}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                    padding: "5px 14px",
+                    fontSize: "0.78rem",
+                    fontWeight: 700,
+                    borderRadius: 6,
+                    border: "1px solid #6d28d9",
+                    background: "#7c3aed",
+                    color: "#ffffff",
+                    cursor: "pointer",
+                    boxShadow: "0 2px 4px rgba(109, 40, 217, 0.25)",
+                  }}
+                  title="Print all pending medicine requests"
+                >
+                  <Printer size={13} /> Print Pending Medicine List
+                </button>
+
+                <span style={{ fontSize: "0.82rem", color: colors.textMuted }}>
+                  Search:
+                </span>
+                <TableSearchInput
+                  value={pendingSearch}
+                  onChange={(e) => setPendingSearch(e.target.value)}
+                  placeholder="Search by Patient, UHID, IP, Req No, Doctor, Medicine"
+                  style={{ width: 280 }}
+                />
+              </div>
+            </TableTopRow>
+
+            <TableWrapper style={{ marginTop: 12 }}>
+              <Table>
+                <thead>
+                  <tr>
+                    <Th style={{ width: 45, textAlign: "center" }}>Sl</Th>
+                    <Th style={{ width: 140 }}>Req Date & Time</Th>
+                    <Th style={{ width: 100 }}>Req No</Th>
+                    <Th style={{ minWidth: 160 }}>Patient Details</Th>
+                    <Th style={{ minWidth: 130 }}>Doctor</Th>
+                    <Th style={{ minWidth: 80 }}>Ward</Th>
+                    <Th style={{ minWidth: 280 }}>
+                      Pending Medicines (Billing Details)
+                    </Th>
+                    <Th style={{ width: 110, textAlign: "right" }}>
+                      Bill Amount
+                    </Th>
+                    <Th style={{ width: 100, textAlign: "center" }}>Status</Th>
+                    <Th style={{ width: 120, textAlign: "center" }}>Action</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingLoading ? (
+                    <tr>
+                      <Td
+                        colSpan={10}
+                        style={{ textAlign: "center", padding: 30 }}
+                      >
+                        Loading pending medicine requests...
+                      </Td>
+                    </tr>
+                  ) : filteredPendingMedicine.length === 0 ? (
+                    <tr>
+                      <Td
+                        colSpan={10}
+                        style={{
+                          textAlign: "center",
+                          padding: 30,
+                          color: colors.textMuted,
+                        }}
+                      >
+                        No pending OT medicine requests found for the selected
+                        period.
+                      </Td>
+                    </tr>
+                  ) : (
+                    filteredPendingMedicine.map((req, idx) => {
+                      const meds = (req.medicines || []).filter(
+                        (m) => (Number(m.pending_qty) || 0) > 0,
+                      );
+                      const isExpanded = expandedPendingReqs.has(
+                        req.id || req.bill_id || idx,
+                      );
+                      const displayMeds = isExpanded ? meds : meds.slice(0, 2);
+                      const reqPendingAmt = meds.reduce(
+                        (s, m) =>
+                          s +
+                          (Number(m.pending_qty) || 0) *
+                            Number(m.rate || m.price || 0),
+                        0,
+                      );
+
+                      return (
+                        <Tr key={req.id || req.bill_id || idx}>
+                          <Td style={{ textAlign: "center" }}>{idx + 1}</Td>
+                          <Td>
+                            <div style={{ fontWeight: 600 }}>{req.reqDate}</div>
+                            <div
+                              style={{
+                                fontSize: "0.75rem",
+                                color: colors.textMuted,
+                              }}
+                            >
+                              {req.reqTime}
+                            </div>
+                          </Td>
+                          <Td>
+                            <span
+                              style={{
+                                display: "inline-block",
+                                padding: "2px 8px",
+                                background: "#f3e8ff",
+                                color: "#7c3aed",
+                                border: "1px solid #d8b4fe",
+                                borderRadius: 4,
+                                fontWeight: 700,
+                                fontSize: "0.78rem",
+                              }}
+                            >
+                              {req.requestNo || req.bill_id}
+                            </span>
+                          </Td>
+                          <Td>
+                            <div
+                              style={{ fontWeight: 700, color: colors.primary }}
+                            >
+                              {req.patientName || "—"}
+                            </div>
+                            <div
+                              style={{
+                                fontSize: "0.78rem",
+                                color: colors.textMuted,
+                              }}
+                            >
+                              UHID: <strong>{req.uhid || "—"}</strong>
+                            </div>
+                            <div
+                              style={{
+                                fontSize: "0.78rem",
+                                color: colors.textMain,
+                              }}
+                            >
+                              IP No: <strong>{req.ipNumber || "—"}</strong>
+                            </div>
+                          </Td>
+                          <Td>{req.doctorName || "—"}</Td>
+                          <Td>{req.wardName || "OT"}</Td>
+                          <Td>
+                            <div
+                              style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: 4,
+                              }}
+                            >
+                              {displayMeds.map((m, mIdx) => (
+                                <div
+                                  key={mIdx}
+                                  style={{
+                                    fontSize: "0.78rem",
+                                    padding: "4px 8px",
+                                    borderRadius: 4,
+                                    background: "#f8fafc",
+                                    border: "1px solid #e2e8f0",
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    alignItems: "center",
+                                  }}
+                                >
+                                  <div>
+                                    <span
+                                      style={{
+                                        fontWeight: 600,
+                                        color: "#1e293b",
+                                      }}
+                                    >
+                                      {m.name || "Medicine"}
+                                    </span>
+                                    {m.dosage && (
+                                      <span
+                                        style={{
+                                          color: "#64748b",
+                                          marginLeft: 4,
+                                        }}
+                                      >
+                                        ({m.dosage})
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      gap: 6,
+                                      alignItems: "center",
+                                    }}
+                                  >
+                                    <span
+                                      style={{
+                                        color: "#dc2626",
+                                        fontWeight: 700,
+                                        background: "#fee2e2",
+                                        padding: "1px 6px",
+                                        borderRadius: 3,
+                                      }}
+                                    >
+                                      Pend: {m.pending_qty}
+                                    </span>
+                                    <span style={{ color: "#64748b" }}>
+                                      @ ₹
+                                      {Number(m.rate || m.price || 0).toFixed(2)}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                              {meds.length > 2 && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    togglePendingExpand(
+                                      req.id || req.bill_id || idx,
+                                    )
+                                  }
+                                  style={{
+                                    background: "transparent",
+                                    border: "none",
+                                    color: "#7c3aed",
+                                    cursor: "pointer",
+                                    fontSize: "0.75rem",
+                                    fontWeight: 600,
+                                    padding: 2,
+                                    textAlign: "left",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 3,
+                                  }}
+                                >
+                                  {isExpanded
+                                    ? "▲ Show Less"
+                                    : `▼ +${meds.length - 2} more items (${meds.length} total)`}
+                                </button>
+                              )}
+                            </div>
+                          </Td>
+                          <Td style={{ textAlign: "right" }}>
+                            <div style={{ fontWeight: 700, color: "#0f172a" }}>
+                              ₹
+                              {Number(
+                                req.net_amount || req.total_amount || 0,
+                              ).toFixed(2)}
+                            </div>
+                            <div
+                              style={{ fontSize: "0.72rem", color: "#7c3aed" }}
+                            >
+                              Pend Val: ₹{reqPendingAmt.toFixed(2)}
+                            </div>
+                          </Td>
+                          <Td style={{ textAlign: "center" }}>
+                            <span
+                              style={{
+                                display: "inline-block",
+                                padding: "2px 7px",
+                                borderRadius: 4,
+                                fontSize: "0.72rem",
+                                fontWeight: 600,
+                                background:
+                                  req.billingStatus === "Partially Dispatched"
+                                    ? "#e0f2fe"
+                                    : "#fef3c7",
+                                color:
+                                  req.billingStatus === "Partially Dispatched"
+                                    ? "#0369a1"
+                                    : "#b45309",
+                                border: `1px solid ${
+                                  req.billingStatus === "Partially Dispatched"
+                                    ? "#bae6fd"
+                                    : "#fde68a"
+                                }`,
+                              }}
+                            >
+                              {req.billingStatus || "Pending"}
+                            </span>
+                          </Td>
+                          <Td style={{ textAlign: "center" }}>
+                            <div
+                              style={{
+                                display: "flex",
+                                gap: 6,
+                                justifyContent: "center",
+                              }}
+                            >
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handlePrintSinglePendingSlip(req)
+                                }
+                                style={{
+                                  padding: "4px 8px",
+                                  borderRadius: 4,
+                                  background: "#f8fafc",
+                                  border: "1px solid #cbd5e1",
+                                  cursor: "pointer",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 4,
+                                  fontSize: "0.75rem",
+                                  color: colors.textMain,
+                                }}
+                                title="Print this pending request slip"
+                              >
+                                <Printer size={13} color="#7c3aed" /> Print
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  navigate("/OTMedicineBilling", {
+                                    state: {
+                                      patientData: {
+                                        uhid: req.uhid,
+                                        ipNumber: req.ipNumber,
+                                        patient_name: req.patientName,
+                                      },
+                                    },
+                                  })
+                                }
+                                style={{
+                                  padding: "4px 8px",
+                                  borderRadius: 4,
+                                  background: "#f0fdfa",
+                                  border: "1px solid #99f6e4",
+                                  cursor: "pointer",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 4,
+                                  fontSize: "0.75rem",
+                                  color: colors.primary,
+                                }}
+                                title="Go to OT Medicine Billing for this patient"
+                              >
+                                💊 Bill
+                              </button>
+                            </div>
+                          </Td>
+                        </Tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </Table>
+            </TableWrapper>
+          </TableCard>
+        )}
       </PageWrapper>
 
       {/* ── Postpone / Reschedule Date Modal ───────────────────────────────────────────── */}

@@ -1260,11 +1260,21 @@ export default function MRDTracking() {
   const [updatingIp, setUpdatingIp] = useState(null);
   const [uploadingIp, setUploadingIp] = useState(null);
 
-  // Filters
+  const getTodayStr = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const todayStr = getTodayStr();
+
+  // Filters (Defaults to current date for fast instant load)
   const [activeTab, setActiveTab] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
+  const [fromDate, setFromDate] = useState(todayStr);
+  const [toDate, setToDate] = useState(todayStr);
 
   // Error Modal State
   const [errorModal, setErrorModal] = useState({
@@ -2317,24 +2327,40 @@ export default function MRDTracking() {
           {/* Quick Date Presets with Tooltips */}
           <QuickDates>
             {[
-              { key: "all", label: "All Time", tip: "Click on to filter all dates" },
               { key: "today", label: "Today", tip: "Click on to filter today's files" },
               { key: "last7", label: "Last 7 Days", tip: "Click on to filter past 7 days" },
               { key: "thisMonth", label: "This Month", tip: "Click on to filter this month" },
-            ].map((d) => (
-              <CapsuleWrapper key={d.key}>
-                <button
-                  type="button"
-                  onClick={() => setQuickDate(d.key)}
-                  title={d.tip}
-                >
-                  {d.label}
-                </button>
-                <TooltipBubble className="tooltip-bubble">
-                  {d.tip}
-                </TooltipBubble>
-              </CapsuleWrapper>
-            ))}
+              { key: "all", label: "All Time", tip: "Click on to filter all dates" },
+            ].map((d) => {
+              const isQuickActive =
+                (d.key === "today" && fromDate === todayStr && toDate === todayStr) ||
+                (d.key === "all" && !fromDate && !toDate);
+
+              return (
+                <CapsuleWrapper key={d.key}>
+                  <button
+                    type="button"
+                    onClick={() => setQuickDate(d.key)}
+                    title={d.tip}
+                    style={
+                      isQuickActive
+                        ? {
+                            background: theme.primary,
+                            color: "#ffffff",
+                            borderColor: theme.primaryDark,
+                            fontWeight: 700,
+                          }
+                        : {}
+                    }
+                  >
+                    {d.label}
+                  </button>
+                  <TooltipBubble className="tooltip-bubble">
+                    {d.tip}
+                  </TooltipBubble>
+                </CapsuleWrapper>
+              );
+            })}
           </QuickDates>
         </FilterTopRow>
 
