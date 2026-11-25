@@ -2195,6 +2195,21 @@ export default function CentralCashCounter() {
         const dateRaw = item.return_bill_date || item.created_date || item.refund_date || item.refundBillDate || null;
         const formattedDate = formatDate(dateRaw);
 
+        const isPaid = (
+          (item.status || "").toLowerCase() === "paid" ||
+          (item.paymentStatus || "").toLowerCase() === "paid" ||
+          (item.document_status || "").toLowerCase() === "paid" ||
+          (item.document_status || "").toLowerCase() === "refund" ||
+          (item.payment_status || "").toLowerCase() === "refund" ||
+          Boolean(item.paid_date || item.paid_at || item.refund_datetime)
+        );
+
+        const docStatus = isPaid
+          ? (item.document_status && item.document_status.toLowerCase() !== "pending"
+              ? item.document_status
+              : (item.payment_status || "Refund"))
+          : (item.document_status || item.status || item.paymentStatus || "Pending");
+
         const row = {
           id: item._id || `ret-${idx}`,
           date: formattedDate,
@@ -2209,15 +2224,14 @@ export default function CentralCashCounter() {
           // hospital_investrefund uses "refund_finalPrice" for the amount field
           return_amount: parseFloat(item.return_amount || item.refund_amount || item.refund_finalPrice || item.amount || 0),
           total: parseFloat(item.return_amount || item.refund_amount || item.refund_finalPrice || item.amount || 0),
-          // hospital_investrefund uses "paymentStatus" instead of "status" — add it to the fallback chain
-          document_status: item.document_status || item.status || item.paymentStatus || "-",
+          document_status: docStatus,
+          status: docStatus,
           counter_name: item.counter_name || "-",
           collection_name: item.collection_name || "-",
           raw: item,
         };
 
-        const st = (row.document_status || "").toLowerCase();
-        if (st === "pending") {
+        if (!isPaid) {
           if (formattedDate === todayStr) {
             pending.push(row);
           } else {
@@ -3906,7 +3920,7 @@ export default function CentralCashCounter() {
                             )}
                           </>
                         )}
-                        {(selectedType === "pending" || selectedType === "unpaid") && <TableHeader center>Action</TableHeader>}
+                        <TableHeader center>Action</TableHeader>
                       </tr>
                     </thead>
                     <tbody>
