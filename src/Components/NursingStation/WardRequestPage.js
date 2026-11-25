@@ -2012,7 +2012,7 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
                   <div style={{ display: "flex", gap: "6px" }}>
                     <StyledInput
                       style={{ flex: 1 }}
-                      placeholder="Search medicine (min 3 chars)..."
+                      placeholder="Search medicine (e.g. Dolo, NS 100, Pantop)..."
                       value={selectedDrug ? selectedDrug.name : searchQuery}
                       onChange={(e) => {
                         if (selectedDrug) setSelectedDrug(null);
