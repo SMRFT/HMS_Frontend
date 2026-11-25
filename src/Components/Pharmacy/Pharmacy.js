@@ -953,6 +953,26 @@ export const calculateMedicinePricing = (item, customQty = null, customDiscVal =
   };
 };
 
+// ── Check if a medicine item in particulars has been deleted ──
+export const isMedicineDeleted = (m) => {
+  if (!m || typeof m !== "object") return true;
+  if (m.is_deleted === true || m.deleted_is === true || m.is_active === false) return true;
+  const history = m.edit_history || [];
+  if (Array.isArray(history) && history.length > 0) {
+    const delQty = history
+      .filter((h) => h && h.action === "medicine_deleted")
+      .reduce((s, h) => s + Number(h.qty_deleted || h.qty || 0), 0);
+    const origQty = Number(m.qty || m.quantity || 0);
+    if (delQty >= origQty && origQty > 0) return true;
+  }
+  return false;
+};
+
+// ── Filter out deleted medicines from active billing & printing ──
+export const filterActiveMedicines = (meds) => {
+  return (meds || []).filter((m) => !isMedicineDeleted(m));
+};
+
 // ── Elegant Pharmacy Tax Invoice Generator (A5 Alignment Sheet Layout with Multi-Page Support) ──
 export const buildPrintBillHtml = (data) => {
   const {
@@ -1044,21 +1064,25 @@ export const buildPrintBillHtml = (data) => {
   const extractDate = (raw) => formatBillDate(raw);
   const extractTime = (raw) => formatBillTime(raw);
 
-  // Calculate Gross Total (actual amount before any discount)
-  const computedGross = (medicines || []).reduce((sum, m) => {
+  // ✅ Filter out deleted medicines (single source of truth)
+  const activeMedicines = filterActiveMedicines(medicines);
+
+  // Calculate Gross Total: strictly honor stored DB total_amount if available, fallback to computed
+  const computedGross = activeMedicines.reduce((sum, m) => {
     const q = Number(m.quantity || m.qty || 0);
     const p = Number(m.mrp || m.price || m.Selling_Price || m.selling_price || 0);
     return sum + (q * p);
   }, 0);
-  const grossTotal = computedGross > 0 ? computedGross : Number(totalAmount || 0);
+  const dbTotal = Number(totalAmount || (data && (data.total_amount || data.totalAmount)) || 0);
+  const grossTotal = dbTotal > 0 ? dbTotal : (computedGross > 0 ? computedGross : 0);
 
-  // Total CGST and SGST using reverse-calculated pricing on base
-  const totalCgstAmt = (medicines || []).reduce((sum, m) => {
+  // Total CGST and SGST using reverse-calculated pricing on active medicines
+  const totalCgstAmt = activeMedicines.reduce((sum, m) => {
     const pricing = calculateMedicinePricing(m);
     return sum + (isNaN(pricing.cgstAmt) ? 0 : pricing.cgstAmt);
   }, 0);
 
-  const totalSgstAmt = (medicines || []).reduce((sum, m) => {
+  const totalSgstAmt = activeMedicines.reduce((sum, m) => {
     const pricing = calculateMedicinePricing(m);
     return sum + (isNaN(pricing.sgstAmt) ? 0 : pricing.sgstAmt);
   }, 0);
@@ -1066,7 +1090,7 @@ export const buildPrintBillHtml = (data) => {
   const totalTaxAmt = totalCgstAmt + totalSgstAmt;
 
   // Item discount sum (product discount + GST savings on MRP)
-  const computedItemDisc = (medicines || []).reduce((sum, m) => {
+  const computedItemDisc = activeMedicines.reduce((sum, m) => {
     const pricing = calculateMedicinePricing(m);
     return sum + pricing.totalDiscountOnMrp;
   }, 0);
@@ -1086,12 +1110,11 @@ export const buildPrintBillHtml = (data) => {
   );
 
   const expectedNet = Math.max(0, grossTotal - totalDiscount);
+  // ✅ Direct DB amount: What is stored in the database MUST display on the print bill
   const rawNet = Number(netAmount || (data && (data.net_amount || data.netAmount)) || 0);
-  const calculatedNet = (rawNet > 0 && Math.abs(rawNet - expectedNet) <= 1.05)
-    ? rawNet
-    : Math.round(expectedNet);
+  const calculatedNet = rawNet > 0 ? rawNet : Math.round(expectedNet);
 
-  const totalItemDiscPct = (medicines || []).reduce((sum, m) => {
+  const totalItemDiscPct = activeMedicines.reduce((sum, m) => {
     const dVal = parseFloat(m.discount_value ?? m.discount ?? (m.discount_percent !== "%" ? m.discount_percent : 0) ?? 0);
     return sum + (isNaN(dVal) ? 0 : dVal);
   }, 0);
@@ -1103,7 +1126,9 @@ export const buildPrintBillHtml = (data) => {
     ? ` (${totalDiscPct % 1 === 0 ? totalDiscPct.toFixed(0) : totalDiscPct.toFixed(2).replace(/\.?0+$/, "")}%)`
     : "";
 
-  const medicinePages = chunkMedicinesForPrint(medicines);
+  const resolvedRoundOff = Number(round_off || (data && (data.round_off ?? data.roundOff)) || 0);
+
+  const medicinePages = chunkMedicinesForPrint(activeMedicines);
   const totalPages = medicinePages.length;
 
   const renderMedicineRow = (m) => {
@@ -7359,7 +7384,8 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             <ModalBody style={{ padding: "0" }}>
               {/* Bill Preview (A5 Alignment Sheet Layout with Multi-Page Support) */}
               {(() => {
-                const previewPages = chunkMedicinesForPrint(printBillData.medicines);
+                const activePreviewMeds = filterActiveMedicines(printBillData.medicines);
+                const previewPages = chunkMedicinesForPrint(activePreviewMeds);
                 const totalPreviewPages = previewPages.length;
 
                 return (
@@ -7565,13 +7591,15 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
                             <>
                               {/* Totals & Payment */}
                               {(() => {
-                                const previewGross = (printBillData.medicines || []).reduce((sum, m) => {
+                                const dbGross = Number(printBillData.totalAmount || 0);
+                                const computedGross = (activePreviewMeds || []).reduce((sum, m) => {
                                   const qty = Number(m.quantity || m.qty || 0);
                                   const price = Number(m.mrp || m.price || m.Selling_Price || m.selling_price || 0);
                                   return sum + (qty * price);
-                                }, 0) || Number(printBillData.totalAmount || 0);
+                                }, 0);
+                                const previewGross = dbGross > 0 ? dbGross : (computedGross > 0 ? computedGross : 0);
 
-                                const previewItemDisc = (printBillData.medicines || []).reduce((sum, m) => {
+                                const previewItemDisc = (activePreviewMeds || []).reduce((sum, m) => {
                                   const pricing = calculateMedicinePricing(m);
                                   return sum + pricing.totalDiscountOnMrp;
                                 }, 0);
@@ -7590,7 +7618,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
                                   Number(printBillData.discount || 0)
                                 );
 
-                                const previewItemDiscPct = (printBillData.medicines || []).reduce((sum, m) => {
+                                const previewItemDiscPct = (activePreviewMeds || []).reduce((sum, m) => {
                                   const dVal = parseFloat(m.discount_value ?? m.discount ?? (m.discount_percent !== "%" ? m.discount_percent : 0) ?? 0);
                                   return sum + (isNaN(dVal) ? 0 : dVal);
                                 }, 0);
@@ -7602,12 +7630,12 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
                                   ? ` (${previewTotalDiscPct % 1 === 0 ? previewTotalDiscPct.toFixed(0) : previewTotalDiscPct.toFixed(2).replace(/\.?0+$/, "")}%)`
                                   : "";
 
-                                const previewCgst = (printBillData.medicines || []).reduce((sum, m) => {
+                                const previewCgst = (activePreviewMeds || []).reduce((sum, m) => {
                                   const pricing = calculateMedicinePricing(m);
                                   return sum + (isNaN(pricing.cgstAmt) ? 0 : pricing.cgstAmt);
                                 }, 0);
 
-                                const previewSgst = (printBillData.medicines || []).reduce((sum, m) => {
+                                const previewSgst = (activePreviewMeds || []).reduce((sum, m) => {
                                   const pricing = calculateMedicinePricing(m);
                                   return sum + (isNaN(pricing.sgstAmt) ? 0 : pricing.sgstAmt);
                                 }, 0);
@@ -7616,9 +7644,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
                                 const expectedNet = Math.max(0, previewGross - previewTotalDisc);
                                 const rawNet = Number(printBillData.netAmount || 0);
-                                const netPayable = (rawNet > 0 && Math.abs(rawNet - expectedNet) <= 1.05)
-                                  ? rawNet
-                                  : Math.round(expectedNet);
+                                const netPayable = rawNet > 0 ? rawNet : Math.round(expectedNet);
 
                                 return (
                                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginTop: 4 }}>

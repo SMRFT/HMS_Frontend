@@ -1304,6 +1304,7 @@ const formatBillData = (bills, employeeName = "") => {
       estimate_no:    b.estimate_no    || null,
       total_amount:   parseFloat(b.total_amount ?? 0),
       net_amount:     parseFloat(b.net_amount   ?? 0),
+      round_off:      parseFloat(b.round_off    ?? 0),
       discount:       parseFloat(b.overall_discount_amount ?? 0),
       overall_discount_type:   b.overall_discount_type  || "percent",
       overall_discount_value:  b.overall_discount_value ?? 0,
@@ -1320,7 +1321,19 @@ const formatBillData = (bills, employeeName = "") => {
       prepared_by:    b.prepared_by || b.billed_name || b.employee_name || "",
       employee_name:  b.billed_name || b.employee_name || b.prepared_by || b.created_by_name || b.created_by || b.cashier_id || employeeName || "",
       cashier_id:     b.cashier_id     || b.created_by || "",
-      medicine_particulars: parseMedicineParticulars(b.medicine_particulars).filter((m) => !m.deleted_is && !m.is_deleted),
+      medicine_particulars: parseMedicineParticulars(b.medicine_particulars).filter((m) => {
+        if (!m || typeof m !== "object") return false;
+        if (m.deleted_is || m.is_deleted || m.is_active === false) return false;
+        const history = m.edit_history || [];
+        if (Array.isArray(history) && history.length > 0) {
+          const delQty = history
+            .filter((h) => h && h.action === "medicine_deleted")
+            .reduce((s, h) => s + Number(h.qty_deleted || h.qty || 0), 0);
+          const origQty = Number(m.qty || m.quantity || 0);
+          if (delQty >= origQty && origQty > 0) return false;
+        }
+        return true;
+      }),
     });
   });
   return rows;
@@ -2084,7 +2097,15 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                   String(printBill.billing_status || "").toLowerCase().includes("partially")
                 );
                 const allMeds = rawMeds.filter((m) => {
-                  if (m.deleted_is || m.is_deleted) return false;
+                  if (m.deleted_is || m.is_deleted || m.is_active === false) return false;
+                  const history = m.edit_history || [];
+                  if (Array.isArray(history) && history.length > 0) {
+                    const delQty = history
+                      .filter((h) => h && h.action === "medicine_deleted")
+                      .reduce((s, h) => s + Number(h.qty_deleted || h.qty || 0), 0);
+                    const origQty = Number(m.qty || m.quantity || 0);
+                    if (delQty >= origQty && origQty > 0) return false;
+                  }
                   if (isPartiallyBilled && m.dispatched_qty !== undefined) {
                     return Number(m.dispatched_qty || 0) > 0;
                   }
@@ -2320,7 +2341,8 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                               const pricing = calculateMedicinePricing(m);
                               return sum + pricing.gross;
                             }, 0);
-                            const previewGross = computedGross > 0 ? computedGross : Number(printBill.total_amount || 0);
+                            const explicitTotal = Number(printBill.total_amount || 0);
+                            const previewGross = explicitTotal > 0 ? explicitTotal : (computedGross > 0 ? computedGross : 0);
 
                             const computedItemDisc = (allMeds || []).reduce((sum, m) => {
                               const pricing = calculateMedicinePricing(m);
@@ -2340,9 +2362,7 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                               0
                             );
                             const expectedNet = Math.max(0, previewGross - explicitDisc);
-                            const previewNet = (explicitNet > 0 && Math.abs(explicitNet - expectedNet) <= 1.05)
-                              ? explicitNet
-                              : Math.round(expectedNet);
+                            const previewNet = explicitNet > 0 ? explicitNet : Math.round(expectedNet);
                             const previewDisc = Math.max(0, explicitDisc);
                             const totalItemDiscPct = (allMeds || []).reduce((sum, m) => {
                               const dVal = parseFloat(m.discount_value ?? m.discount ?? (m.discount_percent !== "%" ? m.discount_percent : 0) ?? 0);
