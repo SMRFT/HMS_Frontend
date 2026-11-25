@@ -3789,12 +3789,23 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             payment_mode: isInsuranceFinal ? "Credit" : resolvedPaymentMode,
             paymentMode: isInsuranceFinal ? "Credit" : resolvedPaymentMode,
           });
-          // ✅ Print bill is generated after collecting payment in Cash Counter (not on Save Bill)
-          // if (mappedBillable.length > 0) {
-          //   setShowPrintModal(true);
-          // } else {
-          //   toast.info("Ward request updated. Out-of-stock items remain pending in Medicine Chart.", { autoClose: 3500 });
-          // }
+
+          // ✅ 1. Only for selected_outlet OLET002: Print bill is generated after collecting payment in Cash Counter (not on Save Bill)
+          // ✅ 2. For selected_outlet OLET001 & others: Print bill comes immediately as usual on Save Bill
+          const currentOutletWard = String(
+            localStorage.getItem("selected_outlet") ||
+            localStorage.getItem("outlet_code") ||
+            ""
+          ).trim().toUpperCase();
+          const isOlet002Ward = currentOutletWard === "OLET002" || currentOutletWard === "2" || currentOutletWard.includes("OLET002") || currentOutletWard.includes("OP PHARMACY");
+
+          if (!isOlet002Ward) {
+            if (mappedBillable.length > 0) {
+              setShowPrintModal(true);
+            } else {
+              toast.info("Ward request updated. Out-of-stock items remain pending in Medicine Chart.", { autoClose: 3500 });
+            }
+          }
 
           // Deduct billed stock in memory immediately for 0ms instant UI update
           const billedItems = [...mappedBillable];
@@ -4159,8 +4170,20 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             payment_mode: resolvedPaymentMode,
             paymentMode: resolvedPaymentMode,
           });
-          // ✅ Print bill is generated after collecting payment in Cash Counter
-          // setShowPrintModal(true);
+
+          // ✅ 1. Only for selected_outlet OLET002: Print bill is generated after collecting payment in Cash Counter
+          // ✅ 2. For selected_outlet OLET001 & others: Print bill comes immediately as usual on Save Bill
+          const currentOutletDirect = String(
+            localStorage.getItem("selected_outlet") ||
+            localStorage.getItem("outlet_code") ||
+            ""
+          ).trim().toUpperCase();
+          const isOlet002Direct = currentOutletDirect === "OLET002" || currentOutletDirect === "2" || currentOutletDirect.includes("OLET002") || currentOutletDirect.includes("OP PHARMACY");
+
+          if (!isOlet002Direct) {
+            setShowPrintModal(true);
+          }
+
           resetForm();
           setTodayBillDate();
         }
