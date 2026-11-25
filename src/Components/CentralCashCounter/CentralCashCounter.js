@@ -5,7 +5,7 @@ import ShiftDetails from "./ShiftDetails";
 import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
 import { toast } from "react-toastify";
-import { buildPrintBillHtml, executeBillPrint } from "../Pharmacy/Pharmacy";
+import { buildPrintBillHtml, executeBillPrint, filterActiveMedicines } from "../Pharmacy/Pharmacy";
 
 const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
@@ -2385,17 +2385,17 @@ export default function CentralCashCounter() {
               paymentMode: payment_details?.method || payment_details?.card_name || "Cash",
               billingMode: rawBill.billing_mode || "DIRECT",
               employeeName: activeShift?.employee_name || activeShift?.CashierID || localStorage.getItem("employee_name") || localStorage.getItem("user_name") || localStorage.getItem("user_id") || "Pharmacist",
-              medicines: (rawBill.medicine_particulars || []).map((m) => ({
+              medicines: filterActiveMedicines(rawBill.medicine_particulars || []).map((m) => ({
                 ...m,
                 name: m.item_name || m.name || m.medicine_name || m.brand_name || (m.item_id ? `Item #${m.item_id}` : "—"),
                 item_name: m.item_name || m.name || m.medicine_name || m.brand_name || (m.item_id ? `Item #${m.item_id}` : "—"),
               })),
-              totalAmount: rawBill.total_amount || selectedBill.amount || 0,
+              totalAmount: rawBill.total_amount ?? selectedBill.total ?? selectedBill.amount ?? 0,
               totalItemDiscount: rawBill.total_item_discount || 0,
               overallDiscountType: rawBill.overall_discount_type || "percent",
               overallDiscountValue: rawBill.overall_discount_value || 0,
-              netAmount: rawBill.net_amount || selectedBill.amount || 0,
-              round_off: rawBill.round_off || 0,
+              netAmount: rawBill.net_amount ?? selectedBill.amount ?? 0,
+              round_off: rawBill.round_off ?? selectedBill.round_off ?? 0,
               outlet_code: rawBill.outlet_code || selectedBill.outlet_code || "OLET002",
             };
 
@@ -4173,17 +4173,17 @@ export default function CentralCashCounter() {
                                         paymentMode: bill.payment_method || bill.payment_mode || "Cash",
                                         billingMode: rawBill.billing_mode || "DIRECT",
                                         employeeName: activeShift?.employee_name || activeShift?.CashierID || localStorage.getItem("employee_name") || localStorage.getItem("user_name") || localStorage.getItem("user_id") || "Cashier",
-                                        medicines: (rawBill.medicine_particulars || []).map((m) => ({
+                                        medicines: filterActiveMedicines(rawBill.medicine_particulars || []).map((m) => ({
                                           ...m,
                                           name: m.item_name || m.name || m.medicine_name || m.brand_name || (m.item_id ? `Item #${m.item_id}` : "—"),
                                           item_name: m.item_name || m.name || m.medicine_name || m.brand_name || (m.item_id ? `Item #${m.item_id}` : "—"),
                                         })),
-                                        totalAmount: rawBill.total_amount || bill.amount || 0,
+                                        totalAmount: rawBill.total_amount ?? bill.total ?? bill.amount ?? 0,
                                         totalItemDiscount: rawBill.total_item_discount || 0,
                                         overallDiscountType: rawBill.overall_discount_type || "percent",
                                         overallDiscountValue: rawBill.overall_discount_value || 0,
-                                        netAmount: rawBill.net_amount || bill.amount || 0,
-                                        round_off: rawBill.round_off || 0,
+                                        netAmount: rawBill.net_amount ?? bill.amount ?? 0,
+                                        round_off: rawBill.round_off ?? bill.round_off ?? 0,
                                         outlet_code: rawBill.outlet_code || bill.outlet_code || "OLET002",
                                       };
                                       setPharmacyPrintBill(printPayload);
