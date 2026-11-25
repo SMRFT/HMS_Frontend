@@ -2176,7 +2176,14 @@ export default function CentralCashCounter() {
         day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Kolkata",
       });
 
+      const seenReturnNos = new Set();
       data.forEach((item, idx) => {
+        const retNo = String(item.return_bill_no || item.refund_bill_no || item.refundBillNo || "").trim();
+        if (retNo && retNo !== "-") {
+          if (seenReturnNos.has(retNo)) return;
+          seenReturnNos.add(retNo);
+        }
+
         // For hospital_investrefund, only display if approved
         if (item.collection_name === "hospital_investrefund") {
           const isApproved = item.is_approved === true || item.is_approved === "true" || item.is_approved === "True";
