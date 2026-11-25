@@ -1038,8 +1038,10 @@ const getField = (obj, field) => {
     gender: ["gender", "sex"],
     age: ["age"],
     uhid: ["uhid", "UHID"],
-    ipNumber: ["ipNumber", "ip_number", "ipNumber"],
-    insurance: ["insurance_name", "insuranceName", "insurance_provider", "insurance_company", "insuranceCompany", "insurance", "customer_type", "patient_type", "payment_mode", "payment_type"]
+    ipNumber: ["ipNumber", "ip_number", "ipNumber", "ipNo", "inpatient_number"],
+    insurance: ["insurance_name", "insuranceName", "insurance_provider", "insurance_company", "insuranceCompany", "insurance", "customer_type", "patient_type", "payment_mode", "payment_type"],
+    customer_type: ["customer_type", "customerType", "patient_type", "patientType", "payment_mode", "payment_type"],
+    insurance_company: ["insurance_company", "insuranceCompany", "insurance_name", "insuranceName", "company_name", "companyName", "insurance_provider", "insuranceProvider"]
   };
 
   const aliases = fieldAliases[field] || [field];
@@ -2301,11 +2303,101 @@ const WardRequest = () => {
                     )}
                   </div>
                   <div className="bed-details">
-                    Room {getField(selectedPatient, "room_no") || "-"} · Bed {getField(selectedPatient, "bed_no") || "-"} · Dr. {getField(selectedPatient, "doctorName") || "-"} · {getField(selectedPatient, "insurance") || "Normal Pay"}
+                    Room {getField(selectedPatient, "room_no") || "-"} · Bed {getField(selectedPatient, "bed_no") || "-"} · Dr. {getField(selectedPatient, "doctorName") || "-"}
                   </div>
                 </div>
               </div>
               <button className="close-btn" onClick={() => setShowActionModal(false)}>✕</button>
+            </div>
+
+            {/* Customer Details & Admission Information Strip */}
+            <div style={{
+              margin: "14px 20px 0 20px",
+              padding: "10px 16px",
+              background: "#f8fafc",
+              border: "1px solid #e2e8f0",
+              borderRadius: "10px",
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "12px",
+              boxShadow: "0 1px 2px rgba(0, 0, 0, 0.03)"
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
+                <div>
+                  <span style={{ fontSize: "10px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", display: "block", letterSpacing: "0.5px" }}>
+                    IP Number
+                  </span>
+                  <span style={{ fontSize: "13px", fontWeight: 800, color: "#0f172a" }}>
+                    {getField(selectedPatient, "ipNumber") || selectedPatient?.ipNumber || "-"}
+                  </span>
+                </div>
+                <div style={{ width: "1px", height: "24px", background: "#cbd5e1" }} />
+                <div>
+                  <span style={{ fontSize: "10px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", display: "block", letterSpacing: "0.5px" }}>
+                    UHID
+                  </span>
+                  <span style={{ fontSize: "13px", fontWeight: 700, color: "#334155" }}>
+                    {getField(selectedPatient, "uhid") || selectedPatient?.uhid || "-"}
+                  </span>
+                </div>
+                <div style={{ width: "1px", height: "24px", background: "#cbd5e1" }} />
+                <div>
+                  <span style={{ fontSize: "10px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", display: "block", letterSpacing: "0.5px" }}>
+                    Admission Date
+                  </span>
+                  <span style={{ fontSize: "12px", fontWeight: 600, color: "#475569" }}>
+                    {selectedPatient?.admissionDate ? `${selectedPatient.admissionDate} ${selectedPatient.admissionTime || ""}` : (getField(selectedPatient, "admission_date") || "-")}
+                  </span>
+                </div>
+              </div>
+
+              {/* Customer Type & Insurance details */}
+              <div>
+                {(() => {
+                  const rawType = (getField(selectedPatient, "customer_type") || "").toUpperCase();
+                  const insComp = getField(selectedPatient, "insurance_company") || (rawType.includes("INSUR") ? (getField(selectedPatient, "insurance") || "") : "") || "";
+                  const isInsurance = rawType.includes("INSUR") || Boolean(insComp && insComp !== "Normal Pay");
+                  const displayType = isInsurance ? "INSURANCE PATIENT" : (rawType || "PAY PATIENT (GENERAL)");
+
+                  return (
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                      <span style={{
+                        background: isInsurance ? "#eff6ff" : "#f0fdf4",
+                        color: isInsurance ? "#1d4ed8" : "#15803d",
+                        border: `1px solid ${isInsurance ? "#bfdbfe" : "#bbf7d0"}`,
+                        padding: "4px 10px",
+                        borderRadius: "6px",
+                        fontSize: "12px",
+                        fontWeight: 800,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px"
+                      }}>
+                        <span>{isInsurance ? "🛡️" : "💳"}</span>
+                        <span>{displayType}</span>
+                        {isInsurance && rawType && rawType !== "INSURANCE" && (
+                          <span style={{ opacity: 0.85, fontWeight: 600 }}>({rawType})</span>
+                        )}
+                      </span>
+                      {insComp && insComp !== "Normal Pay" && (
+                        <span style={{
+                          background: "#f1f5f9",
+                          color: "#334155",
+                          border: "1px solid #cbd5e1",
+                          padding: "4px 10px",
+                          borderRadius: "6px",
+                          fontSize: "12px",
+                          fontWeight: 700
+                        }}>
+                          🏢 {insComp}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
             </div>
 
             {Boolean(getField(selectedPatient, "is_discharged")) && (
