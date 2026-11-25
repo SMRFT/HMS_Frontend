@@ -756,6 +756,12 @@ const A4MultiPageViewer = ({
     setSelectedFloor,
     selectedCompany = "all",
     setSelectedCompany,
+    cardMachine = "all",
+    setCardMachine,
+    selectedCardMachine,
+    setSelectedCardMachine,
+    availableCategories = [],
+    availableCardMachines = [],
     isMaximized,
     setIsMaximized,
     onClose,
@@ -775,6 +781,7 @@ const A4MultiPageViewer = ({
     const [tempBillType, setTempBillType] = useState(billType || "All");
     const [tempFloor, setTempFloor] = useState(selectedFloor || "all");
     const [tempCompany, setTempCompany] = useState(selectedCompany || "all");
+    const [tempCardMachine, setTempCardMachine] = useState(cardMachine || selectedCardMachine || "all");
 
     const scrollAreaRef = useRef(null);
     const rawContainerRef = useRef(null);
@@ -795,7 +802,9 @@ const A4MultiPageViewer = ({
         if (billType) setTempBillType(billType);
         if (selectedFloor !== undefined) setTempFloor(selectedFloor);
         if (selectedCompany !== undefined) setTempCompany(selectedCompany);
-    }, [dateRange, selectedOutlet, billType, selectedFloor, selectedCompany]);
+        const cm = cardMachine || selectedCardMachine;
+        if (cm !== undefined) setTempCardMachine(cm);
+    }, [dateRange, selectedOutlet, billType, selectedFloor, selectedCompany, cardMachine, selectedCardMachine]);
 
     // ─── DYNAMIC PAGINATION ENGINE ───────────────────────────────────────────
     useEffect(() => {
@@ -891,6 +900,12 @@ const A4MultiPageViewer = ({
         if (setSelectedCompany) {
             setSelectedCompany(tempCompany);
         }
+        if (setCardMachine) {
+            setCardMachine(tempCardMachine);
+        }
+        if (setSelectedCardMachine) {
+            setSelectedCardMachine(tempCardMachine);
+        }
     };
 
     // ─── EXPORT ACTIONS ──────────────────────────────────────────────────────
@@ -956,6 +971,12 @@ const A4MultiPageViewer = ({
         "/AdvanceRegistration", "/AdvanceRegistrationInsurence", "/IPAdvanceReport", "/DischargeBillsDetailed"
     ].includes(selectedReport?.route);
     const isCategoryReport = ["bill_wise", "credit_card", "cash_bills", "discount_bills", "sales_tax_register", "sales_tax_reg", "daywise_sales_tax_register", "daywise_sales_tax", "collection_summary", "bill_cancel", "discharge_bills", "admission_vs_discharge", "misc_payment", "sales_return", "insurance_advance", "department_wise", "bill_type_wise"].includes(selectedReport?.id);
+    const isCardReport = [
+        "bill_wise", "credit_card", "cashier_wise_detailed", "cash_bills", "discharge_bills", "advance_reg", "unified_accounts", "shift_basis", "accounts_ledger"
+    ].includes(String(selectedReport?.id)) || [
+        "/MasterBillWiseReport", "/MasterCreditCardReport", "/MasterCashierDetailedReport", "/MasterDischargeBillsReport", "/AdvanceRegistration", "/UnifiedAccountsReport"
+    ].includes(selectedReport?.route || selectedReport?.fullPageRoute) ||
+    (selectedReport?.title && /bill wise|credit card|cashier.*detailed|discharge|advance|cash bills/i.test(selectedReport.title));
 
     return (
         <ModalContainer $isMaximized={isMaximized}>
@@ -1165,116 +1186,32 @@ const A4MultiPageViewer = ({
                                     if (setBillType) setBillType(val);
                                 }}
                             >
-                                {selectedReport?.id === "department_wise" ? (
-                                    <>
-                                        <option value="All">All Departments</option>
-                                        <option value="General">General</option>
-                                        <option value="General Surgeon">General Surgeon</option>
-                                        <option value="Consultants">Consultants</option>
-                                        <option value="Medical Oncology">Medical Oncology</option>
-                                        <option value="Cardiology">Cardiology</option>
-                                        <option value="Surgical  Gastro">Surgical Gastro</option>
-                                        <option value="General Medicine">General Medicine</option>
-                                        <option value="Obstetrician & Gynaecology">Obstetrician & Gynaecology</option>
-                                        <option value="Radiation Oncology">Radiation Oncology</option>
-                                        <option value="PULMONOLOGY">Pulmonology</option>
-                                        <option value="Master Health Checkup">Master Health Checkup</option>
-                                    </>
-                                ) : selectedReport?.id === "insurance_advance" ? (
-                                    <>
-                                        <option value="all">All Insurance Companies</option>
-                                        <option value="CGHS Credit">CGHS Credit</option>
-                                        <option value="ECHS">ECHS</option>
-                                        <option value="RAILWAY CTSE">Railway CTSE</option>
-                                        <option value="RAILWAY">Railway</option>
-                                        <option value="TNCMCHIS">TNCMCHIS</option>
-                                        <option value="STAR HEALTH AND ALLIED INSURANCE">Star Health</option>
-                                        <option value="MEDI ASSIST">Medi Assist</option>
-                                        <option value="MEDI ASSIST- GOVT EMPLOYEE">Medi Assist Govt Employee</option>
-                                        <option value="MD INDIA">MD India</option>
-                                        <option value="UNITED HEALTHCARE">United HealthCare</option>
-                                        <option value="CHOLA MS HELP">Chola MS</option>
-                                        <option value="BAJAJ ALLIANZ & ALLIED INSURANCE">Bajaj Allianz</option>
-                                        <option value="SELF PACKAGE">Self Package</option>
-                                        <option value="TKT">TKT</option>
-                                    </>
-                                ) : selectedReport?.id === "sales_tax_register" || selectedReport?.id === "sales_tax_reg" || selectedReport?.id === "daywise_sales_tax_register" || selectedReport?.id === "daywise_sales_tax" ? (
-                                    <>
-                                        <option value="all">All Patients (OP & IP)</option>
-                                        <option value="op">Out-Patient (OP)</option>
-                                        <option value="ip">In-Patient (IP)</option>
-                                    </>
-                                ) : selectedReport?.id === "bill_cancel" ? (
-                                    <>
-                                        <option value="all">All Cancelled Bills</option>
-                                        <option value="discharge">Discharge Bills</option>
-                                        <option value="advance">IP Advance</option>
-                                        <option value="admission">IP Admission</option>
-                                    </>
-                                ) : selectedReport?.id === "admission_vs_discharge" ? (
-                                    <>
-                                        <option value="all">All Patients</option>
-                                        <option value="admitted">Currently Admitted</option>
-                                        <option value="discharged">Discharged Patients</option>
-                                    </>
-                                ) : selectedReport?.id === "discharge_bills" ? (
-                                    <>
-                                        <option value="all">All Payment Modes</option>
-                                        <option value="Cash">Cash</option>
-                                        <option value="Card">Card</option>
-                                        <option value="Cheque">Cheque</option>
-                                        <option value="Multiple Payment">Multiple Payment</option>
-                                    </>
-                                ) : selectedReport?.id === "misc_payment" ? (
-                                    <>
-                                        <option value="all">All Receipt Types</option>
-                                        <option value="cash">Cash Receipts</option>
-                                        <option value="bank">Bank / Online Receipts</option>
-                                    </>
-                                ) : selectedReport?.id === "discount_bills" ? (
-                                    <>
-                                        <option value="All">All Categories</option>
-                                        <option value="PHARMACY OP BILL (SH)">Pharmacy OP Bill (SH)</option>
-                                        <option value="PHARMACY IP BILL (SH)">Pharmacy IP Bill (SH)</option>
-                                        <option value="DISCHARGE BILL">Discharge Bill</option>
-                                        <option value="LAB BILL (SH)">Lab Bill (SH)</option>
-                                        <option value="CT SCAN (SH)">CT Scan (SH)</option>
-                                        <option value="SCANNING (SH)">Scanning (SH)</option>
-                                        <option value="X - RAY (SH)">X-Ray (SH)</option>
-                                        <option value="ECG (SH)">ECG (SH)</option>
-                                        <option value="PET_CT(SH)">PET CT (SH)</option>
-                                        <option value="PROCEDURE BILL (SH)">Procedure Bill (SH)</option>
-                                    </>
-                                ) : (selectedReport?.id === "credit_card" || selectedReport?.id === "cash_bills") ? (
-                                    <>
-                                        <option value="All">All Categories (All Bill Types)</option>
-                                        <option value="PHARMACY OP BILL (SH)">Pharmacy OP Bill (SH)</option>
-                                        <option value="PHARMACY IP BILL (SH)">Pharmacy IP Bill (SH)</option>
-                                        <option value="ADVANCE">Advance (IP)</option>
-                                        <option value="DISCHARGE">Discharge Bill</option>
-                                        <option value="REGISTRATION(SH)">Registration (OP)</option>
-                                        <option value="CT SCAN (SH)">CT Scan (SH)</option>
-                                        <option value="ECG (SH)">ECG (SH)</option>
-                                        <option value="LAB BILL (SH)">Lab Bill (SH)</option>
-                                        <option value="PET_CT(SH)">PET CT (SH)</option>
-                                        <option value="PROCEDURE BILL (SH)">Procedure Bill (SH)</option>
-                                        <option value="SCANNING (SH)">Scanning (SH)</option>
-                                        <option value="X - RAY (SH)">X-Ray (SH)</option>
-                                        <option value="XEROX (SH)">Xerox (SH)</option>
-                                    </>
-                                ) : (
-                                    <>
-                                        <option value="All">All Types</option>
-                                        <option value="Registration">Registration</option>
-                                        <option value="Investigation">Investigation</option>
-                                        <option value="Pharmacy">Pharmacy</option>
-                                        <option value="Discharge">Discharge</option>
-                                        <option value="IP Advance">IP Advance</option>
-                                        <option value="Admission">Admission</option>
-                                        <option value="Sales Return">Sales Return</option>
-                                        <option value="Miscellaneous">Miscellaneous Payment</option>
-                                    </>
-                                )}
+                                <option value="All">All {selectedReport?.id === "admission_vs_discharge" ? "Patients" : selectedReport?.id === "discharge_bills" ? "Modes" : selectedReport?.id === "misc_payment" ? "Vouchers" : "Categories"}</option>
+                                {availableCategories && availableCategories.length > 0 && availableCategories.map((c, idx) => {
+                                    const label = typeof c === "string" ? c : (c.bill_name || c.name || c.category || c.title || String(c));
+                                    const val = typeof c === "string" ? c : (c.bill_name || c.billTypeNo || label);
+                                    return <option key={`${val}-${idx}`} value={val}>{label}</option>;
+                                })}
+                            </select>
+                        </div>
+                    )}
+
+                    {isCardReport && (
+                        <div className="filter-item">
+                            <span className="filter-label">Card Machine:</span>
+                            <select 
+                                value={tempCardMachine} 
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setTempCardMachine(val);
+                                    if (setCardMachine) setCardMachine(val);
+                                    if (setSelectedCardMachine) setSelectedCardMachine(val);
+                                }}
+                            >
+                                <option value="all">All Machines</option>
+                                {availableCardMachines && availableCardMachines.length > 0 && availableCardMachines.map((cm, idx) => (
+                                    <option key={`${cm}-${idx}`} value={cm}>{cm}</option>
+                                ))}
                             </select>
                         </div>
                     )}

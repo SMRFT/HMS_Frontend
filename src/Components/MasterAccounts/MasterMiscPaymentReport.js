@@ -176,7 +176,17 @@ const extractVoucherTime = (v) => {
     return "";
 };
 
-const MasterMiscPaymentReport = ({ isModalView = false, startDate, endDate }) => {
+const MasterMiscPaymentReport = ({ 
+    isModalView = false, 
+    startDate, 
+    endDate,
+    outlet: propOutlet,
+    initialOutlet = "all",
+    billType,
+    initialBillType,
+    category,
+    onLoadOptions
+}) => {
     const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
     const [dateRange, setDateRange] = useState([
         startDate ? dayjs(startDate) : dayjs().startOf("month"),
@@ -197,7 +207,9 @@ const MasterMiscPaymentReport = ({ isModalView = false, startDate, endDate }) =>
             setLoading(true);
             const fDate = dateRange[0].format("YYYY-MM-DD");
             const tDate = dateRange[1].format("YYYY-MM-DD");
-            const url = `${HmsBaseUrl}master-accounts/miscellaneous-payment/?from_date=${fDate}&to_date=${tDate}`;
+            const effOutlet = propOutlet || initialOutlet;
+            const outletParam = effOutlet && effOutlet !== "all" ? `&outlet_code=${effOutlet}` : "";
+            const url = `${HmsBaseUrl}master-accounts/miscellaneous-payment/?from_date=${fDate}&to_date=${tDate}${outletParam}`;
             const res = await apiRequest(url, "GET");
             if (res?.success) {
                 setReportData(extractReportData(res));
@@ -211,13 +223,32 @@ const MasterMiscPaymentReport = ({ isModalView = false, startDate, endDate }) =>
 
     useEffect(() => {
         fetchReport();
-    }, [dateRange]);
+    }, [dateRange, propOutlet, initialOutlet]);
+
+    useEffect(() => {
+        if (onLoadOptions && reportData) {
+            onLoadOptions({
+                categories: ["Receipt", "Payment", "Sales Return"]
+            });
+        }
+    }, [onLoadOptions, reportData]);
 
     const vouchers = getSafeArray(reportData?.data);
     const summary = reportData?.summary || {};
 
+    const activeVoucherType = (billType || initialBillType || category || "all").toLowerCase().trim();
+
     const filtered = useMemo(() => {
         let list = vouchers;
+        if (activeVoucherType !== "all") {
+            if (activeVoucherType === "receipt" || activeVoucherType === "cash" || activeVoucherType === "bank") {
+                list = list.filter(v => String(v.voucher_type || "").toLowerCase() === "receipt");
+            } else if (activeVoucherType === "sales return" || activeVoucherType === "sales_return") {
+                list = list.filter(v => v.is_sales_return || String(v.account_head || "").toLowerCase().includes("sales return"));
+            } else if (activeVoucherType === "payment") {
+                list = list.filter(v => String(v.voucher_type || "").toLowerCase() === "payment");
+            }
+        }
         if (!searchTerm.trim()) return list;
         const q = searchTerm.toLowerCase();
         return list.filter(v =>
@@ -228,7 +259,7 @@ const MasterMiscPaymentReport = ({ isModalView = false, startDate, endDate }) =>
             String(cleanNarrationText(v.narration, v.paid_to_or_received_from)).toLowerCase().includes(q) ||
             String(v.cashier_name || "").toLowerCase().includes(q)
         );
-    }, [vouchers, searchTerm]);
+    }, [vouchers, activeVoucherType, searchTerm]);
 
     const groupedData = useMemo(() => {
         if (!filtered || filtered.length === 0) return [];
@@ -477,7 +508,22 @@ const MasterMiscPaymentReport = ({ isModalView = false, startDate, endDate }) =>
                                                             <td className="text-center font-mono">{v.displaySlno}</td>
                                                             <td className="font-mono" style={{ fontWeight: 700 }}>{v.voucher_no}</td>
                                                             <td style={{ color: "#475569" }}>{v.timeStr || "-"}</td>
-                                                            <td><strong>{v.account_head || "Sundry"}</strong></td>
+                                                            <td>
+                                                                {v.is_sales_return ? (
+                                                                    <span style={{ 
+                                                                        background: "#fee2e2", 
+                                                                        color: "#b91c1c", 
+                                                                        padding: "2px 6px", 
+                                                                        borderRadius: "4px", 
+                                                                        fontSize: "0.75rem", 
+                                                                        fontWeight: 700 
+                                                                    }}>
+                                                                        Sales Return
+                                                                    </span>
+                                                                ) : (
+                                                                    <strong>{v.account_head || "Sundry"}</strong>
+                                                                )}
+                                                            </td>
                                                             <td style={{ wordBreak: "break-word" }}>{v.paid_to_or_received_from || "-"}</td>
                                                             <td style={{ wordBreak: "break-word" }}>{cleanNarrationText(v.narration, v.paid_to_or_received_from)}</td>
                                                             <td>{v.cashier_name || "Counter Staff"}</td>

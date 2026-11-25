@@ -241,7 +241,15 @@ const formatINR = (val) => {
     });
 };
 
-export default function UnifiedAccountsReport({ isModalView = false, startDate, endDate, initialOutlet = "all" }) {
+export default function UnifiedAccountsReport({ 
+    isModalView = false, 
+    startDate, 
+    endDate, 
+    initialOutlet = "all",
+    cardMachine = "all",
+    selectedCardMachine: propCardMachine,
+    onLoadOptions
+}) {
     const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL || "/_b_a_c_k_e_n_d/HMS/";
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState(null);
@@ -250,10 +258,18 @@ export default function UnifiedAccountsReport({ isModalView = false, startDate, 
         endDate ? dayjs(endDate) : dayjs()
     ]);
     const [outlet, setOutlet] = useState(initialOutlet || "all");
+    const [selectedCardMachine, setSelectedCardMachine] = useState(cardMachine || propCardMachine || "all");
     const [outletsList, setOutletsList] = useState([]);
     const [searchQuery, setSearchQuery] = useState("");
     const [activeTab, setActiveTab] = useState("bills");
     const printRef = useRef(null);
+
+    useEffect(() => {
+        const cm = cardMachine || propCardMachine;
+        if (cm !== undefined && cm !== selectedCardMachine) {
+            setSelectedCardMachine(cm);
+        }
+    }, [cardMachine, propCardMachine]);
 
     useEffect(() => {
         if (startDate && endDate) {
@@ -309,20 +325,46 @@ export default function UnifiedAccountsReport({ isModalView = false, startDate, 
         fetchReport();
     }, [dateRange, outlet]);
 
+    const cardMachinesList = useMemo(() => {
+        const set = new Set();
+        (data?.bills || []).forEach(b => {
+            if (b.card_machine) set.add(b.card_machine);
+            else if (b.card_number && !/^\d+$/.test(b.card_number)) set.add(b.card_number);
+        });
+        return Array.from(set).sort();
+    }, [data]);
+
+    useEffect(() => {
+        if (onLoadOptions && data?.bills) {
+            onLoadOptions({
+                cardMachines: cardMachinesList
+            });
+        }
+    }, [onLoadOptions, cardMachinesList, data]);
+
     // Filtered Bills
     const filteredBills = useMemo(() => {
         if (!data?.bills) return [];
-        if (!searchQuery.trim()) return data.bills;
+        let list = data.bills;
+        if (selectedCardMachine !== "all") {
+            const cmFilter = selectedCardMachine.toLowerCase().trim();
+            list = list.filter(b => {
+                const cm = String(b.card_machine || b.card_number || "").toLowerCase().trim();
+                return cm === cmFilter || cm.includes(cmFilter);
+            });
+        }
+        if (!searchQuery.trim()) return list;
         const q = searchQuery.toLowerCase().trim();
-        return data.bills.filter(b => 
+        return list.filter(b => 
             (b.bill_no && b.bill_no.toLowerCase().includes(q)) ||
             (b.patient_name && b.patient_name.toLowerCase().includes(q)) ||
             (b.uhid && b.uhid.toLowerCase().includes(q)) ||
             (b.ip_number && b.ip_number.toLowerCase().includes(q)) ||
             (b.category && b.category.toLowerCase().includes(q)) ||
-            (b.cashier_name && b.cashier_name.toLowerCase().includes(q))
+            (b.cashier_name && b.cashier_name.toLowerCase().includes(q)) ||
+            (b.card_machine && b.card_machine.toLowerCase().includes(q))
         );
-    }, [data, searchQuery]);
+    }, [data, selectedCardMachine, searchQuery]);
 
     // Export Excel
     const exportToExcel = () => {
@@ -469,6 +511,20 @@ export default function UnifiedAccountsReport({ isModalView = false, startDate, 
                             </Select>
                         </FilterGroup>
 
+                        <FilterGroup>
+                            <label><CreditCard size={13} style={{ verticalAlign: "middle", marginRight: 4 }} /> Card Machine:</label>
+                            <Select 
+                                value={selectedCardMachine} 
+                                onChange={setSelectedCardMachine} 
+                                style={{ minWidth: 150 }}
+                            >
+                                <Option value="all">ALL MACHINES</Option>
+                                {cardMachinesList.map(m => (
+                                    <Option key={m} value={m}>{m}</Option>
+                                ))}
+                            </Select>
+                        </FilterGroup>
+
                         <FilterGroup style={{ marginLeft: "auto", flex: "1 1 240px", maxWidth: 320 }}>
                             <Input 
                                 prefix={<Search size={14} color="#94a3b8" />}
@@ -583,7 +639,14 @@ export default function UnifiedAccountsReport({ isModalView = false, startDate, 
                                                         </td>
                                                         <td className="num-col" style={{ fontWeight: 600 }}>{formatINR(b.gross)}</td>
                                                         <td className="num-col" style={{ color: "#16a34a", fontWeight: 600 }}>{formatINR(b.cash)}</td>
-                                                        <td className="num-col" style={{ color: "#2563eb" }}>{formatINR(b.bank)}</td>
+                                                        <td className="num-col" style={{ color: "#2563eb" }}>
+                                                            {formatINR(b.bank)}
+                                                            {Boolean(b.bank > 0 && b.card_machine) && (
+                                                                <span style={{ fontSize: "0.72rem", background: "#e0e7ff", color: "#3730a3", padding: "1px 5px", borderRadius: "4px", marginLeft: "4px" }}>
+                                                                    {b.card_machine}
+                                                                </span>
+                                                            )}
+                                                        </td>
                                                         <td>{b.cashier_name}</td>
                                                         <td style={{ fontSize: "0.75rem", color: "#64748b" }}>{b.shift_no}</td>
                                                     </tr>

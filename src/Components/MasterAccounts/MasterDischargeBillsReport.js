@@ -36,7 +36,10 @@ const MasterDischargeBillsReport = ({
     initialBillType = "all",
     category: propCategory,
     mode: propMode,
-    paymentMode: propPaymentMode
+    paymentMode: propPaymentMode,
+    cardMachine = "all",
+    selectedCardMachine: propCardMachine,
+    onLoadOptions
 }) => {
     const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
@@ -48,10 +51,18 @@ const MasterDischargeBillsReport = ({
     ]);
     const [outlet, setOutlet] = useState(effectiveOutlet);
     const [paymentMode, setPaymentMode] = useState(effectiveMode);
+    const [selectedCardMachine, setSelectedCardMachine] = useState(cardMachine || propCardMachine || "all");
     const [outletsList, setOutletsList] = useState([]);
     const [loading, setLoading] = useState(false);
     const [reportData, setReportData] = useState(null);
     const [searchTerm, setSearchTerm] = useState("");
+
+    useEffect(() => {
+        const cm = cardMachine || propCardMachine;
+        if (cm !== undefined && cm !== selectedCardMachine) {
+            setSelectedCardMachine(cm);
+        }
+    }, [cardMachine, propCardMachine]);
 
     /* Synchronize dates */
     useEffect(() => {
@@ -120,19 +131,48 @@ const MasterDischargeBillsReport = ({
     const bills = getSafeArray(reportData?.data);
     const summary = reportData?.summary || {};
 
-    /* Search & Payment Mode filter */
+    const cardMachinesList = useMemo(() => {
+        const set = new Set();
+        bills.forEach(b => {
+            if (b.card_machine) set.add(b.card_machine);
+            else if (b.card_number && !/^\d+$/.test(b.card_number)) set.add(b.card_number);
+        });
+        return Array.from(set).sort();
+    }, [bills]);
+
+    useEffect(() => {
+        if (onLoadOptions && reportData) {
+            onLoadOptions({
+                categories: ["Cash", "Card", "Cheque", "Multiple Payment", "Discharge Refund"],
+                cardMachines: cardMachinesList
+            });
+        }
+    }, [onLoadOptions, cardMachinesList, reportData]);
+
+    /* Search & Payment Mode & Card Machine filter */
     const filtered = useMemo(() => {
         let list = bills;
         if (paymentMode && paymentMode.toLowerCase() !== "all" && paymentMode.toLowerCase() !== "all payment modes") {
             const fm = paymentMode.trim().toLowerCase();
             list = list.filter(b => {
                 const bm = String(b.payment_mode || "").trim().toLowerCase();
+                const cm = String(b.card_machine || "").trim().toLowerCase();
+                const ct = String(b.card_type || "").trim().toLowerCase();
                 if (fm === "refund") return Boolean(b.is_refund || b.is_discharge_refund || cleanNum(b.discharge_refund || b.refund_amount) > 0 || bm.includes("refund"));
                 if (fm === "cash") return bm === "cash";
                 if (fm === "card" || fm === "credit card") return bm.includes("card") || bm.includes("bank") || bm.includes("pos") || bm.includes("upi");
                 if (fm.includes("multi")) return bm.includes("multi");
                 if (fm === "cheque") return bm.includes("cheque");
+                if (cm && (cm === fm || cm.includes(fm))) return true;
+                if (ct && (ct === fm || ct.includes(fm))) return true;
                 return bm.includes(fm);
+            });
+        }
+        if (selectedCardMachine !== "all") {
+            const cmFilter = selectedCardMachine.toLowerCase().trim();
+            list = list.filter(b => {
+                const cm = String(b.card_machine || b.card_number || "").toLowerCase().trim();
+                return cm === cmFilter || cm.includes(cmFilter);
             });
         }
         if (!searchTerm.trim()) return list;
@@ -144,7 +184,7 @@ const MasterDischargeBillsReport = ({
             String(b.mr_no || "").toLowerCase().includes(q) ||
             String(b.payment_mode || "").toLowerCase().includes(q)
         );
-    }, [bills, paymentMode, searchTerm]);
+    }, [bills, paymentMode, selectedCardMachine, searchTerm]);
 
     /* Date-wise grouping (just like Advance Registration) */
     const dateGroupedBills = useMemo(() => {
@@ -247,13 +287,22 @@ const MasterDischargeBillsReport = ({
                         </div>
                         <div className="filter-item">
                             <label>Payment Mode:</label>
-                            <Select value={paymentMode} onChange={setPaymentMode} style={{ width: 180 }}>
+                            <Select value={paymentMode} onChange={setPaymentMode} style={{ width: 170 }}>
                                 <Option value="all">All Payment Modes</Option>
                                 <Option value="Cash">Cash</Option>
                                 <Option value="Card">Card</Option>
                                 <Option value="Cheque">Cheque</Option>
                                 <Option value="Multiple Payment">Multiple Payment</Option>
                                 <Option value="Refund">Discharge Refund</Option>
+                            </Select>
+                        </div>
+                        <div className="filter-item">
+                            <label>Card Machine:</label>
+                            <Select value={selectedCardMachine} onChange={setSelectedCardMachine} style={{ width: 160 }}>
+                                <Option value="all">All Machines</Option>
+                                {cardMachinesList.map(m => (
+                                    <Option key={m} value={m}>{m}</Option>
+                                ))}
                             </Select>
                         </div>
                         <div className="filter-item">
@@ -401,7 +450,24 @@ const MasterDischargeBillsReport = ({
                                                             <td className="text-right font-mono font-bold" style={{ color: b.net_settlement < 0 ? "#dc2626" : "#0284c7" }}>
                                                                 {formatINR(b.net_settlement || b.net_paid || b.amount)}
                                                             </td>
-                                                            <td>{b.payment_mode || "Cash"}</td>
+                                                            <td>
+                                                                {b.payment_mode || "Cash"}
+                                                                {Boolean((crAmt > 0 || (b.payment_mode && b.payment_mode.toLowerCase().includes("card"))) && b.card_machine) && (
+                                                                    <span style={{
+                                                                        display: "inline-block",
+                                                                        marginLeft: "6px",
+                                                                        padding: "1px 6px",
+                                                                        borderRadius: "4px",
+                                                                        fontSize: "0.72rem",
+                                                                        fontWeight: 700,
+                                                                        background: "#e0e7ff",
+                                                                        color: "#3730a3",
+                                                                        border: "1px solid #c7d2fe"
+                                                                    }}>
+                                                                        {b.card_machine}
+                                                                    </span>
+                                                                )}
+                                                            </td>
                                                         </tr>
                                                     );
                                                 })}

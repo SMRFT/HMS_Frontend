@@ -176,7 +176,17 @@ const extractTime = (dateVal) => {
     return "";
 };
 
-const MasterCashierDetailedReport = ({ isModalView = false, startDate, endDate, initialOutlet = "all" }) => {
+const MasterCashierDetailedReport = ({ 
+    isModalView = false, 
+    startDate, 
+    endDate, 
+    initialOutlet = "all",
+    billType,
+    category,
+    cardMachine = "all",
+    selectedCardMachine: propCardMachine,
+    onLoadOptions
+}) => {
     const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
     const [dateRange, setDateRange] = useState([
         startDate ? dayjs(startDate) : dayjs(),
@@ -187,7 +197,23 @@ const MasterCashierDetailedReport = ({ isModalView = false, startDate, endDate, 
     const [loading, setLoading] = useState(false);
     const [reportData, setReportData] = useState(null);
     const [searchTerm, setSearchTerm] = useState("");
-    const [selectedCashier, setSelectedCashier] = useState("all");
+    const [selectedCashier, setSelectedCashier] = useState(billType || category || "all");
+    const [selectedCardType, setSelectedCardType] = useState("all");
+    const [selectedCardMachine, setSelectedCardMachine] = useState(cardMachine || propCardMachine || "all");
+
+    useEffect(() => {
+        const cm = cardMachine || propCardMachine;
+        if (cm !== undefined && cm !== selectedCardMachine) {
+            setSelectedCardMachine(cm);
+        }
+    }, [cardMachine, propCardMachine]);
+
+    useEffect(() => {
+        const c = billType || category;
+        if (c !== undefined && c !== selectedCashier) {
+            setSelectedCashier(c);
+        }
+    }, [billType, category]);
 
     useEffect(() => {
         const fetchOutlets = async () => {
@@ -247,10 +273,59 @@ const MasterCashierDetailedReport = ({ isModalView = false, startDate, endDate, 
         return Array.from(set);
     }, [allBills]);
 
+    const cardTypeList = useMemo(() => {
+        const set = new Set();
+        allBills.forEach(b => {
+            if (b.card_type) set.add(b.card_type);
+            if (b.card_machine) set.add(b.card_machine);
+        });
+        return Array.from(set).sort();
+    }, [allBills]);
+
+    const cardMachinesList = useMemo(() => {
+        const set = new Set();
+        allBills.forEach(b => {
+            if (b.card_machine) set.add(b.card_machine);
+            else if (b.card_number && !/^\d+$/.test(b.card_number)) set.add(b.card_number);
+        });
+        return Array.from(set).sort();
+    }, [allBills]);
+
+    useEffect(() => {
+        if (onLoadOptions && reportData) {
+            onLoadOptions({
+                categories: cashierList,
+                cardMachines: cardMachinesList
+            });
+        }
+    }, [onLoadOptions, cashierList, cardMachinesList, reportData]);
+
     const filteredBills = useMemo(() => {
         let list = allBills;
         if (selectedCashier !== "all") {
             list = list.filter(b => b.cashier_name === selectedCashier);
+        }
+        if (selectedCardType !== "all") {
+            const ctFilter = selectedCardType.toLowerCase().trim();
+            list = list.filter(b => {
+                if (ctFilter === "cash") {
+                    return (cleanNum(b.cash) > 0 && cleanNum(b.bank) === 0) || String(b.payment_mode || "").toLowerCase() === "cash";
+                }
+                if (ctFilter === "card" || ctFilter === "card / pos") {
+                    return cleanNum(b.bank) > 0 || String(b.payment_mode || "").toLowerCase().includes("card");
+                }
+                const ct = String(b.card_type || "").toLowerCase().trim();
+                const cm = String(b.card_machine || "").toLowerCase().trim();
+                const pm = String(b.payment_mode || "").toLowerCase().trim();
+                return ct === ctFilter || cm === ctFilter || cm.includes(ctFilter) || pm.includes(ctFilter);
+            });
+        }
+        if (selectedCardMachine !== "all") {
+            const cmFilter = selectedCardMachine.toLowerCase().trim();
+            list = list.filter(b => {
+                const cm = String(b.card_machine || b.card_number || "").toLowerCase().trim();
+                return cm === cmFilter || cm.includes(cmFilter);
+            });
         }
         if (!searchTerm.trim()) return list;
         const q = searchTerm.toLowerCase();
@@ -260,9 +335,11 @@ const MasterCashierDetailedReport = ({ isModalView = false, startDate, endDate, 
             String(b.mr_no || "").toLowerCase().includes(q) ||
             String(b.cashier_name || "").toLowerCase().includes(q) ||
             String(b.shift_no || "").toLowerCase().includes(q) ||
-            String(b.category || "").toLowerCase().includes(q)
+            String(b.category || "").toLowerCase().includes(q) ||
+            String(b.card_type || "").toLowerCase().includes(q) ||
+            String(b.card_machine || "").toLowerCase().includes(q)
         );
-    }, [allBills, selectedCashier, searchTerm]);
+    }, [allBills, selectedCashier, selectedCardType, searchTerm]);
 
     /* Grouped data by Date -> Shift -> Category */
     const groupedData = useMemo(() => {
@@ -542,10 +619,30 @@ const MasterCashierDetailedReport = ({ isModalView = false, startDate, endDate, 
                         </div>
                         <div className="filter-item">
                             <label>Cashier:</label>
-                            <Select value={selectedCashier} onChange={setSelectedCashier} style={{ width: 180 }}>
+                            <Select value={selectedCashier} onChange={setSelectedCashier} style={{ width: 170 }}>
                                 <Option value="all">All Cashiers</Option>
                                 {cashierList.map(c => (
                                     <Option key={c} value={c}>{c}</Option>
+                                ))}
+                            </Select>
+                        </div>
+                        <div className="filter-item">
+                            <label>Card / Pay Type:</label>
+                            <Select value={selectedCardType} onChange={setSelectedCardType} style={{ width: 160 }}>
+                                <Option value="all">All Pay Types</Option>
+                                <Option value="Cash">Cash Only</Option>
+                                <Option value="Card">Card / POS</Option>
+                                {cardTypeList.map(c => (
+                                    <Option key={c} value={c}>{c}</Option>
+                                ))}
+                            </Select>
+                        </div>
+                        <div className="filter-item">
+                            <label>Card Machine:</label>
+                            <Select value={selectedCardMachine} onChange={setSelectedCardMachine} style={{ width: 160 }}>
+                                <Option value="all">All Machines</Option>
+                                {cardMachinesList.map(cm => (
+                                    <Option key={cm} value={cm}>{cm}</Option>
                                 ))}
                             </Select>
                         </div>
@@ -675,6 +772,11 @@ const MasterCashierDetailedReport = ({ isModalView = false, startDate, endDate, 
                                                                     </td>
                                                                     <td className="text-right font-mono font-bold" style={{ fontSize: "0.92rem", color: it.cardVal > 0 ? "#2563eb" : "#0f172a" }}>
                                                                         {formatINR(it.cardVal)}
+                                                                        {Boolean(it.cardVal > 0 && it.card_machine) && (
+                                                                            <div style={{ fontSize: "0.70rem", color: "#4f46e5", fontWeight: 700 }}>
+                                                                                {it.card_machine}
+                                                                            </div>
+                                                                        )}
                                                                     </td>
                                                                     <td className="text-right font-mono font-bold" style={{ fontSize: "0.92rem", color: it.creditVal > 0 ? "#d97706" : "#0f172a" }}>
                                                                         {formatINR(it.creditVal)}
