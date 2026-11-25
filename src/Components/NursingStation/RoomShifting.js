@@ -1081,69 +1081,6 @@ const RoomPickerModal = ({ title, onClose, onSelect, baseUrl }) => {
   );
 };
 
-// ─── Edit Modal ───────────────────────────────────────────────────────────────
-const EditModal = ({ open, record, onClose, onSave, baseUrl }) => {
-  const [newRoomNo, setNewRoomNo] = useState("");
-  const [newBedNo,  setNewBedNo]  = useState("");
-  const [showRoom,  setShowRoom]  = useState(false);
-
-  useEffect(() => {
-    if (record) { setNewRoomNo(record.newRoomNo || ""); setNewBedNo(record.newBedNo || ""); }
-  }, [record]);
-
-  if (!open || !record) return null;
-
-  return (
-    <>
-      <ModalOverlay>
-        <ModalContainer style={{ maxWidth: 480 }}>
-          <ModalHeader>
-            <ModalTitle>Edit Shift — #{record.shifting_id}</ModalTitle>
-            <CloseButton onClick={onClose}>✕</CloseButton>
-          </ModalHeader>
-          <ModalBody style={{ padding: 20 }}>
-            <Banner variant="warn" style={{ marginBottom: 14 }}>
-              ⚠️ Editing creates a new record and marks this one inactive.
-            </Banner>
-            <Grid style={{ marginBottom: 16 }}>
-              <Field
-                label="New Room No"
-                value={newRoomNo}
-                readOnly
-                placeholder="Click 🔍 to pick a room"
-                onSearch={() => setShowRoom(true)}
-              />
-              <Field
-                label="New Bed No"
-                value={newBedNo}
-                readOnly
-                placeholder="Auto-filled"
-              />
-            </Grid>
-            <BtnRow>
-              <Btn secondary type="button" onClick={onClose}>Cancel</Btn>
-              <Btn type="button"
-                onClick={() => onSave(record.shifting_id, { newRoomNo, newBedNo }, record.ipNumber)}
-                disabled={!newRoomNo || !newBedNo}>
-                💾 Update
-              </Btn>
-            </BtnRow>
-          </ModalBody>
-        </ModalContainer>
-      </ModalOverlay>
-
-      {showRoom && (
-        <RoomPickerModal
-          title="Select New Room (Edit)"
-          baseUrl={baseUrl}
-          onClose={() => setShowRoom(false)}
-          onSelect={(roomNo, bedNo) => { setNewRoomNo(roomNo); setNewBedNo(bedNo); setShowRoom(false); }}
-        />
-      )}
-    </>
-  );
-};
-
 // ─── EMPTY FORM ───────────────────────────────────────────────────────────────
 const EMPTY = {
   uhid: "", ipNumber: "", ipserial_number: "",
@@ -1155,6 +1092,7 @@ const EMPTY = {
   roomNo: "", bedNo: "",
   newRoomNo: "", newBedNo: "",
   has_shifted: false,
+  shift_count: 0,
   has_reservation: false,
   reservedRoomNo: "", reservedBedNo: "",
 };
@@ -1173,8 +1111,7 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved, onBack }) => {
   const [shiftings,     setShiftings] = useState([]);
   const [entriesPerPage,setEntries]   = useState(15);
   const [currentPage,   setCurrentPage] = useState(1);
-  const [editRecord,    setEditRecord]= useState(null);
-  const [editOpen,      setEditOpen]  = useState(false);
+  const [searchTerm,    setSearchTerm]  = useState("");
 
   // ── Patient search modal state & handlers ──────────────────────────────────
   const [showPatientModal, setShowPatientModal] = useState(false);
@@ -1212,7 +1149,62 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved, onBack }) => {
   });
 
   const todayDisplay  = new Date().toLocaleDateString("en-GB", { timeZone: "Asia/Kolkata" });
-  const alreadyShifted = form.has_shifted === true;
+
+  const setQuickDate = (type) => {
+    const today = getTodayIST();
+    let from = today;
+    let to = today;
+    if (type === "yesterday") {
+      const d = new Date();
+      d.setDate(d.getDate() - 1);
+      from = d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+      to = from;
+    } else if (type === "7days") {
+      const d = new Date();
+      d.setDate(d.getDate() - 6);
+      from = d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+      to = today;
+    } else if (type === "month") {
+      const d = new Date();
+      d.setDate(1);
+      from = d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+      to = today;
+    } else if (type === "all") {
+      from = "";
+      to = "";
+    }
+    const newF = { ...filters, fromDate: from, toDate: to };
+    setFilters(newF);
+    setCurrentPage(1);
+    fetchShiftings(newF);
+  };
+
+  const stats = useMemo(() => {
+    const total = shiftings.length;
+    const active = shiftings.filter(s => s.is_roomActive).length;
+    const todayStr = getTodayIST();
+    const todayCount = shiftings.filter(s => {
+      const dt = s.shiftingDateTime || s.startDateTime || "";
+      return dt.startsWith(todayStr);
+    }).length;
+    const uniquePatients = new Set(shiftings.map(s => s.ipNumber || s.uhid).filter(Boolean)).size;
+    return { total, active, todayCount, uniquePatients };
+  }, [shiftings]);
+
+  const filteredShiftings = useMemo(() => {
+    if (!searchTerm.trim()) return shiftings;
+    const q = searchTerm.toLowerCase().trim();
+    return shiftings.filter(s =>
+      (s.patient_name || "").toLowerCase().includes(q) ||
+      (s.uhid || "").toLowerCase().includes(q) ||
+      (s.ipNumber || "").toLowerCase().includes(q) ||
+      (s.newRoomNo || "").toLowerCase().includes(q) ||
+      (s.newBedNo || "").toLowerCase().includes(q) ||
+      (s.oldRoomNo || "").toLowerCase().includes(q) ||
+      (s.oldBedNo || "").toLowerCase().includes(q) ||
+      (s.shifting_id || "").toLowerCase().includes(q)
+    );
+  }, [shiftings, searchTerm]);
 
   const fetchShiftings = async (customFilters = null) => {
     try {
@@ -1319,15 +1311,19 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved, onBack }) => {
         area:            patient.area          || "",
         zipcode:         patient.zipcode       || "",
         has_shifted:     adm.has_shifted       || false,
+        shift_count:     adm.shift_count       || 0,
         has_reservation: hasRes,
         reservedRoomNo:  adm.reservedRoomNo    || "",
         reservedBedNo:   adm.reservedBedNo     || "",
-        newRoomNo: (!adm.has_shifted && hasRes) ? adm.reservedRoomNo : "",
-        newBedNo:  (!adm.has_shifted && hasRes) ? adm.reservedBedNo  : "",
+        newRoomNo: hasRes ? adm.reservedRoomNo : "",
+        newBedNo:  hasRes ? adm.reservedBedNo  : "",
       }));
 
-      if (adm.has_shifted) toast.info("Already shifted — use Edit in the table.");
-      else if (hasRes) toast.success(`Loaded: ${adm.ipNumber} — Reserved room auto-filled.`);
+      if (adm.has_shifted) {
+        toast.info(`Admission loaded: ${adm.ipNumber}. Previous shifts: ${adm.shift_count || 1}. Current: Room ${adm.roomNo} / Bed ${adm.bedNo}`);
+      } else if (hasRes) {
+        toast.success(`Loaded: ${adm.ipNumber} — Reserved room auto-filled.`);
+      }
     } catch (err) {
       toast.error(err?.message || "Failed to fetch admission");
     } finally {
@@ -1356,15 +1352,6 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved, onBack }) => {
     } catch (err) {
       toast.error(err?.response?.data?.error || err?.message || "An error occurred");
     }
-  };
-
-  const handleEditSave = async (shiftingId, updates, ipNumber) => {
-    try {
-      const ip  = ipNumber || form.ipNumber;
-      const res = await apiRequest(`${HmsBaseUrl}room-shifting/${encodeURIComponent(ip)}/update/`, "PUT", { shifting_id: shiftingId, ...updates });
-      if (res.success || res.message) { toast.success("Updated — new shifting record created"); setEditOpen(false); fetchShiftings(); }
-      else toast.error(res.error || "Update failed");
-    } catch { toast.error("Update failed"); }
   };
 
   return (
@@ -1535,14 +1522,14 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved, onBack }) => {
             </Card>
 
             {/* ── Banners ── */}
-            {form.has_reservation && !alreadyShifted && (
+            {form.has_reservation && (
               <Banner variant="purple" style={{ marginBottom: 12 }}>
                 🟣 Pre-reserved: <strong style={{ marginLeft: 4 }}>Room {form.reservedRoomNo} / Bed {form.reservedBedNo}</strong>&nbsp;— auto-filled below. You may change if needed.
               </Banner>
             )}
-            {alreadyShifted && (
-              <Banner variant="warn" style={{ marginBottom: 12 }}>
-                ⚠️ This patient has already been shifted. Use <strong style={{ margin: "0 4px" }}>Edit</strong> in the shifting history tab.
+            {form.has_shifted && (
+              <Banner variant="purple" style={{ marginBottom: 12, background: "#f0fdfa", borderColor: "#99f6e4", color: "#0f766e" }}>
+                ℹ️ <strong>Multiple Shifting Allowed:</strong> This patient has previously shifted {form.shift_count ? `${form.shift_count} time(s)` : ""}. Currently occupying <strong>Room {form.roomNo} / Bed {form.bedNo}</strong>. Choose a new room &amp; bed below to shift again.
               </Banner>
             )}
 
@@ -1559,27 +1546,24 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved, onBack }) => {
               <Grid>
                 <Field
                   label="New Room No"
-                  note={form.has_reservation && !alreadyShifted ? "(Pre-reserved)" : ""}
+                  note={form.has_reservation ? "(Pre-reserved)" : ""}
                   value={form.newRoomNo}
                   readOnly
-                  placeholder={alreadyShifted ? "Already shifted" : "Click 🔍 to search"}
-                  onSearch={alreadyShifted ? undefined : () => setShowRoom(true)}
-                  disabled={alreadyShifted}
+                  placeholder="Click 🔍 to search room"
+                  onSearch={() => setShowRoom(true)}
                 />
                 <Field
                   label="New Bed No"
                   value={form.newBedNo}
                   readOnly
                   placeholder="Auto-filled on selection"
-                  disabled={alreadyShifted}
                 />
                 <Field label="Shifting Date" value={todayDisplay} readOnly />
               </Grid>
 
               <BtnRow style={{ marginTop: 16 }}>
                 <Btn secondary type="button" onClick={handleReset}>🔄 Reset</Btn>
-                <Btn type="button" onClick={handleSubmit} disabled={alreadyShifted}
-                  title={alreadyShifted ? "Already shifted — use Edit" : ""}>
+                <Btn type="button" onClick={handleSubmit} disabled={!form.newRoomNo || !form.newBedNo}>
                   💾 Save Shift
                 </Btn>
               </BtnRow>
@@ -1605,25 +1589,125 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved, onBack }) => {
           /* ── Filters & Table ── */
           <Card>
             <CardTitle>📋 Shifting History</CardTitle>
-            <Grid style={{ marginBottom: 14 }}>
+
+            {/* ── Summary Stats Cards ── */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 16 }}>
+              <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 8, background: "#ccfbf1", color: "#0d9488", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem" }}>📋</div>
+                <div>
+                  <div style={{ fontSize: "0.68rem", color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>Total Shifts</div>
+                  <div style={{ fontSize: "1.15rem", fontWeight: 800, color: "#0f172a" }}>{stats.total}</div>
+                </div>
+              </div>
+              <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 8, background: "#dcfce7", color: "#16a34a", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem" }}>🟢</div>
+                <div>
+                  <div style={{ fontSize: "0.68rem", color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>Currently Active</div>
+                  <div style={{ fontSize: "1.15rem", fontWeight: 800, color: "#16a34a" }}>{stats.active}</div>
+                </div>
+              </div>
+              <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 8, background: "#e0e7ff", color: "#4f46e5", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem" }}>📅</div>
+                <div>
+                  <div style={{ fontSize: "0.68rem", color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>Shifted Today</div>
+                  <div style={{ fontSize: "1.15rem", fontWeight: 800, color: "#4f46e5" }}>{stats.todayCount}</div>
+                </div>
+              </div>
+              <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 8, background: "#fef3c7", color: "#d97706", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.1rem" }}>👥</div>
+                <div>
+                  <div style={{ fontSize: "0.68rem", color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>Unique Patients</div>
+                  <div style={{ fontSize: "1.15rem", fontWeight: 800, color: "#b45309" }}>{stats.uniquePatients}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* ── Quick Date Filter Pills ── */}
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+              <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", marginRight: 4 }}>Date Presets:</span>
+              {[
+                { label: "Today", val: "today" },
+                { label: "Yesterday", val: "yesterday" },
+                { label: "Last 7 Days", val: "7days" },
+                { label: "This Month", val: "month" },
+                { label: "All Records", val: "all" },
+              ].map(p => (
+                <button
+                  key={p.val}
+                  type="button"
+                  onClick={() => setQuickDate(p.val)}
+                  style={{
+                    background: "#fff",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: 20,
+                    padding: "3px 12px",
+                    fontSize: "0.74rem",
+                    fontWeight: 600,
+                    color: "#334155",
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = "#0d9488"; e.currentTarget.style.color = "#0d9488"; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = "#cbd5e1"; e.currentTarget.style.color = "#334155"; }}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+
+            {/* ── Filter Form ── */}
+            <Grid style={{ marginBottom: 12 }}>
               <Field label="From Date" value={filters.fromDate} type="date"
                 onChange={e => setFilters(p => ({ ...p, fromDate: e.target.value }))}
                 onKeyDown={e => { if (e.key === "Enter") { setCurrentPage(1); fetchShiftings(filters); } }} />
               <Field label="To Date" value={filters.toDate} type="date"
                 onChange={e => setFilters(p => ({ ...p, toDate: e.target.value }))}
                 onKeyDown={e => { if (e.key === "Enter") { setCurrentPage(1); fetchShiftings(filters); } }} />
-              <Field label="UHID" value={filters.uhid}
+              <Field label="UHID" value={filters.uhid} placeholder="e.g. S026/005634"
                 onChange={e => setFilters(p => ({ ...p, uhid: e.target.value }))}
                 onKeyDown={e => { if (e.key === "Enter") { setCurrentPage(1); fetchShiftings(filters); } }} />
-              <Field label="IP Number" value={filters.ipNumber}
+              <Field label="IP Number" value={filters.ipNumber} placeholder="e.g. S026/006800"
                 onChange={e => setFilters(p => ({ ...p, ipNumber: e.target.value }))}
                 onKeyDown={e => { if (e.key === "Enter") { setCurrentPage(1); fetchShiftings(filters); } }} />
             </Grid>
-            <BtnRow style={{ justifyContent: "flex-start", gap: 8, marginBottom: 16 }}>
-              <Btn type="button" onClick={() => { setCurrentPage(1); fetchShiftings(filters); }}>🔍 Search</Btn>
-              <Btn type="button" style={{ background: "#94a3b8" }} onClick={handleResetFilters}>↺ Reset</Btn>
-            </BtnRow>
 
+            {/* ── Actions & Live Search ── */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 16 }}>
+              <div style={{ display: "flex", gap: 8 }}>
+                <Btn type="button" onClick={() => { setCurrentPage(1); fetchShiftings(filters); }}>🔍 Fetch Records</Btn>
+                <Btn type="button" style={{ background: "#94a3b8" }} onClick={handleResetFilters}>↺ Reset</Btn>
+              </div>
+              <div style={{ position: "relative", minWidth: 260 }}>
+                <input
+                  type="text"
+                  placeholder="🔎 Instant filter (Name, Room, ID)..."
+                  value={searchTerm}
+                  onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                  style={{
+                    width: "100%",
+                    height: 34,
+                    padding: "0 28px 0 10px",
+                    fontSize: "0.8rem",
+                    border: "1.5px solid #cbd5e1",
+                    borderRadius: 6,
+                    outline: "none",
+                    background: "#fff",
+                    boxSizing: "border-box"
+                  }}
+                />
+                {searchTerm && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchTerm("")}
+                    style={{ position: "absolute", right: 8, top: 7, border: "none", background: "none", cursor: "pointer", color: "#94a3b8", fontSize: "0.8rem" }}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* ── Pagination entries count ── */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: ".8rem", color: T.gray500 }}>
                 Show
@@ -1633,9 +1717,12 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved, onBack }) => {
                 </select>
                 entries
               </div>
-              <span style={{ fontSize: ".78rem", color: T.gray400 }}>{shiftings.length} record(s)</span>
+              <span style={{ fontSize: ".78rem", color: T.gray500, fontWeight: 600 }}>
+                {filteredShiftings.length} record(s) {searchTerm && `(filtered from ${shiftings.length})`}
+              </span>
             </div>
 
+            {/* ── Enhanced Shifting Table ── */}
             <TableWrap>
               <Table>
                 <thead>
@@ -1643,24 +1730,24 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved, onBack }) => {
                     <StickyTh $left="0px" style={{ width: 85, minWidth: 85 }}>Shift #</StickyTh>
                     <StickyTh $left="85px" style={{ width: 95, minWidth: 95 }}>UHID</StickyTh>
                     <StickyTh $left="180px" style={{ width: 95, minWidth: 95 }}>IP Number</StickyTh>
-                    <StickyTh $left="275px" style={{ width: 85, minWidth: 85 }}>IP Serial</StickyTh>
-                    <StickyTh $left="360px" $shadow style={{ width: 160, minWidth: 160 }}>Patient Name</StickyTh>
-                    <Th>Room / Bed</Th>
-                    <Th>Shifting Date & Time</Th>
-                    <Th>Duration</Th>
-                    <Th>Status</Th>
-                    <StickyRightTh style={{ textAlign: "center", width: 80, minWidth: 80 }}>Actions</StickyRightTh>
+                    <StickyTh $left="275px" style={{ width: 75, minWidth: 75 }}>Serial</StickyTh>
+                    <StickyTh $left="350px" $shadow style={{ width: 170, minWidth: 170 }}>Patient Name</StickyTh>
+                    <Th style={{ minWidth: 220 }}>Room Transition (From ➔ To)</Th>
+                    <Th style={{ minWidth: 150 }}>Shifting Date &amp; Time</Th>
+                    <Th style={{ minWidth: 110 }}>Duration</Th>
+                    <Th style={{ minWidth: 100 }}>Status</Th>
+                    <StickyRightTh style={{ textAlign: "center", width: 110, minWidth: 110 }}>Actions</StickyRightTh>
                   </tr>
                 </thead>
                 <tbody>
-                  {shiftings.length === 0 ? (
+                  {filteredShiftings.length === 0 ? (
                     <tr>
-                      <td colSpan="11" style={{ textAlign: "center", padding: 40, color: T.gray400, fontSize: ".82rem" }}>
-                        No room shifting records found
+                      <td colSpan="10" style={{ textAlign: "center", padding: 40, color: T.gray400, fontSize: ".84rem" }}>
+                        {searchTerm ? "No matching room shifting records found for this search" : "No room shifting records found"}
                       </td>
                     </tr>
                   ) : (
-                    shiftings.slice((currentPage - 1) * entriesPerPage, currentPage * entriesPerPage).map((s, idx) => {
+                    filteredShiftings.slice((currentPage - 1) * entriesPerPage, currentPage * entriesPerPage).map((s, idx) => {
                       const shiftId = s.shifting_id || s._id;
                       const rowBg = idx % 2 === 0 ? "#ffffff" : "#f9fafb";
                       const shiftDateStr = s.shiftingDateTime
@@ -1680,32 +1767,143 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved, onBack }) => {
 
                       return (
                         <Tr key={`${shiftId}-${idx}`}>
-                          <StickyTd $left="0px" $bg={rowBg} style={{ fontWeight: 700, color: T.primary, width: 85, minWidth: 85 }}>
-                            {shiftId}
-                            {s.edited_from && <span title={`Edited from ${s.edited_from}`} style={{ fontSize: ".6rem", color: T.gray400, marginLeft: 4 }}>✏️</span>}
+                          <StickyTd $left="0px" $bg={rowBg} style={{ fontWeight: 700, width: 85, minWidth: 85 }}>
+                            <span style={{
+                              background: "#f0fdfa",
+                              color: "#0d9488",
+                              padding: "2px 7px",
+                              borderRadius: 4,
+                              border: "1px solid #99f6e4",
+                              fontSize: "0.74rem",
+                              fontWeight: 800
+                            }}>
+                              {shiftId}
+                            </span>
                           </StickyTd>
-                          <StickyTd $left="85px" $bg={rowBg} style={{ width: 95, minWidth: 95 }}>{s.uhid || "-"}</StickyTd>
-                          <StickyTd $left="180px" $bg={rowBg} style={{ width: 95, minWidth: 95 }}>{s.ipNumber || "-"}</StickyTd>
-                          <StickyTd $left="275px" $bg={rowBg} style={{ width: 85, minWidth: 85 }}>{s.ipserial_number || "-"}</StickyTd>
-                          <StickyTd $left="360px" $shadow $bg={rowBg} style={{ fontWeight: 500, width: 160, minWidth: 160, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>
+                          <StickyTd $left="85px" $bg={rowBg} style={{ width: 95, minWidth: 95, fontFamily: "monospace", fontSize: "0.78rem" }}>
+                            {s.uhid || "-"}
+                          </StickyTd>
+                          <StickyTd $left="180px" $bg={rowBg} style={{ width: 95, minWidth: 95, fontFamily: "monospace", fontSize: "0.78rem" }}>
+                            {s.ipNumber || "-"}
+                          </StickyTd>
+                          <StickyTd $left="275px" $bg={rowBg} style={{ width: 75, minWidth: 75, textAlign: "center" }}>
+                            <span style={{ background: "#f1f5f9", padding: "1px 6px", borderRadius: 4, fontSize: "0.72rem", color: "#64748b" }}>
+                              {s.ipserial_number || "1"}
+                            </span>
+                          </StickyTd>
+                          <StickyTd $left="350px" $shadow $bg={rowBg} style={{ fontWeight: 600, color: "#1e293b", width: 170, minWidth: 170, maxWidth: 170, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {s.patient_name || "-"}
                           </StickyTd>
-                          <Td><span style={{ fontFamily: "monospace", fontSize: ".8rem" }}>{`${s.newRoomNo||"-"} / ${s.newBedNo||"-"}`}</span></Td>
-                          <Td style={{ whiteSpace: "nowrap" }}>{shiftDateStr}</Td>
+
+                          {/* ── Room Transition Column ── */}
+                          <Td style={{ minWidth: 220 }}>
+                            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "nowrap" }}>
+                              <span style={{
+                                background: "#f1f5f9",
+                                color: "#475569",
+                                padding: "3px 8px",
+                                borderRadius: 6,
+                                fontSize: "0.75rem",
+                                fontWeight: 600,
+                                fontFamily: "monospace",
+                                border: "1px solid #e2e8f0",
+                                whiteSpace: "nowrap"
+                              }}>
+                                {s.oldRoomNo ? `${s.oldRoomNo} / ${s.oldBedNo || '-'}` : "Initial Room"}
+                              </span>
+                              <span style={{ color: "#0d9488", fontWeight: 800, fontSize: "0.85rem" }}>➔</span>
+                              <span style={{
+                                background: "#f0fdfa",
+                                color: "#0f766e",
+                                padding: "3px 8px",
+                                borderRadius: 6,
+                                fontSize: "0.75rem",
+                                fontWeight: 700,
+                                fontFamily: "monospace",
+                                border: "1px solid #99f6e4",
+                                whiteSpace: "nowrap"
+                              }}>
+                                {s.newRoomNo ? `${s.newRoomNo} / ${s.newBedNo || '-'}` : "-"}
+                              </span>
+                            </div>
+                          </Td>
+
+                          <Td style={{ whiteSpace: "nowrap", fontSize: "0.78rem" }}>
+                            {shiftDateStr}
+                          </Td>
+
                           <Td>
-                            <span style={{ fontSize: ".76rem", fontWeight: 600, color: isActive ? T.primary : T.gray400 }}>
+                            <span style={{ fontSize: ".76rem", fontWeight: 600, color: isActive ? T.primary : T.gray500 }}>
                               {duration}
-                              {isActive && <span style={{ fontSize: ".6rem", color: "#22c55e", marginLeft: 4 }}>(ongoing)</span>}
+                              {isActive && <span style={{ fontSize: ".65rem", color: "#16a34a", fontWeight: 700, marginLeft: 4 }}>(ongoing)</span>}
                             </span>
                           </Td>
+
                           <Td>
-                            <Badge s={isActive ? "active" : "inactive"}>{isActive ? "Active" : "Inactive"}</Badge>
+                            {isActive ? (
+                              <span style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 5,
+                                background: "#dcfce7",
+                                color: "#15803d",
+                                padding: "2px 8px",
+                                borderRadius: 20,
+                                fontSize: "0.7rem",
+                                fontWeight: 700,
+                                border: "1px solid #bbf7d0"
+                              }}>
+                                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", display: "inline-block" }} />
+                                Active
+                              </span>
+                            ) : (
+                              <span style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                background: "#f1f5f9",
+                                color: "#64748b",
+                                padding: "2px 8px",
+                                borderRadius: 20,
+                                fontSize: "0.7rem",
+                                fontWeight: 600,
+                                border: "1px solid #e2e8f0"
+                              }}>
+                                Shifted
+                              </span>
+                            )}
                           </Td>
-                          <StickyRightTd $bg={rowBg} style={{ textAlign: "center", width: 80, minWidth: 80 }}>
-                            {isActive && (
-                              <ActionBtn type="button" onClick={() => { setEditRecord({ ...s }); setEditOpen(true); }}>
-                                ✏️ Edit
-                              </ActionBtn>
+
+                          {/* ── Actions: Shift Again for active stays, no edit ── */}
+                          <StickyRightTd $bg={rowBg} style={{ textAlign: "center", width: 110, minWidth: 110 }}>
+                            {isActive ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (s.ipNumber) loadAdmission({ ip_number: s.ipNumber });
+                                  else if (s.uhid) loadAdmission({ uhid: s.uhid });
+                                  setActiveTab("create");
+                                }}
+                                style={{
+                                  background: "#0d9488",
+                                  color: "#ffffff",
+                                  border: "none",
+                                  borderRadius: 6,
+                                  padding: "4px 10px",
+                                  fontSize: "0.72rem",
+                                  fontWeight: 700,
+                                  cursor: "pointer",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 4,
+                                  boxShadow: "0 1px 2px rgba(13,148,136,0.2)",
+                                  transition: "all 0.15s ease"
+                                }}
+                                title="Shift this patient again to another room"
+                              >
+                                🔀 Shift Again
+                              </button>
+                            ) : (
+                              <span style={{ color: "#94a3b8", fontSize: "0.75rem" }}>—</span>
                             )}
                           </StickyRightTd>
                         </Tr>
@@ -1716,12 +1914,12 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved, onBack }) => {
               </Table>
             </TableWrap>
 
-            {shiftings.length > 0 && (
+            {filteredShiftings.length > 0 && (
               <Pager>
                 <span>
                   Showing {(currentPage - 1) * entriesPerPage + 1} to{" "}
-                  {Math.min(currentPage * entriesPerPage, shiftings.length)} of{" "}
-                  {shiftings.length} records
+                  {Math.min(currentPage * entriesPerPage, filteredShiftings.length)} of{" "}
+                  {filteredShiftings.length} records
                 </span>
                 <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
                   <PageBtn
@@ -1731,7 +1929,7 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved, onBack }) => {
                   >
                     Previous
                   </PageBtn>
-                  {getPaginationItems(currentPage, Math.max(1, Math.ceil(shiftings.length / entriesPerPage))).map((item, idx) => {
+                  {getPaginationItems(currentPage, Math.max(1, Math.ceil(filteredShiftings.length / entriesPerPage))).map((item, idx) => {
                     if (item === "...") {
                       return (
                         <PageBtn key={`ellipsis-${idx}`} disabled style={{ cursor: "default", opacity: 0.7 }}>
@@ -1752,8 +1950,8 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved, onBack }) => {
                   })}
                   <PageBtn
                     type="button"
-                    onClick={() => setCurrentPage((p) => Math.min(Math.max(1, Math.ceil(shiftings.length / entriesPerPage)), p + 1))}
-                    disabled={currentPage >= Math.ceil(shiftings.length / entriesPerPage)}
+                    onClick={() => setCurrentPage((p) => Math.min(Math.max(1, Math.ceil(filteredShiftings.length / entriesPerPage)), p + 1))}
+                    disabled={currentPage >= Math.ceil(filteredShiftings.length / entriesPerPage)}
                   >
                     Next
                   </PageBtn>
@@ -1772,14 +1970,6 @@ const RoomShifting = ({ patient: propPatient, onClose, onSaved, onBack }) => {
           onSelect={(roomNo, bedNo) => { setForm(p => ({ ...p, newRoomNo: roomNo, newBedNo: bedNo })); setShowRoom(false); }}
         />
       )}
-
-      <EditModal
-        open={editOpen}
-        record={editRecord}
-        onClose={() => setEditOpen(false)}
-        onSave={handleEditSave}
-        baseUrl={HmsBaseUrl}
-      />
 
       {/* ── Patient Search Modal ── */}
       <PatientSearchModal

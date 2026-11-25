@@ -276,17 +276,40 @@ const CloseIconBtn = styled.button`
 /* ─── Helper Functions ─────────────────────────────────────────────────── */
 const getItemName = (it) => {
   if (!it) return "-";
-  return it.name || it.item_name || it.medicine_name || it.product_name || (it.item_id ? `Item #${it.item_id}` : "-");
+  if (typeof it === "string") return it;
+  const nm =
+    it.name ||
+    it.item_name ||
+    it.itemName ||
+    it.ItemName ||
+    it.medicine_name ||
+    it.medicineName ||
+    it.product_name ||
+    it.productName ||
+    it.description ||
+    it.item_description;
+  if (nm && !String(nm).startsWith("Item #")) return nm;
+  return it.item_id ? `Item #${it.item_id}` : (nm || "-");
 };
 
 const parseItems = (raw) => {
   if (!raw) return [];
-  if (Array.isArray(raw)) return raw;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return [];
+  let parsed = raw;
+  if (typeof parsed === "string") {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch {
+      return [];
+    }
   }
+  if (typeof parsed === "string") {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch {
+      // ignore
+    }
+  }
+  return Array.isArray(parsed) ? parsed : [];
 };
 
 const formatDate = (val) => {
@@ -377,7 +400,12 @@ const buildGrnPrintHtml = (grn, items, outletName, vendorName) => {
   const grnDisplayNo = grn.grn_number || grn.draft_number || "-";
   const dateStr = formatDate(grn.date || grn.created_date);
   const timeStr = formatTime(grn.date || grn.created_date);
-  const vendorStr = vendorName || grn.vendor_name || grn.supplier_name || (grn.vendor_id ? `Vendor #${grn.vendor_id}` : "-");
+  const resolvedVendor = (grn.vendor_name && !String(grn.vendor_name).startsWith("Vendor #") && !/^\d+$/.test(String(grn.vendor_name).trim()))
+    ? grn.vendor_name
+    : (vendorName && !String(vendorName).startsWith("Vendor #") && !/^\d+$/.test(String(vendorName).trim())
+        ? vendorName
+        : (grn.vendor_name || vendorName || (grn.vendor_id ? `Vendor #${grn.vendor_id}` : "-")));
+  const vendorStr = resolvedVendor;
   const outletStr = outletName || grn.purchase_category || "OP/IP Pharmacy";
   const invStr = grn.invoice_no ? `${grn.invoice_no} (${formatDate(grn.invoice_date)})` : "-";
   const prepBy = grn.entered_by_name || grn.created_by_name || grn.created_by || "-";
@@ -558,7 +586,13 @@ const PrintSlipModal = ({ grn, outletName, vendorName, onClose }) => {
               <span>Invoice No : <strong>{grn.invoice_no || "-"} ({formatDate(grn.invoice_date)})</strong></span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
-              <span>Vendor&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: <strong>{vendorName || grn.vendor_name || (grn.vendor_id ? `Vendor #${grn.vendor_id}` : "-")}</strong></span>
+              <span>Vendor&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: <strong>{
+                (grn.vendor_name && !String(grn.vendor_name).startsWith("Vendor #") && !/^\d+$/.test(String(grn.vendor_name).trim()))
+                  ? grn.vendor_name
+                  : (vendorName && !String(vendorName).startsWith("Vendor #") && !/^\d+$/.test(String(vendorName).trim())
+                      ? vendorName
+                      : (grn.vendor_name || vendorName || (grn.vendor_id ? `Vendor #${grn.vendor_id}` : "-")))
+              }</strong></span>
               <span>Status : <strong>{grn.status || "Verified"}</strong></span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
