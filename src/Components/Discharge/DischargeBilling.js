@@ -623,6 +623,7 @@ const EMPTY_FORM = {
   discount_percent: "", discount_amount: "", disc_reason: "", remarks: "",
   next_visit_date: "",
   discharge_date: new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
+  bill_date: new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
   bill_upto: new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
 };
 const EMPTY_ITEM = {
@@ -744,7 +745,7 @@ const buildPayload = (items, f, totals, status, patient, editReason = "", insura
     next_visit_date: f.next_visit_date || null,
     discharge_date: f.discharge_date || null,
     date_of_discharge: f.discharge_date || null,
-    bill_date: f.discharge_date || null,
+    bill_date: f.bill_date || new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
     edit_reason: editReason || "",
     payment_method: status === "Estimate" ? null : (paymentMethod || f.payment_method || "Cash"),
   };
@@ -912,7 +913,9 @@ const estToForm = e => ({
   next_visit_date: e.next_visit_date
     ? new Date(e.next_visit_date).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" })
     : "",
-  discharge_date: parseDateToYMD(e.discharge_date || e.dischargeDateTime || e.bill_date) ||
+  discharge_date: parseDateToYMD(e.discharge_date || e.dischargeDateTime) ||
+    new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
+  bill_date: parseDateToYMD(e.bill_date) ||
     new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
   bill_upto: parseDateToYMD(e.bill_date || e.discharge_date) ||
     new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
@@ -2645,7 +2648,7 @@ const DischargeBilling = () => {
           const res = await apiRequest(`${BASE}discharge-billing/${editingEst.id}/convert-to-bill/`, "POST", {
             payment_method: paymentMethod,
             discharge_date: form.discharge_date || null,
-            bill_date: form.discharge_date || null,
+            bill_date: form.bill_date || new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
           });
           let d = res.success && res.data && res.data.success ? res.data.data : (res.success ? res.data : null);
           if (d?.id || d?.bill_no) {
@@ -3048,6 +3051,12 @@ const DischargeBilling = () => {
                         <MetricVal style={{ color: T.primary, textTransform: "uppercase" }} title={patient.customer_type || patient.patient_type || "General"}>
                           {patient.customer_type || patient.patient_type || "General"}
                           {isInsurancePatient && (patient.company || patient.company_code) ? ` / ${patient.company || patient.company_code}` : ""}
+                        </MetricVal>
+                      </MetricBox>
+                      <MetricBox>
+                        <MetricLabel>🧾 Bill Date</MetricLabel>
+                        <MetricVal style={{ fontWeight: 600 }}>
+                          {(form.bill_date || new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" })).split("-").reverse().join("-")}
                         </MetricVal>
                       </MetricBox>
                     </div>
