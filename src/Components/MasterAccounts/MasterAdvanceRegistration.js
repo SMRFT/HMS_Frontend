@@ -207,29 +207,51 @@ const MasterAdvanceRegistration = ({ isModalView = false, startDate, endDate, ou
         return groups;
     }, [reportData]);
 
+    /* ── Helpers ───────────────────────────────────────────────────────── */
+    const getCashCredit = (row) => {
+        let cash = row.cash_amount !== undefined && row.cash_amount !== null 
+            ? Number(row.cash_amount) 
+            : (row.cash !== undefined && row.cash !== null ? Number(row.cash) : null);
+        let credit = row.credit_amount !== undefined && row.credit_amount !== null 
+            ? Number(row.credit_amount) 
+            : (row.credit !== undefined && row.credit !== null ? Number(row.credit) : null);
+
+        if (credit === null || credit === undefined) {
+            const nonCash = Number(row.bank_amount || row.bank || row.card_amount || row.card || row.credit_card_amount || 0);
+            if (nonCash > 0) credit = nonCash;
+        }
+
+        if (cash === null && credit === null) {
+            const mode = String(row.payment_mode || "").toLowerCase();
+            const amt = Number(row.amount || row.advance_amount || row.gross || 0);
+            if (mode === "cash") {
+                cash = amt;
+                credit = 0;
+            } else if (mode.includes("card") || mode.includes("upi") || mode.includes("bank") || mode.includes("credit") || mode.includes("online")) {
+                cash = 0;
+                credit = amt;
+            } else {
+                cash = 0;
+                credit = amt;
+            }
+        }
+
+        const sc = isNaN(cash) || cash === null ? 0 : Number(cash);
+        const sk = isNaN(credit) || credit === null ? 0 : Number(credit);
+        return { sc, sk };
+    };
+
     /* ── Grand totals ──────────────────────────────────────────────────── */
     const grandTotals = useMemo(() => {
         if (!Array.isArray(reportData)) return { cash: 0, credit: 0, total: 0 };
         return reportData.reduce((acc, row) => {
-            const cash   = Number(row.cash_amount   ?? ((row.payment_mode || "").toLowerCase() === "cash" ? row.amount : 0) ?? 0);
-            const credit = Number(row.credit_amount || row.credit_card_amount || row.bank_amount ||
-                                  ((row.payment_mode || "").toLowerCase() !== "cash" ? row.amount : 0) || 0);
-            const sc = isNaN(cash)   ? 0 : cash;
-            const sk = isNaN(credit) ? 0 : credit;
+            const { sc, sk } = getCashCredit(row);
             acc.cash   += sc;
             acc.credit += sk;
             acc.total  += sc + sk;
             return acc;
         }, { cash: 0, credit: 0, total: 0 });
     }, [reportData]);
-
-    /* ── Helpers ───────────────────────────────────────────────────────── */
-    const getCashCredit = (row) => {
-        const cash   = Number(row.cash_amount   ?? ((row.payment_mode || "").toLowerCase() === "cash"  ? row.amount : 0) ?? 0);
-        const credit = Number(row.credit_amount || row.credit_card_amount || row.bank_amount ||
-                              ((row.payment_mode || "").toLowerCase() !== "cash" ? row.amount : 0) || 0);
-        return { sc: isNaN(cash) ? 0 : cash, sk: isNaN(credit) ? 0 : credit };
-    };
 
     /* ── Print ─────────────────────────────────────────────────────────── */
     const handlePrint = () => printAccountsReport("printable-advance-master-area", "portrait");

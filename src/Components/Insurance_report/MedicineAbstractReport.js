@@ -342,6 +342,9 @@ const MedicineAbstractReport = () => {
             const res = await apiRequest(url, 'GET');
             if (res && res.success) {
                 const dataObj = (res.data && res.data.patient_info) ? res.data : (res.data?.data || res.data || res);
+                if (dataObj && Array.isArray(dataObj.bills)) {
+                    dataObj.bills = dataObj.bills.filter(b => String(b.payment_mode || b.payment_method || '').trim().toLowerCase() !== 'cash');
+                }
                 setReportData(dataObj);
                 if (dataObj.patient_info?.uhid && !uhid) {
                     setUhid(dataObj.patient_info.uhid);
