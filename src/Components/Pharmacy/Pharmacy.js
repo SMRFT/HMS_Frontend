@@ -789,7 +789,7 @@ const chunkMedicinesForPrint = (items) => {
 };
 
 // ── Reliable Cross-Browser Print Execution (Uses hidden iframe to prevent popup blockers & premature close) ──
-const executeBillPrint = (html) => {
+export const executeBillPrint = (html) => {
   if (!html) return;
   try {
     let iframe = document.getElementById("hms-pharmacy-print-frame");
@@ -810,6 +810,7 @@ const executeBillPrint = (html) => {
     doc.open();
     doc.write(html);
     doc.close();
+    doc.title = "";
     iframe.contentWindow.focus();
     setTimeout(() => {
       try {
@@ -831,6 +832,7 @@ const fallbackWindowPrint = (html) => {
     pw.document.open();
     pw.document.write(html);
     pw.document.close();
+    pw.document.title = "";
     pw.focus();
     setTimeout(() => {
       pw.print();
@@ -952,7 +954,7 @@ export const calculateMedicinePricing = (item, customQty = null, customDiscVal =
 };
 
 // ── Elegant Pharmacy Tax Invoice Generator (A5 Alignment Sheet Layout with Multi-Page Support) ──
-const buildPrintBillHtml = (data) => {
+export const buildPrintBillHtml = (data) => {
   const {
     billNo = "—",
     billDate = "—",
@@ -1311,7 +1313,7 @@ const buildPrintBillHtml = (data) => {
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Pharmacy Bill - ${billNo}</title>
+  <title></title>
   <style>
     @page {
       size: A5 landscape;
@@ -3787,11 +3789,12 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             payment_mode: isInsuranceFinal ? "Credit" : resolvedPaymentMode,
             paymentMode: isInsuranceFinal ? "Credit" : resolvedPaymentMode,
           });
-          if (mappedBillable.length > 0) {
-            setShowPrintModal(true);
-          } else {
-            toast.info("Ward request updated. Out-of-stock items remain pending in Medicine Chart.", { autoClose: 3500 });
-          }
+          // ✅ Print bill is generated after collecting payment in Cash Counter (not on Save Bill)
+          // if (mappedBillable.length > 0) {
+          //   setShowPrintModal(true);
+          // } else {
+          //   toast.info("Ward request updated. Out-of-stock items remain pending in Medicine Chart.", { autoClose: 3500 });
+          // }
 
           // Deduct billed stock in memory immediately for 0ms instant UI update
           const billedItems = [...mappedBillable];
@@ -4156,7 +4159,8 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             payment_mode: resolvedPaymentMode,
             paymentMode: resolvedPaymentMode,
           });
-          setShowPrintModal(true);
+          // ✅ Print bill is generated after collecting payment in Cash Counter
+          // setShowPrintModal(true);
           resetForm();
           setTodayBillDate();
         }

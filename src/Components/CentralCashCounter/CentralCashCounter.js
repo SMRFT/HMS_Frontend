@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Mic, RotateCcw, CreditCard, Hash, Plus, Minus, Eye } from "lucide-react";
+import { Search, Mic, RotateCcw, CreditCard, Hash, Plus, Minus, Eye, ArrowUp, ArrowDown } from "lucide-react";
 import ShiftDetails from "./ShiftDetails";
 import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
 import { toast } from "react-toastify";
+import { buildPrintBillHtml, executeBillPrint } from "../Pharmacy/Pharmacy";
 
 const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
@@ -888,6 +889,7 @@ export default function CentralCashCounter() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedType, setSelectedType] = useState("pending");
   const [paymentMethodFilter, setPaymentMethodFilter] = useState("ALL");
+  const [billSortOrder, setBillSortOrder] = useState("asc");
   const [activeMenuItem, setActiveMenuItem] = useState("Pending Bills");
   const [showShiftDetails, setShowShiftDetails] = useState(false);
   const [pendingBills, setPendingBills] = useState([]);
@@ -999,6 +1001,7 @@ export default function CentralCashCounter() {
   const [rpShowVoucherForm, setRpShowVoucherForm]   = useState(false);
   const [rpVoucherLoading, setRpVoucherLoading] = useState(false);
   const [rpPrintVoucher, setRpPrintVoucher]     = useState(null);
+  const [pharmacyPrintBill, setPharmacyPrintBill] = useState(null);
 
   // ── Return Bills state ────────────────────────────────────────────────────────
   const [returnPendingBills, setReturnPendingBills] = useState([]);
@@ -2033,15 +2036,15 @@ export default function CentralCashCounter() {
         return parsed.date === todayStr;
       };
 
-      const isUnpaidStatus = (status) =>
-        status === "Billed" || status === "Processing" || status === "Pending";
+      const isUnpaidStatus = (status, billNo) =>
+        status === "Billed" && Boolean(billNo && billNo !== "-");
 
       const formattedPending = billsArray
-        .filter((item) => item.is_pending === true || (isUnpaidStatus(item.billing_status) && isCurrentDate(item)))
+        .filter((item) => (item.is_pending === true || (isUnpaidStatus(item.billing_status, item.bill_no) && isCurrentDate(item))) && item.billing_status === "Billed" && Boolean(item.bill_no))
         .map(formatPharmacyItem);
 
       const formattedUnpaid = billsArray
-        .filter((item) => item.is_unpaid === true || (isUnpaidStatus(item.billing_status) && !isCurrentDate(item)))
+        .filter((item) => (item.is_unpaid === true || (isUnpaidStatus(item.billing_status, item.bill_no) && !isCurrentDate(item))) && item.billing_status === "Billed" && Boolean(item.bill_no))
         .map(formatPharmacyItem);
 
       const formattedReceived = billsArray
@@ -2341,7 +2344,7 @@ export default function CentralCashCounter() {
         return;
       }
 
-      // ✅ UPDATED: OPPharmacy payment — now includes remarks if filled
+      // ✅ OPPharmacy payment: ONLY for bills from path('OPPharmacy_pending_bills/')
       if (selectedBill.source === "OPPharmacy") {
         try {
           const payload = {
@@ -2358,11 +2361,62 @@ export default function CentralCashCounter() {
           const res = await apiRequest(`${HmsBaseUrl}collect_oppharmacy_payment/`, "POST", payload);
           const result = res?.data || res;
           if (result?.success || result?.status === "success") {
+            const rawBill = selectedBill.raw || {};
+            const printPayload = {
+              billNo: rawBill.bill_no || selectedBill.raw_bill_no || selectedBill.bill_no || "—",
+              billDate: rawBill.bill_date || rawBill.created_date || new Date().toISOString(),
+              patientName: selectedBill.patient || rawBill.patient_name || rawBill.patientname || "—",
+              uhid: (selectedBill.uhid && selectedBill.uhid !== "-") ? selectedBill.uhid : (rawBill.uhid || "—"),
+              patientAge: rawBill.age || selectedBill.age || "—",
+              doctorName: selectedBill.doctor || rawBill.doctor_name || "—",
+              roomNo: rawBill.room_no || selectedBill.room || "",
+              inpatientNumber: rawBill.inpatient_number || selectedBill.inpatient_number || selectedBill.ip_number || "",
+              insuranceName: rawBill.insurance_name || "",
+              billTypeName: rawBill.bill_type_name || selectedBill.bill_type || "OP Pharmacy",
+              paymentMode: payment_details?.method || payment_details?.card_name || "Cash",
+              billingMode: rawBill.billing_mode || "DIRECT",
+              employeeName: activeShift?.employee_name || activeShift?.CashierID || localStorage.getItem("employee_name") || localStorage.getItem("user_name") || localStorage.getItem("user_id") || "Pharmacist",
+              medicines: (rawBill.medicine_particulars || []).map((m) => ({
+                ...m,
+                name: m.item_name || m.name || m.medicine_name || m.brand_name || (m.item_id ? `Item #${m.item_id}` : "—"),
+                item_name: m.item_name || m.name || m.medicine_name || m.brand_name || (m.item_id ? `Item #${m.item_id}` : "—"),
+              })),
+              totalAmount: rawBill.total_amount || selectedBill.amount || 0,
+              totalItemDiscount: rawBill.total_item_discount || 0,
+              overallDiscountType: rawBill.overall_discount_type || "percent",
+              overallDiscountValue: rawBill.overall_discount_value || 0,
+              netAmount: rawBill.net_amount || selectedBill.amount || 0,
+              round_off: rawBill.round_off || 0,
+              outlet_code: rawBill.outlet_code || selectedBill.outlet_code || "OLET002",
+            };
+
+            // ✅ Close payment modal and OPEN pharmacy print bill immediately (0ms lag)
             setShowPaymentModal(false);
-            await fetchOpPharmacyPendingBills();
-            await fetchPendingBills();
-            refreshActiveShift();
+            setPharmacyPrintBill(printPayload);
+
+            // ✅ Immediately invoke print execution dialog
+            try {
+              const html = buildPrintBillHtml(printPayload);
+              if (html) {
+                executeBillPrint(html);
+              }
+            } catch (errPrint) {
+              console.error("Pharmacy print execution error:", errPrint);
+            }
+
+            // Remove paid bill from table state immediately for snappy UI
+            const paidBillNo = rawBill.bill_no || selectedBill.raw_bill_no || selectedBill.bill_no;
+            setOpPharmacyBills((prev) => prev.filter((b) => (b.raw_bill_no || b.bill_no) !== paidBillNo));
+            setOpPharmacyUnpaidBills((prev) => prev.filter((b) => (b.raw_bill_no || b.bill_no) !== paidBillNo));
+            setPendingBills((prev) => prev.filter((b) => (b.raw_bill_no || b.bill_no) !== paidBillNo));
+            setUnpaidBills((prev) => prev.filter((b) => (b.raw_bill_no || b.bill_no) !== paidBillNo));
+
             showToast("success", "Pharmacy payment collected successfully!");
+
+            // Run table & shift refetches asynchronously in background without delaying print
+            fetchOpPharmacyPendingBills(true).catch(console.error);
+            fetchPendingBills(true).catch(console.error);
+            refreshActiveShift();
           } else {
             const errMsg = extractErrorMessage(result?.error || result?.message || "Payment failed. Please try again.");
             setModalError(errMsg);
@@ -2678,6 +2732,20 @@ export default function CentralCashCounter() {
           (bill.return_bill_no || "").toLowerCase().includes(searchTerm.toLowerCase()),
       );
     }
+
+    // Sort bills based on bill_no (Ascending by default, togglable to Descending)
+    filtered = [...filtered].sort((a, b) => {
+      const getBillKey = (item) =>
+        String(item.bill_no || item.return_bill_no || item.raw_bill_no || item.Bill_id || item.advance_bill_no || "").trim();
+      const valA = getBillKey(a);
+      const valB = getBillKey(b);
+      if (!valA && !valB) return 0;
+      if (!valA) return 1;
+      if (!valB) return -1;
+      const cmp = valA.localeCompare(valB, undefined, { numeric: true, sensitivity: "base" });
+      return billSortOrder === "asc" ? cmp : -cmp;
+    });
+
     setFilteredBills(filtered);
   }, [
     isShiftActive,
@@ -2701,6 +2769,7 @@ export default function CentralCashCounter() {
     allowedBillTypes,
     searchTerm,
     paymentMethodFilter,
+    billSortOrder,
   ]);
 
   const handleMenuItemClick = (itemLabel) => {
@@ -3578,6 +3647,42 @@ export default function CentralCashCounter() {
                           </Select>
                         </div>
                       )}
+
+                      {/* Sort by Bill No Toggle Button placed after Bill Type */}
+                      <button
+                        type="button"
+                        onClick={() => setBillSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))}
+                        title={`Sort by Bill No: Currently ${billSortOrder === "asc" ? "Ascending (Lowest to Highest)" : "Descending (Highest to Lowest)"}. Click to toggle.`}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "6px",
+                          padding: "6px 12px",
+                          borderRadius: "8px",
+                          border: "1.5px solid " + (billSortOrder === "asc" ? "#0f766e" : "#2563eb"),
+                          background: billSortOrder === "asc" ? "#f0fdf4" : "#eff6ff",
+                          color: billSortOrder === "asc" ? "#0f766e" : "#1d4ed8",
+                          fontSize: "12.5px",
+                          fontWeight: "600",
+                          cursor: "pointer",
+                          marginLeft: "6px",
+                          transition: "all 0.15s ease",
+                          boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                          userSelect: "none",
+                        }}
+                      >
+                        {billSortOrder === "asc" ? (
+                          <>
+                            <ArrowUp size={15} color="#0f766e" strokeWidth={2.5} />
+                            <span>Bill No (Asc)</span>
+                          </>
+                        ) : (
+                          <>
+                            <ArrowDown size={15} color="#1d4ed8" strokeWidth={2.5} />
+                            <span>Bill No (Desc)</span>
+                          </>
+                        )}
+                      </button>
                     </ControlGroup>
 
                     <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -3645,9 +3750,7 @@ export default function CentralCashCounter() {
                             <option value="ALL">All</option>
                             <option value="Cash">Cash</option>
                             <option value="Card">Card</option>
-                            <option value="UPI">UPI</option>
                             <option value="Multiple">Multiple Payment</option>
-                            <option value="Cheque">Cheque</option>
                           </Select>
                         </div>
                       )}
@@ -3697,7 +3800,20 @@ export default function CentralCashCounter() {
                             <TableHeader>Date</TableHeader>
                             <TableHeader>Time</TableHeader>
                             <TableHeader>Return No</TableHeader>
-                            <TableHeader>Bill No</TableHeader>
+                            <TableHeader
+                              onClick={() => setBillSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))}
+                              style={{ cursor: "pointer", userSelect: "none" }}
+                              title={`Click to sort by Bill No (${billSortOrder === "asc" ? "Ascending" : "Descending"})`}
+                            >
+                              <span style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
+                                Bill No
+                                {billSortOrder === "asc" ? (
+                                  <ArrowUp size={13} strokeWidth={2.5} color="#0f766e" />
+                                ) : (
+                                  <ArrowDown size={13} strokeWidth={2.5} color="#1d4ed8" />
+                                )}
+                              </span>
+                            </TableHeader>
                             <TableHeader>Type</TableHeader>
                             <TableHeader>UHID</TableHeader>
                             <TableHeader>Patient</TableHeader>
@@ -3706,7 +3822,20 @@ export default function CentralCashCounter() {
                           </>
                         ) : (
                           <>
-                            <TableHeader>Bill No</TableHeader>
+                            <TableHeader
+                              onClick={() => setBillSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))}
+                              style={{ cursor: "pointer", userSelect: "none" }}
+                              title={`Click to sort by Bill No (${billSortOrder === "asc" ? "Ascending" : "Descending"})`}
+                            >
+                              <span style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
+                                Bill No
+                                {billSortOrder === "asc" ? (
+                                  <ArrowUp size={13} strokeWidth={2.5} color="#0f766e" />
+                                ) : (
+                                  <ArrowDown size={13} strokeWidth={2.5} color="#1d4ed8" />
+                                )}
+                              </span>
+                            </TableHeader>
                             <TableHeader>Bill Type</TableHeader>
                             <TableHeader>UHID</TableHeader>
                             <TableHeader>Patient</TableHeader>
@@ -3962,6 +4091,64 @@ export default function CentralCashCounter() {
                                     <span style={{ fontSize: "11.5px", fontWeight: 650, letterSpacing: "0.01em" }}>
                                       {isBillRefund ? "Refund Payment" : "Collect"}
                                     </span>
+                                  </button>
+                                );
+                              })()}
+                              {selectedType === "received" && (() => {
+                                const isPharm = bill.source === "OPPharmacy" || bill.raw_bill_type === "OPPharmacy" || bill.bill_type === "OP Pharmacy" || bill.bill_type === "Pharmacy" || bill.bill_type_id === 42 || bill.raw?.bill_type === 42;
+                                if (!isPharm) return <span style={{ color: "#94a3b8", fontSize: "11px" }}>—</span>;
+                                return (
+                                  <button
+                                    title="Print Pharmacy Bill"
+                                    onClick={() => {
+                                      const rawBill = bill.raw || {};
+                                      const printPayload = {
+                                        billNo: rawBill.bill_no || bill.raw_bill_no || bill.bill_no || "—",
+                                        billDate: rawBill.bill_date || rawBill.created_date || new Date().toISOString(),
+                                        patientName: bill.patient || rawBill.patient_name || rawBill.patientname || "—",
+                                        uhid: (bill.uhid && bill.uhid !== "-") ? bill.uhid : (rawBill.uhid || "—"),
+                                        patientAge: rawBill.age || bill.age || "—",
+                                        doctorName: bill.doctor || rawBill.doctor_name || "—",
+                                        roomNo: rawBill.room_no || bill.room || "",
+                                        inpatientNumber: rawBill.inpatient_number || bill.inpatient_number || bill.ip_number || "",
+                                        insuranceName: rawBill.insurance_name || "",
+                                        billTypeName: rawBill.bill_type_name || bill.bill_type || "OP Pharmacy",
+                                        paymentMode: bill.payment_method || bill.payment_mode || "Cash",
+                                        billingMode: rawBill.billing_mode || "DIRECT",
+                                        employeeName: activeShift?.employee_name || activeShift?.CashierID || localStorage.getItem("employee_name") || localStorage.getItem("user_name") || localStorage.getItem("user_id") || "Cashier",
+                                        medicines: (rawBill.medicine_particulars || []).map((m) => ({
+                                          ...m,
+                                          name: m.item_name || m.name || m.medicine_name || m.brand_name || (m.item_id ? `Item #${m.item_id}` : "—"),
+                                          item_name: m.item_name || m.name || m.medicine_name || m.brand_name || (m.item_id ? `Item #${m.item_id}` : "—"),
+                                        })),
+                                        totalAmount: rawBill.total_amount || bill.amount || 0,
+                                        totalItemDiscount: rawBill.total_item_discount || 0,
+                                        overallDiscountType: rawBill.overall_discount_type || "percent",
+                                        overallDiscountValue: rawBill.overall_discount_value || 0,
+                                        netAmount: rawBill.net_amount || bill.amount || 0,
+                                        round_off: rawBill.round_off || 0,
+                                        outlet_code: rawBill.outlet_code || bill.outlet_code || "OLET002",
+                                      };
+                                      setPharmacyPrintBill(printPayload);
+                                      const html = buildPrintBillHtml(printPayload);
+                                      if (html) executeBillPrint(html);
+                                    }}
+                                    style={{
+                                      background: "linear-gradient(135deg, #0f766e 0%, #0d9488 100%)",
+                                      color: "#ffffff",
+                                      border: "1px solid rgba(255, 255, 255, 0.15)",
+                                      padding: "5px 12px",
+                                      borderRadius: "8px",
+                                      cursor: "pointer",
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: "5px",
+                                      fontSize: "11.5px",
+                                      fontWeight: 650,
+                                      boxShadow: "0 2px 6px rgba(15, 118, 110, 0.28)",
+                                    }}
+                                  >
+                                    🖨️ Print
                                   </button>
                                 );
                               })()}
@@ -4361,8 +4548,14 @@ export default function CentralCashCounter() {
                 </div>
               )}
 
-              {/* ✅ NEW: Remarks field — only shown for OPPharmacy bills */}
-              {selectedBill?.source === "OPPharmacy" && (
+              {/* ✅ Remarks field — shown for OP Pharmacy bills */}
+              {(selectedBill?.source === "OPPharmacy" ||
+                selectedBill?.raw_bill_type === "OPPharmacy" ||
+                selectedBill?.bill_type === "OP Pharmacy" ||
+                selectedBill?.bill_type === "Pharmacy" ||
+                selectedBill?.bill_type_id === 42 ||
+                selectedBill?.raw?.bill_type === 42 ||
+                Boolean(selectedBill?.raw?.medicine_particulars?.length)) && (
                 <PaymentSection style={{ marginTop: "8px" }}>
                   <PaymentMethodLabel>📝 Remarks (Optional)</PaymentMethodLabel>
                   <textarea
@@ -4547,6 +4740,65 @@ export default function CentralCashCounter() {
           </ModalOverlay>
         );
       })()}
+
+      {/* ══════════════ PHARMACY BILL PRINT MODAL ══════════════ */}
+      {pharmacyPrintBill && (
+        <ModalOverlay style={{ zIndex: 11000 }} onClick={() => setPharmacyPrintBill(null)}>
+          <ModalContainer style={{ maxWidth: 840, width: "90vw", borderRadius: 8, zIndex: 11001 }} onClick={(e) => e.stopPropagation()}>
+            <ModalHeader style={{ background: "linear-gradient(135deg, #0f766e, #0d9488)", borderRadius: "8px 8px 0 0" }}>
+              <ModalTitle style={{ color: "#fff", display: "flex", alignItems: "center", gap: 8, fontSize: 16 }}>
+                🖨️ Bill Saved — Ready to Print
+              </ModalTitle>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button
+                  onClick={() => {
+                    const html = buildPrintBillHtml(pharmacyPrintBill);
+                    if (html) executeBillPrint(html);
+                  }}
+                  style={{
+                    background: "white",
+                    color: "#0f766e",
+                    border: "none",
+                    borderRadius: 4,
+                    padding: "4px 12px",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    fontSize: 13,
+                  }}
+                >
+                  🖨️ Print
+                </button>
+                <CloseButton onClick={() => setPharmacyPrintBill(null)}>✕</CloseButton>
+              </div>
+            </ModalHeader>
+            <ModalBody style={{ padding: 0, maxHeight: "75vh", overflowY: "auto" }}>
+              <iframe
+                title="Pharmacy Bill Print Preview"
+                srcDoc={buildPrintBillHtml(pharmacyPrintBill)}
+                style={{
+                  width: "100%",
+                  minHeight: 520,
+                  border: "none",
+                  display: "block",
+                  background: "#fff",
+                }}
+              />
+            </ModalBody>
+            <ModalFooterBar>
+              <CancelButton onClick={() => setPharmacyPrintBill(null)}>Close</CancelButton>
+              <SaveButton
+                onClick={() => {
+                  const html = buildPrintBillHtml(pharmacyPrintBill);
+                  if (html) executeBillPrint(html);
+                }}
+                style={{ background: "linear-gradient(135deg, #0f766e, #0d9488)" }}
+              >
+                🖨️ Print Bill
+              </SaveButton>
+            </ModalFooterBar>
+          </ModalContainer>
+        </ModalOverlay>
+      )}
 
       {toastState.visible && (
         <ToastWrapper>
