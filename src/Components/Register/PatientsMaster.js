@@ -18,7 +18,9 @@ import {
   ChevronRight,
   RotateCcw,
   Tag,
-  Stethoscope
+  Stethoscope,
+  XCircle,
+  History
 } from "lucide-react";
 import { toast } from "react-toastify";
 import JsBarcode from "jsbarcode";
@@ -391,6 +393,15 @@ const PatientsMaster = () => {
   const [refundReasonType, setRefundReasonType] = useState("Patient Cancelled Visit / Left Before Consultation");
   const [refundRemarks, setRefundRemarks] = useState("");
   const [processingRefund, setProcessingRefund] = useState(false);
+
+  // Pending Visit Cancellation (Before Payment) & History Modal State
+  const [showCancelPendingModal, setShowCancelPendingModal] = useState(false);
+  const [selectedVisitForCancel, setSelectedVisitForCancel] = useState(null);
+  const [cancelReasonType, setCancelReasonType] = useState("Patient Left / Did Not Pay");
+  const [cancelRemarks, setCancelRemarks] = useState("");
+  const [processingCancel, setProcessingCancel] = useState(false);
+  const [showVisitHistoryModal, setShowVisitHistoryModal] = useState(false);
+  const [selectedVisitForHistory, setSelectedVisitForHistory] = useState(null);
 
   // ── Fetch Patients List ─────────────────────────────────────────────────────
   const fetchPatients = useCallback(async () => {
@@ -774,6 +785,93 @@ const PatientsMaster = () => {
     } finally {
       setProcessingRefund(false);
     }
+  };
+
+  // ── Open Cancel Pending Visit Modal (Before Payment) ───────────────────────
+  const handleOpenCancelPendingModal = (visit) => {
+    if (!visit) return;
+    setSelectedVisitForCancel(visit);
+    setCancelReasonType("Patient Left / Did Not Pay");
+    setCancelRemarks("");
+    setShowCancelPendingModal(true);
+  };
+
+  // ── Submit Cancel Pending Visit ────────────────────────────────────────────
+  const handleCancelPendingVisit = async (e) => {
+    if (e) e.preventDefault();
+    if (!selectedVisitForCancel) return;
+
+    const finalReason = cancelReasonType === "Other"
+      ? cancelRemarks.trim()
+      : (cancelRemarks.trim() ? `${cancelReasonType} - ${cancelRemarks.trim()}` : cancelReasonType);
+
+    if (!finalReason) {
+      toast.warning("Please provide a reason for cancelling this visit.");
+      return;
+    }
+
+    const rawBillNo = selectedVisitForCancel.rawBillNumber || selectedVisitForCancel.billNumber;
+    try {
+      setProcessingCancel(true);
+      const res = await apiRequest(
+        `${baseUrl.replace(/\/$/, "")}/cancel-registration-visit/`,
+        "POST",
+        {
+          bill_no: rawBillNo,
+          uhid: selectedVisitForCancel.uhid,
+          reason: finalReason,
+          remarks: finalReason
+        }
+      );
+
+      if (res && res.success) {
+        toast.success("Pending visit cancelled successfully");
+        setShowCancelPendingModal(false);
+        setCancelRemarks("");
+
+        const newHistEntry = res.data?.history_entry || res.history_entry || {
+          date: new Date().toLocaleString("en-IN"),
+          reason: finalReason,
+          cancel_reason: finalReason,
+          is_cancelled: true
+        };
+
+        setVisitsList((prev) =>
+          prev.map((v) => {
+            const vNum = v.billNumber || v.rawBillNumber;
+            if (vNum === rawBillNo || String(vNum).replace(/\//g, "") === String(rawBillNo).replace(/\//g, "")) {
+              return {
+                ...v,
+                paymentStatus: "Cancelled",
+                isActive: false,
+                isCancelled: true,
+                cancelReason: finalReason,
+                editHistory: [...(v.editHistory || []), newHistEntry]
+              };
+            }
+            return v;
+          })
+        );
+
+        fetchPatients();
+        if (selectedPatientForVisits && selectedPatientForVisits.uhid) {
+          handleOpenVisitsModal(selectedPatientForVisits);
+        }
+      } else {
+        toast.error(res?.message || res?.error || "Failed to cancel pending visit");
+      }
+    } catch (err) {
+      console.error("Error cancelling pending visit:", err);
+      toast.error("Error cancelling pending visit");
+    } finally {
+      setProcessingCancel(false);
+    }
+  };
+
+  // ── Open Visit Audit History Modal ─────────────────────────────────────────
+  const handleOpenVisitHistoryModal = (visit) => {
+    setSelectedVisitForHistory(visit);
+    setShowVisitHistoryModal(true);
   };
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -2041,10 +2139,13 @@ const PatientsMaster = () => {
                         </Tr>
                       ) : (
                         visitsList.map((v, vIdx) => {
-                          const isPaid = v.paymentStatus === "Paid";
-                          const isRefunded = v.paymentStatus === "Refunded" || v.totalRefunded > 0;
+                          const isCancelled = v.paymentStatus === "Cancelled" || v.isCancelled || v.isActive === false;
+                          const isRefunded = !isCancelled && (v.paymentStatus === "Refunded" || v.totalRefunded > 0);
+                          const isPaid = !isCancelled && v.paymentStatus === "Paid";
+                          const isPending = !isCancelled && !isRefunded && !isPaid;
+                          const hasHistory = Array.isArray(v.editHistory) && v.editHistory.length > 0;
                           return (
-                            <Tr key={v.id || v.billNumber || vIdx}>
+                            <Tr key={v.id || v.billNumber || vIdx} style={isCancelled ? { background: "#fef2f2", opacity: 0.85 } : {}}>
                               <Td style={{ textAlign: "center", color: T.textMuted, fontSize: "11px", fontWeight: 700 }}>
                                 {vIdx + 1}
                               </Td>
@@ -2061,7 +2162,7 @@ const PatientsMaster = () => {
                               </Td>
 
                               <Td>
-                                <span style={{ fontWeight: 800, color: "#334155", fontSize: "12px" }}>
+                                <span style={{ fontWeight: 800, color: "#334155", fontSize: "12px", textDecoration: isCancelled ? "line-through" : "none" }}>
                                   {v.billNumber}
                                 </span>
                               </Td>
@@ -2074,6 +2175,11 @@ const PatientsMaster = () => {
                                   {v.department && (
                                     <span style={{ fontSize: "11px", color: T.textMuted }}>
                                       {v.department}
+                                    </span>
+                                  )}
+                                  {isCancelled && v.cancelReason && (
+                                    <span style={{ fontSize: "10.5px", color: "#b91c1c", marginTop: "2px", fontWeight: 600 }}>
+                                      Reason: {v.cancelReason}
                                     </span>
                                   )}
                                 </div>
@@ -2100,27 +2206,30 @@ const PatientsMaster = () => {
 
                               <Td style={{ textAlign: "center" }}>
                                 <Badge
-                                  $bg={isRefunded ? "#fee2e2" : isPaid ? "#dcfce7" : "#fef3c7"}
-                                  $color={isRefunded ? "#b91c1c" : isPaid ? "#15803d" : "#b45309"}
-                                  $border={isRefunded ? "#fca5a5" : isPaid ? "#86efac" : "#fde68a"}
+                                  title={isCancelled && v.cancelReason ? `Cancelled: ${v.cancelReason}` : undefined}
+                                  $bg={isCancelled ? "#f1f5f9" : isRefunded ? "#fee2e2" : isPaid ? "#dcfce7" : "#fef3c7"}
+                                  $color={isCancelled ? "#dc2626" : isRefunded ? "#b91c1c" : isPaid ? "#15803d" : "#b45309"}
+                                  $border={isCancelled ? "#fca5a5" : isRefunded ? "#fca5a5" : isPaid ? "#86efac" : "#fde68a"}
                                 >
-                                  {isRefunded ? "Refunded" : isPaid ? "Paid" : "Pending"}
+                                  {isCancelled ? "Cancelled" : isRefunded ? "Refunded" : isPaid ? "Paid" : "Pending"}
                                 </Badge>
                               </Td>
 
                               <Td style={{ textAlign: "center" }}>
                                 <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "5px", flexWrap: "wrap" }}>
-                                  <ActionBtn
-                                    type="button"
-                                    $bg="#f1f5f9"
-                                    $color="#334155"
-                                    $border="1px solid #cbd5e1"
-                                    $padding="4px 8px"
-                                    onClick={() => handleOpenEditBill(v)}
-                                    title="Edit Bill & Change Consulting Doctor"
-                                  >
-                                    <Edit size={12} color="#0f766e" /> Doctor
-                                  </ActionBtn>
+                                  {!isCancelled && !isRefunded && (
+                                    <ActionBtn
+                                      type="button"
+                                      $bg="#f1f5f9"
+                                      $color="#334155"
+                                      $border="1px solid #cbd5e1"
+                                      $padding="4px 8px"
+                                      onClick={() => handleOpenEditBill(v)}
+                                      title="Edit Bill & Change Consulting Doctor"
+                                    >
+                                      <Edit size={12} color="#0f766e" /> Doctor
+                                    </ActionBtn>
+                                  )}
 
                                   <ActionBtn
                                     type="button"
@@ -2151,6 +2260,32 @@ const PatientsMaster = () => {
                                   >
                                     <Tag size={12} /> OP Sticker
                                   </ActionBtn>
+
+                                  <ActionBtn
+                                    type="button"
+                                    $bg={hasHistory ? "#f0fdfa" : "#f1f5f9"}
+                                    $color={hasHistory ? "#0f766e" : "#475569"}
+                                    $border={hasHistory ? "1px solid #99f6e4" : "1px solid #cbd5e1"}
+                                    $padding="4px 8px"
+                                    onClick={() => handleOpenVisitHistoryModal(v)}
+                                    title="View Edit & Cancellation Audit History"
+                                  >
+                                    <History size={12} /> History
+                                  </ActionBtn>
+
+                                  {isPending && (
+                                    <ActionBtn
+                                      type="button"
+                                      $bg="#fee2e2"
+                                      $color="#b91c1c"
+                                      $border="1px solid #fca5a5"
+                                      $padding="4px 9px"
+                                      onClick={() => handleOpenCancelPendingModal(v)}
+                                      title="Cancel Unpaid Visit (Before Payment)"
+                                    >
+                                      <XCircle size={12} color="#dc2626" /> Cancel
+                                    </ActionBtn>
+                                  )}
 
                                   {isPaid && !isRefunded && (
                                     <ActionBtn
@@ -2469,6 +2604,192 @@ const PatientsMaster = () => {
                     </ActionBtn>
                   </div>
                 </form>
+              </ModalBody>
+            </ModalContainer>
+          </ModalOverlay>
+        )}
+
+        {/* ── Cancel Pending Visit Modal (Before Payment) ────────────────────── */}
+        {showCancelPendingModal && selectedVisitForCancel && (
+          <ModalOverlay onClick={() => !processingCancel && setShowCancelPendingModal(false)} style={{ zIndex: 1200 }}>
+            <ModalContainer
+              style={{ maxWidth: "520px", zIndex: 1201 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <ModalHeader>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <XCircle size={18} color="#dc2626" />
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: "16px", color: "#991b1b" }}>Cancel Unpaid Visit (Before Payment)</h3>
+                    <p style={{ margin: "2px 0 0", fontSize: "12px", color: T.textMuted }}>
+                      Marks this pending consultation inactive and logs reason to edit history
+                    </p>
+                  </div>
+                </div>
+                <ActionBtn
+                  type="button"
+                  $bg="#f1f5f9"
+                  $color="#475569"
+                  $padding="4px 8px"
+                  onClick={() => !processingCancel && setShowCancelPendingModal(false)}
+                >
+                  ✕
+                </ActionBtn>
+              </ModalHeader>
+
+              <ModalBody>
+                <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "8px", padding: "12px 14px", marginBottom: "14px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
+                    <span style={{ fontSize: "13px", fontWeight: 800, color: "#991b1b" }}>
+                      {selectedVisitForCancel.patientName || selectedPatientForVisits?.name || "Patient"}
+                    </span>
+                    <span style={{ fontSize: "11px", fontWeight: 700, color: "#b91c1c", fontFamily: "monospace" }}>
+                      UHID: {selectedVisitForCancel.uhid}
+                    </span>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "8px", fontSize: "11.5px", color: "#7f1d1d", marginTop: "6px" }}>
+                    <div>Bill No: <strong>{selectedVisitForCancel.billNumber}</strong></div>
+                    <div>Doctor: <strong>{selectedVisitForCancel.doctorName}</strong></div>
+                    <div>Pending Fee: <strong>₹{parseFloat(selectedVisitForCancel.totalFees || selectedVisitForCancel.billAmount || 0).toFixed(2)}</strong></div>
+                  </div>
+                </div>
+
+                <form onSubmit={handleCancelPendingVisit}>
+                  <FormGroup>
+                    <label style={{ fontWeight: 700, color: "#1e293b" }}>
+                      Reason for Cancellation *
+                    </label>
+                    <Select
+                      value={cancelReasonType}
+                      onChange={(e) => setCancelReasonType(e.target.value)}
+                      style={{ marginBottom: "8px" }}
+                      required
+                    >
+                      <option value="Patient Left / Did Not Pay">Patient Left / Did Not Pay</option>
+                      <option value="Duplicate Registration">Duplicate Registration</option>
+                      <option value="Doctor Unavailable / Changed Mind">Doctor Unavailable / Changed Mind</option>
+                      <option value="Transferred to IP / Emergency">Transferred to IP / Emergency</option>
+                      <option value="Billing Entry Error">Billing Entry Error</option>
+                      <option value="Other">Other (Specify below)</option>
+                    </Select>
+
+                    <textarea
+                      rows={2}
+                      value={cancelRemarks}
+                      onChange={(e) => setCancelRemarks(e.target.value)}
+                      placeholder={cancelReasonType === "Other" ? "Enter detailed cancellation reason (Required)..." : "Additional notes (Optional)..."}
+                      style={{
+                        width: "100%",
+                        padding: "8px 10px",
+                        borderRadius: "6px",
+                        border: "1px solid #cbd5e1",
+                        fontSize: "12px",
+                        fontFamily: "inherit",
+                        boxSizing: "border-box"
+                      }}
+                      required={cancelReasonType === "Other"}
+                    />
+                  </FormGroup>
+
+                  <div style={{ fontSize: "11px", color: "#64748b", background: "#f8fafc", padding: "8px 10px", borderRadius: "6px", border: "1px solid #e2e8f0", marginTop: "12px" }}>
+                    ℹ️ No payment was collected for this bill. Cancelling will set <strong>is_active = false</strong>, clear it from Cash Counter pending queue, and store cancellation details in <strong>edit_history</strong>.
+                  </div>
+
+                  <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "20px", paddingTop: "14px", borderTop: `1px solid ${T.border}` }}>
+                    <ActionBtn
+                      type="button"
+                      $bg="#94a3b8"
+                      onClick={() => setShowCancelPendingModal(false)}
+                      disabled={processingCancel}
+                    >
+                      Close
+                    </ActionBtn>
+                    <ActionBtn
+                      type="submit"
+                      $bg="#dc2626"
+                      disabled={processingCancel}
+                    >
+                      {processingCancel ? (
+                        <>
+                          <RefreshCw size={14} className="spin" /> Cancelling...
+                        </>
+                      ) : (
+                        <>
+                          <XCircle size={14} /> Confirm Cancellation
+                        </>
+                      )}
+                    </ActionBtn>
+                  </div>
+                </form>
+              </ModalBody>
+            </ModalContainer>
+          </ModalOverlay>
+        )}
+
+        {/* ── Visit Audit & Edit History Modal ───────────────────────────────── */}
+        {showVisitHistoryModal && selectedVisitForHistory && (
+          <ModalOverlay onClick={() => setShowVisitHistoryModal(false)} style={{ zIndex: 1200 }}>
+            <ModalContainer
+              style={{ maxWidth: "560px", zIndex: 1201 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <ModalHeader>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <History size={18} color="#0d9488" />
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: "16px", color: T.textDark }}>Visit Edit &amp; Cancellation History</h3>
+                    <p style={{ margin: "2px 0 0", fontSize: "12px", color: T.textMuted }}>
+                      Bill No: {selectedVisitForHistory.billNumber} · UHID: {selectedVisitForHistory.uhid}
+                    </p>
+                  </div>
+                </div>
+                <ActionBtn
+                  type="button"
+                  $bg="#f1f5f9"
+                  $color="#475569"
+                  $padding="4px 8px"
+                  onClick={() => setShowVisitHistoryModal(false)}
+                >
+                  ✕
+                </ActionBtn>
+              </ModalHeader>
+
+              <ModalBody style={{ maxHeight: "65vh", overflowY: "auto" }}>
+                {(selectedVisitForHistory.editHistory || []).length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "30px", color: T.textMuted, fontSize: "13px" }}>
+                    No edit or cancellation history recorded for this visit.
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                    {(selectedVisitForHistory.editHistory || []).map((entry, hIdx) => (
+                      <div
+                        key={hIdx}
+                        style={{
+                          padding: "12px 14px",
+                          borderRadius: "8px",
+                          background: entry.is_cancelled ? "#fef2f2" : "#f8fafc",
+                          border: `1px solid ${entry.is_cancelled ? "#fecaca" : "#e2e8f0"}`
+                        }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                          <span style={{ fontSize: "12px", fontWeight: 800, color: entry.is_cancelled ? "#991b1b" : "#0f172a" }}>
+                            {entry.is_cancelled ? "🚫 Cancelled Before Payment" : "✏️ Bill Update"}
+                          </span>
+                          <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 600 }}>
+                            {entry.cancelled_date || entry.date || "-"}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: "12px", color: "#334155", marginBottom: "4px" }}>
+                          <strong>Reason:</strong> {entry.cancel_reason || entry.reason || "-"}
+                        </div>
+                        <div style={{ fontSize: "11px", color: "#64748b" }}>
+                          <strong>By:</strong> {entry.cancelled_by || entry.user || "Staff"}
+                          {entry.cancelled_by_id ? ` (${entry.cancelled_by_id})` : ""}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </ModalBody>
             </ModalContainer>
           </ModalOverlay>
