@@ -79,7 +79,16 @@ const GrandTotalTr = styled.tr`
     }
 `;
 
-const MasterCashBillsReport = ({ isModalView = false, startDate, endDate, initialOutlet = "all", initialBillType = "all" }) => {
+const MasterCashBillsReport = ({ 
+    isModalView = false, 
+    startDate, 
+    endDate, 
+    initialOutlet = "all", 
+    initialBillType = "all",
+    billType,
+    category,
+    onLoadOptions
+}) => {
     const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
     const [dateRange, setDateRange] = useState([
         startDate ? dayjs(startDate) : dayjs(),
@@ -90,7 +99,14 @@ const MasterCashBillsReport = ({ isModalView = false, startDate, endDate, initia
     const [loading, setLoading] = useState(false);
     const [reportData, setReportData] = useState(null);
     const [searchTerm, setSearchTerm] = useState("");
-    const [activeCategory, setActiveCategory] = useState(initialBillType || "all");
+    const [activeCategory, setActiveCategory] = useState(billType || category || initialBillType || "all");
+
+    useEffect(() => {
+        const c = billType || category || initialBillType;
+        if (c !== undefined && c !== activeCategory) {
+            setActiveCategory(c);
+        }
+    }, [billType, category, initialBillType]);
 
     useEffect(() => {
         const fetchOutlets = async () => {
@@ -151,6 +167,14 @@ const MasterCashBillsReport = ({ isModalView = false, startDate, endDate, initia
         });
         return Array.from(set).sort();
     }, [reportData]);
+
+    useEffect(() => {
+        if (onLoadOptions && reportData) {
+            onLoadOptions({
+                categories: categoriesList
+            });
+        }
+    }, [onLoadOptions, categoriesList, reportData]);
 
     // Build hierarchical grouped data filtered by search and category
     const filteredGroupedData = useMemo(() => {

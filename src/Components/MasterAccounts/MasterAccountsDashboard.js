@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, Suspense, lazy } from "react";
+import React, { useState, useEffect, useMemo, useCallback, Suspense, lazy } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { Modal, DatePicker, Select, Button, Spin, Tag, Input } from "antd";
@@ -457,6 +457,7 @@ const MasterAccountsDashboard = () => {
     const [billType, setBillType] = useState("All");
     const [selectedFloor, setSelectedFloor] = useState("all");
     const [selectedCompany, setSelectedCompany] = useState("all");
+    const [cardMachine, setCardMachine] = useState("all");
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedCluster, setSelectedCluster] = useState("all");
 
@@ -531,6 +532,23 @@ const MasterAccountsDashboard = () => {
     const [isConfigModalVisible, setIsConfigModalVisible] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isMaximized, setIsMaximized] = useState(false);
+    const [reportCategories, setReportCategories] = useState([]);
+    const [reportCardMachines, setReportCardMachines] = useState([]);
+
+    const handleLoadOptions = useCallback(({ categories, cardMachines }) => {
+        if (Array.isArray(categories) && categories.length > 0) {
+            setReportCategories(prev => {
+                if (prev.length === categories.length && prev.every((v, i) => v === categories[i])) return prev;
+                return categories;
+            });
+        }
+        if (Array.isArray(cardMachines) && cardMachines.length > 0) {
+            setReportCardMachines(prev => {
+                if (prev.length === cardMachines.length && prev.every((v, i) => v === cardMachines[i])) return prev;
+                return cardMachines;
+            });
+        }
+    }, []);
 
     useEffect(() => {
         const fetchOutlets = async () => {
@@ -1070,6 +1088,9 @@ const MasterAccountsDashboard = () => {
 
     const handleOpenModal = (report) => {
         setActiveModalReport(report);
+        setCardMachine("all");
+        setReportCategories([]);
+        setReportCardMachines([]);
         if (report.id === "ip_advance") {
             setDateRange([dayjs(), dayjs()]);
             setSelectedFloor("all");
@@ -1115,6 +1136,8 @@ const MasterAccountsDashboard = () => {
                 status: billType,
                 floor: selectedFloor,
                 company: selectedCompany,
+                cardMachine: cardMachine,
+                selectedCardMachine: cardMachine,
                 defaultSourceType: report?.defaultSourceType,
                 defaultTab: report?.defaultTab,
                 lockedSourceType: report?.lockedSourceType,
@@ -1133,7 +1156,7 @@ const MasterAccountsDashboard = () => {
         return (
             <Suspense fallback={<div style={{ padding: "80px", textAlign: "center" }}><Spin size="large" /></div>}>
                 <Component
-                    key={`${activeModalReport.id}-${dateRange[0]?.format('YYYY-MM-DD')}-${dateRange[1]?.format('YYYY-MM-DD')}-${selectedOutlet}-${billType}-${selectedFloor}-${selectedCompany}`}
+                    key={`${activeModalReport.id}-${dateRange[0]?.format('YYYY-MM-DD')}-${dateRange[1]?.format('YYYY-MM-DD')}-${selectedOutlet}-${selectedFloor}-${selectedCompany}`}
                     isModalView={true}
                     startDate={dateRange[0]?.format("YYYY-MM-DD")}
                     endDate={dateRange[1]?.format("YYYY-MM-DD")}
@@ -1153,6 +1176,10 @@ const MasterAccountsDashboard = () => {
                     initialFloor={selectedFloor}
                     company={selectedCompany}
                     initialCompany={selectedCompany}
+                    cardMachine={cardMachine}
+                    selectedCardMachine={cardMachine}
+                    setCardMachine={setCardMachine}
+                    setSelectedCardMachine={setCardMachine}
                     mode={billType}
                     paymentMode={billType}
                     defaultSourceType={activeModalReport.defaultSourceType}
@@ -1160,6 +1187,7 @@ const MasterAccountsDashboard = () => {
                     lockedSourceType={activeModalReport.lockedSourceType}
                     lockedTab={activeModalReport.lockedTab}
                     title={activeModalReport.title}
+                    onLoadOptions={handleLoadOptions}
                 />
             </Suspense>
         );
@@ -1509,62 +1537,19 @@ const MasterAccountsDashboard = () => {
                                     </>
                                 ) : activeModalReport?.id === "misc_payment" ? (
                                     <>
-                                        <option value="all">All Receipt Types</option>
-                                        <option value="cash">Cash Receipts</option>
-                                        <option value="bank">Bank / Online Receipts</option>
-                                    </>
-                                ) : activeModalReport?.id === "discount_bills" ? (
-                                    <>
-                                        <option value="All">All Categories</option>
-                                        <option value="PHARMACY OP BILL (SH)">Pharmacy OP Bill (SH)</option>
-                                        <option value="PHARMACY IP BILL (SH)">Pharmacy IP Bill (SH)</option>
-                                        <option value="DISCHARGE BILL">Discharge Bill</option>
-                                        <option value="LAB BILL (SH)">Lab Bill (SH)</option>
-                                        <option value="CT SCAN (SH)">CT Scan (SH)</option>
-                                        <option value="SCANNING (SH)">Scanning (SH)</option>
-                                        <option value="X - RAY (SH)">X-Ray (SH)</option>
-                                        <option value="ECG (SH)">ECG (SH)</option>
-                                        <option value="PET_CT(SH)">PET CT (SH)</option>
-                                        <option value="PROCEDURE BILL (SH)">Procedure Bill (SH)</option>
-                                    </>
-                                ) : (activeModalReport?.id === "credit_card" || activeModalReport?.id === "cash_bills") ? (
-                                    <>
-                                        <option value="All">All Categories (All Bill Types)</option>
-                                        <option value="PHARMACY OP BILL (SH)">Pharmacy OP Bill (SH)</option>
-                                        <option value="PHARMACY IP BILL (SH)">Pharmacy IP Bill (SH)</option>
-                                        <option value="ADVANCE">Advance (IP)</option>
-                                        <option value="DISCHARGE">Discharge Bill</option>
-                                        <option value="REGISTRATION(SH)">Registration (OP)</option>
-                                        <option value="CT SCAN (SH)">CT Scan (SH)</option>
-                                        <option value="ECG (SH)">ECG (SH)</option>
-                                        <option value="LAB BILL (SH)">Lab Bill (SH)</option>
-                                        <option value="PET_CT(SH)">PET CT (SH)</option>
-                                        <option value="PROCEDURE BILL (SH)">Procedure Bill (SH)</option>
-                                        <option value="SCANNING (SH)">Scanning (SH)</option>
-                                        <option value="X - RAY (SH)">X-Ray (SH)</option>
-                                        <option value="XEROX (SH)">Xerox (SH)</option>
+                                        <option value="all">All Vouchers</option>
+                                        <option value="Receipt">Receipts Only</option>
+                                        <option value="Payment">Payments & Expenses</option>
+                                        <option value="Sales Return">Sales Returns Only</option>
                                     </>
                                 ) : (
                                     <>
-                                        <option value="All">All Types</option>
-                                        {billTypesList && billTypesList.length > 0 ? (
-                                            billTypesList.map((bt, idx) => (
-                                                <option key={bt._id || bt.billTypeNo || idx} value={bt.bill_name || bt.bill_type}>
-                                                    {bt.bill_name} {bt.billTypeNo ? `(${bt.billTypeNo})` : ""}
-                                                </option>
-                                            ))
-                                        ) : (
-                                            <>
-                                                <option value="Registration">Registration</option>
-                                                <option value="Investigation">Investigation</option>
-                                                <option value="Pharmacy">Pharmacy</option>
-                                                <option value="Discharge">Discharge</option>
-                                                <option value="IP Advance">IP Advance</option>
-                                                <option value="Admission">Admission</option>
-                                                <option value="Sales Return">Sales Return</option>
-                                                <option value="Miscellaneous">Miscellaneous Payment</option>
-                                            </>
-                                        )}
+                                        <option value="All">All {activeModalReport?.id === "admission_vs_discharge" ? "Patients" : activeModalReport?.id === "discharge_bills" ? "Modes" : activeModalReport?.id === "misc_payment" ? "Vouchers" : "Categories (All Bill Types)"}</option>
+                                        {billTypesList && billTypesList.length > 0 && billTypesList.map((bt, idx) => (
+                                            <option key={bt._id || bt.billTypeNo || idx} value={bt.bill_name || bt.bill_type}>
+                                                {bt.bill_name} {bt.billTypeNo ? `(${bt.billTypeNo})` : ""}
+                                            </option>
+                                        ))}
                                     </>
                                 )}
                             </select>
@@ -1643,6 +1628,21 @@ const MasterAccountsDashboard = () => {
                         </div>
                     )}
 
+                    {["bill_wise", "credit_card", "cashier_wise_detailed", "cash_bills", "discharge_bills", "advance_reg", "unified_accounts", "shift_basis", "accounts_ledger"].includes(activeModalReport?.id) && (
+                        <div className="field-group" style={{ marginTop: "12px" }}>
+                            <label>Card Machine</label>
+                            <select
+                                value={cardMachine}
+                                onChange={(e) => setCardMachine(e.target.value)}
+                            >
+                                <option value="all">All Machines</option>
+                                {(reportCardMachines.length > 0 ? reportCardMachines : ["Paytm", "PNB", "Bajaj", "360 POS", "POS"]).map((m, idx) => (
+                                    <option key={`${m}-${idx}`} value={m}>{m}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+
                     <div className="info-note">
                         * The report will be generated for the period between {dateRange[0] ? dateRange[0].format('DD/MM/YYYY') : '—'} and {dateRange[1] ? dateRange[1].format('DD/MM/YYYY') : '—'}.
                     </div>
@@ -1675,6 +1675,20 @@ const MasterAccountsDashboard = () => {
                     setSelectedFloor={setSelectedFloor}
                     selectedCompany={selectedCompany}
                     setSelectedCompany={setSelectedCompany}
+                    cardMachine={cardMachine}
+                    setCardMachine={setCardMachine}
+                    selectedCardMachine={cardMachine}
+                    setSelectedCardMachine={setCardMachine}
+                    availableCategories={
+                        reportCategories.length > 0
+                            ? reportCategories
+                            : (billTypesList || []).map(b => b.bill_name || b.bill_type).filter(Boolean)
+                    }
+                    availableCardMachines={
+                        reportCardMachines.length > 0
+                            ? reportCardMachines
+                            : ["Paytm", "PNB", "Bajaj", "360 POS", "POS"]
+                    }
                     isMaximized={isMaximized}
                     setIsMaximized={setIsMaximized}
                     onClose={handleCloseModal}

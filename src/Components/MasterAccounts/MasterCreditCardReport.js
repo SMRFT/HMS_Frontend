@@ -79,7 +79,18 @@ const GrandTotalTr = styled.tr`
     }
 `;
 
-const MasterCreditCardReport = ({ isModalView = false, startDate, endDate, initialOutlet = "all", initialBillType = "all" }) => {
+const MasterCreditCardReport = ({ 
+    isModalView = false, 
+    startDate, 
+    endDate, 
+    initialOutlet = "all", 
+    initialBillType = "all",
+    billType,
+    category,
+    cardMachine = "all",
+    selectedCardMachine: propCardMachine,
+    onLoadOptions
+}) => {
     const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
     const [dateRange, setDateRange] = useState([
         startDate ? dayjs(startDate) : dayjs(),
@@ -90,7 +101,23 @@ const MasterCreditCardReport = ({ isModalView = false, startDate, endDate, initi
     const [loading, setLoading] = useState(false);
     const [reportData, setReportData] = useState(null);
     const [searchTerm, setSearchTerm] = useState("");
-    const [activeCategory, setActiveCategory] = useState(initialBillType || "all");
+    const [activeCategory, setActiveCategory] = useState(billType || category || initialBillType || "all");
+    const [activeCardType, setActiveCardType] = useState("all");
+    const [activeCardMachine, setActiveCardMachine] = useState(cardMachine || propCardMachine || "all");
+
+    useEffect(() => {
+        const cm = cardMachine || propCardMachine;
+        if (cm !== undefined && cm !== activeCardMachine) {
+            setActiveCardMachine(cm);
+        }
+    }, [cardMachine, propCardMachine]);
+
+    useEffect(() => {
+        const c = billType || category || initialBillType;
+        if (c !== undefined && c !== activeCategory) {
+            setActiveCategory(c);
+        }
+    }, [billType, category, initialBillType]);
 
     useEffect(() => {
         const fetchOutlets = async () => {
@@ -152,10 +179,46 @@ const MasterCreditCardReport = ({ isModalView = false, startDate, endDate, initi
         return Array.from(set).sort();
     }, [reportData]);
 
-    // Build hierarchical grouped data filtered by search and category
+    // Extract unique card types for filtering
+    const cardTypesList = useMemo(() => {
+        const set = new Set();
+        (reportData?.data || []).forEach(r => {
+            if (r.card_type) set.add(r.card_type);
+        });
+        if (Array.isArray(reportData?.summary?.card_types)) {
+            reportData.summary.card_types.forEach(t => set.add(t));
+        }
+        return Array.from(set).sort();
+    }, [reportData]);
+
+    // Extract unique card machines for filtering
+    const cardMachinesList = useMemo(() => {
+        const set = new Set();
+        (reportData?.data || []).forEach(r => {
+            if (r.card_machine) set.add(r.card_machine);
+            else if (r.card_number && !/^\d+$/.test(r.card_number)) set.add(r.card_number);
+        });
+        if (Array.isArray(reportData?.summary?.card_machines)) {
+            reportData.summary.card_machines.forEach(m => set.add(m));
+        }
+        return Array.from(set).sort();
+    }, [reportData]);
+
+    useEffect(() => {
+        if (onLoadOptions && reportData) {
+            onLoadOptions({
+                categories: categoriesList,
+                cardMachines: cardMachinesList
+            });
+        }
+    }, [onLoadOptions, categoriesList, cardMachinesList, reportData]);
+
+    // Build hierarchical grouped data filtered by search, category, card type and card machine
     const filteredGroupedData = useMemo(() => {
         const q = searchTerm.toLowerCase().trim();
         const filterVal = (activeCategory || "all").toLowerCase().trim();
+        const cTypeVal = (activeCardType || "all").toLowerCase().trim();
+        const cMachVal = (activeCardMachine || "all").toLowerCase().trim();
         const groups = reportData?.grouped_data || [];
         let runningSlno = 1;
 
@@ -181,6 +244,15 @@ const MasterCreditCardReport = ({ isModalView = false, startDate, endDate, initi
                 }
 
                 const matchingItems = (sec.items || []).filter(item => {
+                    if (cTypeVal !== "all") {
+                        const itCt = String(item.card_type || "").toLowerCase().trim();
+                        if (itCt !== cTypeVal) return false;
+                    }
+                    if (cMachVal !== "all") {
+                        const itCm = String(item.card_machine || item.card_number || "").toLowerCase().trim();
+                        if (itCm !== cMachVal && !itCm.includes(cMachVal)) return false;
+                    }
+
                     if (!q) return true;
                     return (
                         (item.patient_name && String(item.patient_name).toLowerCase().includes(q)) ||
@@ -188,6 +260,7 @@ const MasterCreditCardReport = ({ isModalView = false, startDate, endDate, initi
                         (item.mr_no && String(item.mr_no).toLowerCase().includes(q)) ||
                         (item.ip_number && String(item.ip_number).toLowerCase().includes(q)) ||
                         (item.card_type && String(item.card_type).toLowerCase().includes(q)) ||
+                        (item.card_machine && String(item.card_machine).toLowerCase().includes(q)) ||
                         (item.card_number && String(item.card_number).toLowerCase().includes(q)) ||
                         (item.user && String(item.user).toLowerCase().includes(q)) ||
                         (item.category && String(item.category).toLowerCase().includes(q))
@@ -217,7 +290,7 @@ const MasterCreditCardReport = ({ isModalView = false, startDate, endDate, initi
                 count: dateCount
             };
         }).filter(dGroup => dGroup.sections.length > 0);
-    }, [reportData, activeCategory, searchTerm]);
+    }, [reportData, activeCategory, activeCardType, activeCardMachine, searchTerm]);
 
     const filteredTotalAmount = useMemo(() => {
         return filteredGroupedData.reduce((sum, dg) => sum + (dg.date_total || 0), 0);
@@ -240,6 +313,7 @@ const MasterCreditCardReport = ({ isModalView = false, startDate, endDate, initi
                 "Bill Number": "",
                 "MR. No": "",
                 "Card Type": "",
+                "Card Machine": "",
                 "Card Number": "",
                 "Bill Amount": "",
                 "User": ""
@@ -252,6 +326,7 @@ const MasterCreditCardReport = ({ isModalView = false, startDate, endDate, initi
                     "Bill Number": "",
                     "MR. No": "",
                     "Card Type": "",
+                    "Card Machine": "",
                     "Card Number": "",
                     "Bill Amount": "",
                     "User": ""
@@ -264,7 +339,8 @@ const MasterCreditCardReport = ({ isModalView = false, startDate, endDate, initi
                         "Bill Number": it.bill_no || "",
                         "MR. No": it.mr_no || "",
                         "Card Type": it.card_type || "CARD",
-                        "Card Number": it.card_number || "POS",
+                        "Card Machine": it.card_machine || "POS",
+                        "Card Number": it.card_number || "—",
                         "Bill Amount": Number((it.amount || it.bank || it.card_amount || 0).toFixed(2)),
                         "User": it.user || ""
                     });
@@ -276,6 +352,7 @@ const MasterCreditCardReport = ({ isModalView = false, startDate, endDate, initi
                     "Bill Number": "",
                     "MR. No": "",
                     "Card Type": "",
+                    "Card Machine": "",
                     "Card Number": "Total - >",
                     "Bill Amount": Number((sec.total || 0).toFixed(2)),
                     "User": ""
@@ -289,6 +366,7 @@ const MasterCreditCardReport = ({ isModalView = false, startDate, endDate, initi
             "Bill Number": "",
             "MR. No": "",
             "Card Type": "",
+            "Card Machine": "",
             "Card Number": "Grand Total - >",
             "Bill Amount": Number(filteredTotalAmount.toFixed(2)),
             "User": ""
@@ -300,6 +378,7 @@ const MasterCreditCardReport = ({ isModalView = false, startDate, endDate, initi
             { wch: 8 },
             { wch: 28 },
             { wch: 18 },
+            { wch: 16 },
             { wch: 16 },
             { wch: 16 },
             { wch: 16 },
@@ -343,7 +422,7 @@ const MasterCreditCardReport = ({ isModalView = false, startDate, endDate, initi
                         </div>
                         <div className="filter-item">
                             <label>Outlet:</label>
-                            <Select value={outlet} onChange={setOutlet} style={{ width: 180 }}>
+                            <Select value={outlet} onChange={setOutlet} style={{ width: 170 }}>
                                 <Option value="all">All Outlets</Option>
                                 {outletsList.map((o) => (
                                     <Option key={o.outlet_code} value={o.outlet_code}>
@@ -354,10 +433,28 @@ const MasterCreditCardReport = ({ isModalView = false, startDate, endDate, initi
                         </div>
                         <div className="filter-item">
                             <label>Bill Type / Category:</label>
-                            <Select value={activeCategory} onChange={setActiveCategory} style={{ width: 220 }}>
+                            <Select value={activeCategory} onChange={setActiveCategory} style={{ width: 190 }}>
                                 <Option value="all">All Categories</Option>
                                 {categoriesList.map(cat => (
                                     <Option key={cat} value={cat}>{cat}</Option>
+                                ))}
+                            </Select>
+                        </div>
+                        <div className="filter-item">
+                            <label>Card Type:</label>
+                            <Select value={activeCardType} onChange={setActiveCardType} style={{ width: 160 }}>
+                                <Option value="all">All Card Types</Option>
+                                {cardTypesList.map(ct => (
+                                    <Option key={ct} value={ct}>{ct}</Option>
+                                ))}
+                            </Select>
+                        </div>
+                        <div className="filter-item">
+                            <label>Card Machine:</label>
+                            <Select value={activeCardMachine} onChange={setActiveCardMachine} style={{ width: 150 }}>
+                                <Option value="all">All Machines</Option>
+                                {cardMachinesList.map(cm => (
+                                    <Option key={cm} value={cm}>{cm}</Option>
                                 ))}
                             </Select>
                         </div>
@@ -367,7 +464,7 @@ const MasterCreditCardReport = ({ isModalView = false, startDate, endDate, initi
                                 prefix={<Search size={14} color="#94a3b8" />}
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                style={{ width: 220 }}
+                                style={{ width: 200 }}
                             />
                         </div>
                         <Button icon={<RefreshCw size={14} />} onClick={() => fetchReport(true)} loading={loading}>
@@ -414,20 +511,21 @@ const MasterCreditCardReport = ({ isModalView = false, startDate, endDate, initi
                         <table>
                             <thead>
                                 <tr style={{ background: "#f1f5f9" }}>
-                                    <th style={{ width: "55px", textAlign: "center" }}>Slno</th>
-                                    <th style={{ minWidth: "170px" }}>Name</th>
-                                    <th style={{ minWidth: "135px" }}>Bill Number</th>
-                                    <th style={{ minWidth: "125px" }}>MR. No</th>
+                                    <th style={{ width: "50px", textAlign: "center" }}>Slno</th>
+                                    <th style={{ minWidth: "165px" }}>Name</th>
+                                    <th style={{ minWidth: "130px" }}>Bill Number</th>
+                                    <th style={{ minWidth: "115px" }}>MR. No</th>
                                     <th style={{ minWidth: "105px" }}>Card Type</th>
+                                    <th style={{ minWidth: "115px" }}>Card Machine</th>
                                     <th style={{ minWidth: "105px" }}>Card Number</th>
                                     <th style={{ minWidth: "115px", textAlign: "right" }}>Bill Amount</th>
-                                    <th style={{ minWidth: "110px" }}>User</th>
+                                    <th style={{ minWidth: "105px" }}>User</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {filteredGroupedData.length === 0 ? (
                                     <tr>
-                                        <td colSpan={8} style={{ textAlign: "center", padding: "40px", color: "#64748b" }}>
+                                        <td colSpan={9} style={{ textAlign: "center", padding: "40px", color: "#64748b" }}>
                                             No credit card collection records found for the selected criteria.
                                         </td>
                                     </tr>
@@ -436,7 +534,7 @@ const MasterCreditCardReport = ({ isModalView = false, startDate, endDate, initi
                                         <React.Fragment key={dg.date}>
                                             {/* Date Header Row */}
                                             <DateHeaderTr className="DateGroup date-group">
-                                                <td colSpan={8} style={{ fontWeight: 700, color: "#0f172a" }}>
+                                                <td colSpan={9} style={{ fontWeight: 700, color: "#0f172a" }}>
                                                     Date : {dg.date_display || dg.date}
                                                 </td>
                                             </DateHeaderTr>
@@ -446,7 +544,7 @@ const MasterCreditCardReport = ({ isModalView = false, startDate, endDate, initi
                                                 <React.Fragment key={`${dg.date}-${sec.category}`}>
                                                     {/* Category Header Row */}
                                                     <SectionHeaderTr className="SectionHeader section-header">
-                                                        <td colSpan={8}>
+                                                        <td colSpan={9}>
                                                             {sec.category}
                                                         </td>
                                                     </SectionHeaderTr>
@@ -469,8 +567,28 @@ const MasterCreditCardReport = ({ isModalView = false, startDate, endDate, initi
                                                                     <div style={{ fontSize: "0.72rem", color: "#64748b" }}>IP: {item.ip_number}</div>
                                                                 )}
                                                             </td>
-                                                            <td>{item.card_type || "CARD"}</td>
-                                                            <td>{item.card_number || "POS"}</td>
+                                                            <td>
+                                                                <span style={{ fontWeight: 600, color: "#1e293b", fontSize: "0.82rem" }}>
+                                                                    {item.card_type || "CARD"}
+                                                                </span>
+                                                            </td>
+                                                            <td>
+                                                                <span style={{
+                                                                    display: "inline-block",
+                                                                    padding: "2px 8px",
+                                                                    borderRadius: "4px",
+                                                                    fontSize: "0.78rem",
+                                                                    fontWeight: 700,
+                                                                    background: "#e0e7ff",
+                                                                    color: "#3730a3",
+                                                                    border: "1px solid #c7d2fe"
+                                                                }}>
+                                                                    {item.card_machine || "POS"}
+                                                                </span>
+                                                            </td>
+                                                            <td style={{ fontFamily: "monospace", fontSize: "0.82rem", color: "#475569" }}>
+                                                                {item.card_number && item.card_number !== item.card_machine && item.card_number !== "POS" ? item.card_number : "—"}
+                                                            </td>
                                                             <td style={{ textAlign: "right", fontWeight: 600, fontFamily: "monospace", color: "#0f172a" }}>
                                                                 {formatINR(item.amount || item.bank || item.card_amount)}
                                                             </td>
@@ -482,7 +600,7 @@ const MasterCreditCardReport = ({ isModalView = false, startDate, endDate, initi
 
                                                     {/* Section Subtotal Row */}
                                                     <SubtotalTr className="SubTotal sub-total">
-                                                        <td colSpan={6} style={{ textAlign: "right", fontWeight: 700, color: "#1e293b" }}>
+                                                        <td colSpan={7} style={{ textAlign: "right", fontWeight: 700, color: "#1e293b" }}>
                                                             Total - &gt;
                                                         </td>
                                                         <td style={{ textAlign: "right", fontWeight: 700, color: "#1e293b", fontFamily: "monospace" }}>
@@ -499,7 +617,7 @@ const MasterCreditCardReport = ({ isModalView = false, startDate, endDate, initi
                                 {/* Grand Total Row */}
                                 {filteredGroupedData.length > 0 && (
                                     <GrandTotalTr className="GrandTotal grand-total-row">
-                                        <td colSpan={6} style={{ textAlign: "right", fontWeight: 800, color: "#000000" }}>
+                                        <td colSpan={7} style={{ textAlign: "right", fontWeight: 800, color: "#000000" }}>
                                             Grand Total - &gt;
                                         </td>
                                         <td style={{ textAlign: "right", fontWeight: 800, fontFamily: "monospace", color: "#000000", fontSize: "0.95rem" }}>
