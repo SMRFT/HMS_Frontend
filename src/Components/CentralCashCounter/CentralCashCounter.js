@@ -886,6 +886,7 @@ export default function CentralCashCounter() {
   const navigate = useNavigate();
   const [billType, setBillType] = useState("ALL");
   const [showEntries, setShowEntries] = useState("10");
+  const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedType, setSelectedType] = useState("pending");
   const [paymentMethodFilter, setPaymentMethodFilter] = useState("ALL");
@@ -994,6 +995,7 @@ export default function CentralCashCounter() {
   const [rpRecords, setRpRecords] = useState([]);
   const [rpSearchTerm, setRpSearchTerm] = useState("");
   const [rpShowEntries, setRpShowEntries] = useState("10");
+  const [rpCurrentPage, setRpCurrentPage] = useState(1);
   const [rpAlert, setRpAlert] = useState(null);
   const [rpSaving, setRpSaving] = useState(false);
   const [rpLoading, setRpLoading] = useState(false);
@@ -2784,8 +2786,10 @@ export default function CentralCashCounter() {
     setSearchTerm("");
     setSelectedType("pending");
     setPaymentMethodFilter("ALL");
+    setCurrentPage(1);
 
     if (itemLabel === "Receipt / Payment") {
+      setRpCurrentPage(1);
       rpFetchAccountHeads();
       rpFetchRecords();
     }
@@ -2832,7 +2836,17 @@ export default function CentralCashCounter() {
     setSelectedType(type);
     setSearchTerm("");
     setPaymentMethodFilter("ALL");
+    setCurrentPage(1);
   };
+
+  // Reset pagination to first page when filtering, searching, or switching tabs
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, billType, showEntries, paymentMethodFilter, billSortOrder, selectedType, activeMenuItem]);
+
+  useEffect(() => {
+    setRpCurrentPage(1);
+  }, [rpSearchTerm, rpShowEntries, activeMenuItem]);
 
   const handleShiftDetailsClick = () => {
     setShowShiftDetails(true);
@@ -2989,6 +3003,14 @@ export default function CentralCashCounter() {
         : selectedType === "received"
           ? 10  // Total + Payment Method (Doctor removed), no Action column
           : 9;
+
+  // ── Pagination Calculation for Main Bills Table ─────────────────────────────
+  const entriesPerPage = parseInt(showEntries, 10) || 10;
+  const totalPages = Math.max(1, Math.ceil(filteredBills.length / entriesPerPage));
+  const currentPageSafe = Math.min(Math.max(1, currentPage), totalPages);
+  const startIndex = (currentPageSafe - 1) * entriesPerPage;
+  const endIndex = Math.min(startIndex + entriesPerPage, filteredBills.length);
+  const displayedBills = filteredBills.slice(startIndex, startIndex + entriesPerPage);
 
   return (
     <Container>
@@ -3193,7 +3215,12 @@ export default function CentralCashCounter() {
                         .includes(t)
                     );
                   });
-                  const rpDisplayed = rpFilteredRecords.slice(0, parseInt(rpShowEntries, 10));
+                  const rpEntriesPerPage = parseInt(rpShowEntries, 10) || 10;
+                  const rpTotalPages = Math.max(1, Math.ceil(rpFilteredRecords.length / rpEntriesPerPage));
+                  const rpCurrentPageSafe = Math.min(Math.max(1, rpCurrentPage), rpTotalPages);
+                  const rpStartIndex = (rpCurrentPageSafe - 1) * rpEntriesPerPage;
+                  const rpEndIndex = Math.min(rpStartIndex + rpEntriesPerPage, rpFilteredRecords.length);
+                  const rpDisplayed = rpFilteredRecords.slice(rpStartIndex, rpStartIndex + rpEntriesPerPage);
 
                   return (
                   <>
@@ -3411,10 +3438,26 @@ export default function CentralCashCounter() {
                     </Table>
 
                     <Pagination>
-                      <div>Showing {rpDisplayed.length} of {rpFilteredRecords.length} entries</div>
                       <div>
-                        <PaginationButton style={{ marginRight:8 }}>Previous</PaginationButton>
-                        <PaginationButton>Next</PaginationButton>
+                        Showing {rpFilteredRecords.length === 0 ? 0 : rpStartIndex + 1} to {rpEndIndex} of {rpFilteredRecords.length} entries
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <PaginationButton
+                          disabled={rpCurrentPageSafe <= 1}
+                          onClick={() => setRpCurrentPage((prev) => Math.max(1, prev - 1))}
+                          style={{ marginRight: 4 }}
+                        >
+                          Previous
+                        </PaginationButton>
+                        <span style={{ fontSize: "13px", fontWeight: "600", color: "#475569", margin: "0 6px" }}>
+                          Page {rpCurrentPageSafe} of {rpTotalPages}
+                        </span>
+                        <PaginationButton
+                          disabled={rpCurrentPageSafe >= rpTotalPages}
+                          onClick={() => setRpCurrentPage((prev) => Math.min(rpTotalPages, prev + 1))}
+                        >
+                          Next
+                        </PaginationButton>
                       </div>
                     </Pagination>
 
@@ -3867,7 +3910,7 @@ export default function CentralCashCounter() {
                           </TableCell>
                         </tr>
                       ) : filteredBills.length > 0 ? (
-                        filteredBills.slice(0, parseInt(showEntries)).map((bill) => (
+                        displayedBills.map((bill) => (
                           <tr key={bill.id}>
                             {activeMenuItem !== "IP Advance" && activeMenuItem !== "Returns Bills" && (
                               <>
@@ -4205,12 +4248,26 @@ export default function CentralCashCounter() {
 
                   <Pagination>
                     <div>
-                      Showing {Math.min(filteredBills.length, parseInt(showEntries))} of{" "}
+                      Showing {filteredBills.length === 0 ? 0 : startIndex + 1} to {endIndex} of{" "}
                       {filteredBills.length} entries
                     </div>
-                    <div>
-                      <PaginationButton style={{ marginRight: "8px" }}>Previous</PaginationButton>
-                      <PaginationButton>Next</PaginationButton>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <PaginationButton
+                        disabled={currentPageSafe <= 1}
+                        onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                        style={{ marginRight: "4px" }}
+                      >
+                        Previous
+                      </PaginationButton>
+                      <span style={{ fontSize: "13px", fontWeight: "600", color: "#475569", margin: "0 6px" }}>
+                        Page {currentPageSafe} of {totalPages}
+                      </span>
+                      <PaginationButton
+                        disabled={currentPageSafe >= totalPages}
+                        onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                      >
+                        Next
+                      </PaginationButton>
                     </div>
                   </Pagination>
                 </>
