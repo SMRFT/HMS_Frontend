@@ -147,10 +147,10 @@ const ActionBtn = styled.button`
     p.$variant === "receive"
       ? "#059669"
       : p.$variant === "print"
-      ? "#0284c7"
-      : p.$variant === "view"
-      ? "#475569"
-      : colors.tabBg};
+        ? "#0284c7"
+        : p.$variant === "view"
+          ? "#475569"
+          : colors.tabBg};
   color: white;
   transition: all 0.15s ease;
   &:hover {
@@ -176,14 +176,14 @@ const StatusPill = styled.span`
     p.$status === "Received"
       ? "#dcfce7"
       : p.$status === "Verified"
-      ? "#fef9c3"
-      : "#e2e8f0"};
+        ? "#fef9c3"
+        : "#e2e8f0"};
   color: ${(p) =>
     p.$status === "Received"
       ? "#15803d"
       : p.$status === "Verified"
-      ? "#a16207"
-      : "#475569"};
+        ? "#a16207"
+        : "#475569"};
 `;
 
 const OutletBadge = styled.span`
@@ -274,14 +274,42 @@ const CloseIconBtn = styled.button`
 `;
 
 /* ─── Helper Functions ─────────────────────────────────────────────────── */
+const getItemName = (it) => {
+  if (!it) return "-";
+  if (typeof it === "string") return it;
+  const nm =
+    it.name ||
+    it.item_name ||
+    it.itemName ||
+    it.ItemName ||
+    it.medicine_name ||
+    it.medicineName ||
+    it.product_name ||
+    it.productName ||
+    it.description ||
+    it.item_description;
+  if (nm && !String(nm).startsWith("Item #")) return nm;
+  return it.item_id ? `Item #${it.item_id}` : (nm || "-");
+};
+
 const parseItems = (raw) => {
   if (!raw) return [];
-  if (Array.isArray(raw)) return raw;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return [];
+  let parsed = raw;
+  if (typeof parsed === "string") {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch {
+      return [];
+    }
   }
+  if (typeof parsed === "string") {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch {
+      // ignore
+    }
+  }
+  return Array.isArray(parsed) ? parsed : [];
 };
 
 const formatDate = (val) => {
@@ -330,7 +358,7 @@ const formatCurrency = (val) => {
 /* ══════════════════════════════════════════════════════════════════════════
    PRINT SLIP HTML BUILDER — strictly matches StockTransfer.js thermal format
    ══════════════════════════════════════════════════════════════════════════ */
-const buildGrnPrintHtml = (grn, items, outletName) => {
+const buildGrnPrintHtml = (grn, items, outletName, vendorName) => {
   const RULE = "─".repeat(88);
   const RULE2 = "═".repeat(88);
 
@@ -357,7 +385,7 @@ const buildGrnPrintHtml = (grn, items, outletName) => {
 
       return `<tr>
         <td style="padding:3px 2px">${idx + 1}</td>
-        <td style="padding:3px 2px;word-break:break-word"><strong>${it.medicine_name || it.item_name || `Item #${it.item_id}`}</strong></td>
+        <td style="padding:3px 2px;word-break:break-word"><strong>${getItemName(it)}</strong></td>
         <td style="padding:3px 2px">${it.batch || it.batch_number || "-"}</td>
         <td style="padding:3px 2px">${exp}</td>
         <td class="right" style="padding:3px 2px">${qty}</td>
@@ -372,7 +400,12 @@ const buildGrnPrintHtml = (grn, items, outletName) => {
   const grnDisplayNo = grn.grn_number || grn.draft_number || "-";
   const dateStr = formatDate(grn.date || grn.created_date);
   const timeStr = formatTime(grn.date || grn.created_date);
-  const vendorStr = grn.vendor_name || (grn.vendor_id ? `Vendor #${grn.vendor_id}` : "-");
+  const resolvedVendor = (grn.vendor_name && !String(grn.vendor_name).startsWith("Vendor #") && !/^\d+$/.test(String(grn.vendor_name).trim()))
+    ? grn.vendor_name
+    : (vendorName && !String(vendorName).startsWith("Vendor #") && !/^\d+$/.test(String(vendorName).trim())
+        ? vendorName
+        : (grn.vendor_name || vendorName || (grn.vendor_id ? `Vendor #${grn.vendor_id}` : "-")));
+  const vendorStr = resolvedVendor;
   const outletStr = outletName || grn.purchase_category || "OP/IP Pharmacy";
   const invStr = grn.invoice_no ? `${grn.invoice_no} (${formatDate(grn.invoice_date)})` : "-";
   const prepBy = grn.entered_by_name || grn.created_by_name || grn.created_by || "-";
@@ -482,7 +515,7 @@ const buildGrnPrintHtml = (grn, items, outletName) => {
 };
 
 /* ─── Slip Preview Modal Component ─────────────────────────────────────────── */
-const PrintSlipModal = ({ grn, outletName, onClose }) => {
+const PrintSlipModal = ({ grn, outletName, vendorName, onClose }) => {
   const items = useMemo(() => parseItems(grn?.items), [grn]);
   const RULE = "─".repeat(84);
   const RULE2 = "═".repeat(84);
@@ -496,7 +529,7 @@ const PrintSlipModal = ({ grn, outletName, onClose }) => {
   }, 0);
 
   const handlePrint = () => {
-    const html = buildGrnPrintHtml(grn, items, outletName);
+    const html = buildGrnPrintHtml(grn, items, outletName, vendorName);
     const win = window.open("", "_blank", "width=850,height=650");
     if (!win) {
       toast.error("Popup blocked — please allow popups for this site and try again.");
@@ -553,7 +586,13 @@ const PrintSlipModal = ({ grn, outletName, onClose }) => {
               <span>Invoice No : <strong>{grn.invoice_no || "-"} ({formatDate(grn.invoice_date)})</strong></span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
-              <span>Vendor&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: <strong>{grn.vendor_name || `Vendor #${grn.vendor_id}`}</strong></span>
+              <span>Vendor&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: <strong>{
+                (grn.vendor_name && !String(grn.vendor_name).startsWith("Vendor #") && !/^\d+$/.test(String(grn.vendor_name).trim()))
+                  ? grn.vendor_name
+                  : (vendorName && !String(vendorName).startsWith("Vendor #") && !/^\d+$/.test(String(vendorName).trim())
+                      ? vendorName
+                      : (grn.vendor_name || vendorName || (grn.vendor_id ? `Vendor #${grn.vendor_id}` : "-")))
+              }</strong></span>
               <span>Status : <strong>{grn.status || "Verified"}</strong></span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
@@ -582,7 +621,7 @@ const PrintSlipModal = ({ grn, outletName, onClose }) => {
               return (
                 <div key={idx} style={{ display: "grid", gridTemplateColumns: "26px 1fr 85px 60px 40px 40px 65px 65px 75px", gap: "4px", padding: "3px 0", fontSize: "11px", alignItems: "start" }}>
                   <span>{idx + 1}</span>
-                  <span style={{ wordBreak: "break-word" }}><strong>{it.medicine_name || it.item_name || `Item #${it.item_id}`}</strong></span>
+                  <span style={{ wordBreak: "break-word" }}><strong>{getItemName(it)}</strong></span>
                   <span>{it.batch || it.batch_number || "-"}</span>
                   <span>{formatExpiry(it.expiry)}</span>
                   <span style={{ textAlign: "right" }}>{qty}</span>
@@ -627,7 +666,7 @@ const PrintSlipModal = ({ grn, outletName, onClose }) => {
 };
 
 /* ─── Details Modal ───────────────────────────────────────────────────────── */
-const DetailsModal = ({ grn, outletName, onClose }) => {
+const DetailsModal = ({ grn, outletName, vendorName, onClose }) => {
   const items = useMemo(() => parseItems(grn?.items), [grn]);
 
   return (
@@ -658,7 +697,7 @@ const DetailsModal = ({ grn, outletName, onClose }) => {
               </div>
               <div>
                 <span style={{ color: "#64748b" }}>Vendor:</span>{" "}
-                <strong>{grn.vendor_name || `Vendor #${grn.vendor_id}`}</strong>
+                <strong>{vendorName || grn.vendor_name || (grn.vendor_id ? `Vendor #${grn.vendor_id}` : "-")}</strong>
               </div>
               <div>
                 <span style={{ color: "#64748b" }}>Invoice No:</span>{" "}
@@ -706,7 +745,7 @@ const DetailsModal = ({ grn, outletName, onClose }) => {
                       <Tr key={idx}>
                         <Td>{idx + 1}</Td>
                         <Td>
-                          <strong>{it.medicine_name || it.item_name || `Item #${it.item_id}`}</strong>
+                          <strong>{getItemName(it)}</strong>
                           {it.hsn && <div style={{ fontSize: "0.7rem", color: "#64748b" }}>HSN: {it.hsn}</div>}
                         </Td>
                         <Td>{it.batch || it.batch_number || "-"}</Td>
@@ -833,9 +872,51 @@ const GRNReceive = () => {
 
   // Filters
   const [search, setSearch] = useState("");
-  const [outletFilter, setOutletFilter] = useState("");
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
+  const [fromDate, setFromDate] = useState(getTodayDateString());
+  const [toDate, setToDate] = useState(getTodayDateString());
+
+  // Active Outlet resolution (OP for OP alone, IP for IP alone)
+  const getActiveOutletInfo = useCallback(() => {
+    const code = String(localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "").trim().toUpperCase();
+    const name = String(localStorage.getItem("selected_outlet_name") || localStorage.getItem("outlet_name") || "").trim().toUpperCase();
+
+    let category = "";
+    let displayName = "ALL OUTLETS";
+
+    if (code === "OLET002" || name.includes("OP")) {
+      category = "OP PHARMACY";
+      displayName = "OP PHARMACY";
+    } else if (code === "OLET001" || name.includes("IP")) {
+      category = "IP PHARMACY";
+      displayName = "IP PHARMACY";
+    } else if (code === "OLET006" || name.includes("DRUG")) {
+      category = "DRUG PURCHASE";
+      displayName = "DRUG PURCHASE";
+    } else if (code === "OLET003" || name.includes("MAIN BLOCK") || name.includes("CENTRAL")) {
+      category = "";
+      displayName = name || "MAIN BLOCK";
+    } else if (name) {
+      category = name;
+      displayName = name;
+    }
+
+    return { code, name, category, displayName };
+  }, []);
+
+  const [activeOutletInfo, setActiveOutletInfo] = useState(getActiveOutletInfo);
+
+  useEffect(() => {
+    const updateOutlet = () => {
+      setActiveOutletInfo(getActiveOutletInfo());
+      setPage(1);
+    };
+    window.addEventListener("outletChanged", updateOutlet);
+    window.addEventListener("storage", updateOutlet);
+    return () => {
+      window.removeEventListener("outletChanged", updateOutlet);
+      window.removeEventListener("storage", updateOutlet);
+    };
+  }, [getActiveOutletInfo]);
 
   // Masters
   const [outlets, setOutlets] = useState([]);
@@ -859,17 +940,26 @@ const GRNReceive = () => {
     const fetchMasters = async () => {
       try {
         const outRes = await apiRequest(`${baseUrl}get_active_outlets/`, "GET");
-        if (outRes?.success && Array.isArray(outRes.data)) {
-          setOutlets(outRes.data);
+        if (outRes?.success) {
+          const list = Array.isArray(outRes.data)
+            ? outRes.data
+            : (Array.isArray(outRes.data?.data) ? outRes.data.data : []);
+          setOutlets(list);
         }
       } catch (err) {
         console.warn("Failed to load outlets:", err);
       }
 
       try {
-        const vRes = await apiRequest(`${baseUrl}vendors/?page_size=300`, "GET");
-        if (vRes?.success && Array.isArray(vRes.data)) {
-          setVendors(vRes.data);
+        const vRes = await apiRequest(`${baseUrl}vendors/?all=true&unlimited=true`, "GET");
+        if (vRes?.success) {
+          const payload = vRes.data;
+          const list = Array.isArray(payload)
+            ? payload
+            : (Array.isArray(payload?.data)
+              ? payload.data
+              : (Array.isArray(payload?.results) ? payload.results : []));
+          setVendors(list);
         } else if (Array.isArray(vRes)) {
           setVendors(vRes);
         }
@@ -895,6 +985,33 @@ const GRNReceive = () => {
     [outlets]
   );
 
+  const getVendorName = useCallback(
+    (grnOrId) => {
+      if (!grnOrId && grnOrId !== 0) return "-";
+      if (typeof grnOrId === "object" && grnOrId !== null) {
+        const directName = grnOrId.vendor_name || grnOrId.supplier_name;
+        if (directName && !String(directName).startsWith("Vendor #") && !/^\d+$/.test(String(directName).trim())) {
+          return directName;
+        }
+        const vid = grnOrId.vendor_id != null ? grnOrId.vendor_id : grnOrId.vendor;
+        if (vid != null) {
+          const found = vendors.find(
+            (v) => String(v.vendor_id) === String(vid) || String(v.id) === String(vid)
+          );
+          if (found && (found.name || found.vendor_name)) return found.name || found.vendor_name;
+          return `Vendor #${vid}`;
+        }
+        return directName || "-";
+      }
+      const found = vendors.find(
+        (v) => String(v.vendor_id) === String(grnOrId) || String(v.id) === String(grnOrId)
+      );
+      if (found && (found.name || found.vendor_name)) return found.name || found.vendor_name;
+      return `Vendor #${grnOrId}`;
+    },
+    [vendors]
+  );
+
   // Fetch GRN List
   const fetchGRNList = useCallback(
     async (p = 1, ps = 10) => {
@@ -911,15 +1028,22 @@ const GRNReceive = () => {
         }
 
         if (search.trim()) params.set("search", search.trim());
-        if (outletFilter) params.set("purchase_category", outletFilter);
+        if (activeOutletInfo.category) params.set("purchase_category", activeOutletInfo.category);
+        if (activeOutletInfo.code) params.set("outlet_code", activeOutletInfo.code);
         if (fromDate) params.set("from_date", fromDate);
         if (toDate) params.set("to_date", toDate);
 
         const res = await apiRequest(`${baseUrl}grn/?${params.toString()}`, "GET");
         if (res && res.success) {
-          const rows = res.data || [];
+          const payload = res.data;
+          const rows = Array.isArray(payload)
+            ? payload
+            : (Array.isArray(payload?.data)
+              ? payload.data
+              : (Array.isArray(payload?.results) ? payload.results : []));
+          const total = payload?.total_records ?? payload?.count ?? res?.total_count ?? rows.length;
           setGrnList(rows);
-          setTotalCount(res.total_count ?? rows.length);
+          setTotalCount(total);
         } else {
           setGrnList([]);
           setTotalCount(0);
@@ -932,21 +1056,36 @@ const GRNReceive = () => {
         setLoading(false);
       }
     },
-    [activeTab, search, outletFilter, fromDate, toDate]
+    [activeTab, search, activeOutletInfo, fromDate, toDate]
   );
 
-  // Fetch counts for badges
+  // Fetch counts for badges based on active date and outlet filters
   const fetchCounts = useCallback(async () => {
     try {
-      const pRes = await apiRequest(`${baseUrl}grn/?status=Verified&page_size=1`, "GET");
-      if (pRes?.success) setPendingCount(pRes.total_count ?? 0);
+      const q = new URLSearchParams();
+      q.set("page_size", "1");
+      if (fromDate) q.set("from_date", fromDate);
+      if (toDate) q.set("to_date", toDate);
+      if (activeOutletInfo.category) q.set("purchase_category", activeOutletInfo.category);
+      if (activeOutletInfo.code) q.set("outlet_code", activeOutletInfo.code);
 
-      const rRes = await apiRequest(`${baseUrl}grn/?status=Received&page_size=1`, "GET");
-      if (rRes?.success) setReceivedCount(rRes.total_count ?? 0);
+      q.set("status", "Verified");
+      const pRes = await apiRequest(`${baseUrl}grn/?${q.toString()}`, "GET");
+      if (pRes?.success) {
+        const pTotal = pRes.data?.total_records ?? pRes.data?.count ?? pRes.total_count ?? 0;
+        setPendingCount(pTotal);
+      }
+
+      q.set("status", "Received");
+      const rRes = await apiRequest(`${baseUrl}grn/?${q.toString()}`, "GET");
+      if (rRes?.success) {
+        const rTotal = rRes.data?.total_records ?? rRes.data?.count ?? rRes.total_count ?? 0;
+        setReceivedCount(rTotal);
+      }
     } catch {
       // quiet fail
     }
-  }, []);
+  }, [fromDate, toDate, activeOutletInfo]);
 
   useEffect(() => {
     fetchGRNList(page, pageSize);
@@ -970,15 +1109,16 @@ const GRNReceive = () => {
 
       const res = await apiRequest(`${baseUrl}grn-receive/`, "POST", payload);
       if (res?.success) {
-        toast.success(res.message || "Stock successfully received into outlet inventory!");
-        const updatedGrn = res.data || confirmReceiveGrn;
+        const msg = res.data?.message || res.message || "Stock successfully received into outlet inventory!";
+        toast.success(msg);
+        const updatedGrn = res.data?.data || res.data || confirmReceiveGrn;
         setConfirmReceiveGrn(null);
         fetchGRNList(page, pageSize);
         fetchCounts();
         // Prompt/open print slip immediately
         setPrintSlip({ ...updatedGrn, status: "Received" });
       } else {
-        toast.error(res?.error || "Failed to receive stock into outlet.");
+        toast.error(res?.error || res?.data?.error || "Failed to receive stock into outlet.");
       }
     } catch (err) {
       console.error("handleConfirmReceive error:", err);
@@ -1000,14 +1140,6 @@ const GRNReceive = () => {
             <PageSubtitle>
               Receive verified Goods Receipt Notes (GRN) into outlet pharmacy inventory &amp; print verification slips
             </PageSubtitle>
-          </div>
-          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-            <HeaderNavBtn type="button" onClick={() => navigate("/GRNAnalysis")}>
-              📊 GRN Analysis &rarr;
-            </HeaderNavBtn>
-            <HeaderNavBtn type="button" onClick={() => navigate("/GRNGeneration")}>
-              📝 GRN Generation
-            </HeaderNavBtn>
           </div>
         </PageHeader>
 
@@ -1041,7 +1173,8 @@ const GRNReceive = () => {
         {/* ══ Toolbar Filters ══ */}
         <FormContent style={{ padding: "10px 0" }}>
           <InvTopToolbar
-            searchPlaceholder="Search GRN No, Draft No, Vendor, Invoice..."
+            searchPlaceholder="Search GRN No, Draft No, Vendor, Medicine..."
+            search={search}
             searchValue={search}
             onSearchChange={(val) => {
               setSearch(val);
@@ -1059,9 +1192,8 @@ const GRNReceive = () => {
             }}
             onReset={() => {
               setSearch("");
-              setOutletFilter("");
-              setFromDate("");
-              setToDate("");
+              setFromDate(getTodayDateString());
+              setToDate(getTodayDateString());
               setPage(1);
             }}
             pageSize={pageSize}
@@ -1069,30 +1201,7 @@ const GRNReceive = () => {
               setPageSize(sz);
               setPage(1);
             }}
-            customFilter={
-              <select
-                value={outletFilter}
-                onChange={(e) => {
-                  setOutletFilter(e.target.value);
-                  setPage(1);
-                }}
-                style={{
-                  height: "33px",
-                  padding: "0 8px",
-                  borderRadius: "5px",
-                  border: "1px solid #cbd5e1",
-                  fontSize: "0.8rem",
-                  color: "#334155",
-                  background: "white",
-                  outline: "none",
-                }}
-              >
-                <option value="">All Destinations</option>
-                <option value="MEDICINE_PURCHASE">OP Pharmacy</option>
-                <option value="MEDICINE_PURCHASE_IP">IP Pharmacy</option>
-                <option value="DRUG PURCHASE">Drug Purchase</option>
-              </select>
-            }
+            totalRecords={totalCount}
           />
 
           {/* ══ Main Table ══ */}
@@ -1121,7 +1230,7 @@ const GRNReceive = () => {
                       <div style={{ marginTop: "8px", fontSize: "0.82rem" }}>Loading GRN records...</div>
                     </Td>
                   </Tr>
-                ) : grnList.length === 0 ? (
+                ) : !Array.isArray(grnList) || grnList.length === 0 ? (
                   <Tr>
                     <Td colSpan={11} style={{ textAlign: "center", padding: "36px 12px", color: "#94a3b8" }}>
                       <AlertCircle size={28} style={{ color: "#cbd5e1", marginBottom: "8px" }} />
@@ -1168,7 +1277,7 @@ const GRNReceive = () => {
                           <OutletBadge>{destOutletName}</OutletBadge>
                         </Td>
                         <Td style={{ fontSize: "0.8rem" }}>
-                          <strong>{grn.vendor_name || `Vendor #${grn.vendor_id}`}</strong>
+                          <strong>{getVendorName(grn)}</strong>
                         </Td>
                         <Td style={{ fontSize: "0.78rem" }}>
                           <strong>{grn.invoice_no || "-"}</strong>
@@ -1253,6 +1362,7 @@ const GRNReceive = () => {
         <DetailsModal
           grn={viewGrn}
           outletName={getOutletName(viewGrn.purchase_category || viewGrn.outlet_code)}
+          vendorName={getVendorName(viewGrn)}
           onClose={() => setViewGrn(null)}
         />
       )}
@@ -1261,6 +1371,7 @@ const GRNReceive = () => {
         <PrintSlipModal
           grn={printSlip}
           outletName={getOutletName(printSlip.purchase_category || printSlip.outlet_code)}
+          vendorName={getVendorName(printSlip)}
           onClose={() => setPrintSlip(null)}
         />
       )}

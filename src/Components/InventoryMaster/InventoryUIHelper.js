@@ -266,6 +266,7 @@ export const InvTopToolbar = ({
   onPageSizeChange,
   pageSizeOptions = [10, 25, 50, 100],
   search,
+  searchValue,
   onSearchChange,
   searchPlaceholder = "Search records...",
   date,
@@ -281,7 +282,10 @@ export const InvTopToolbar = ({
   totalRecords,
   totalCount,
   customFilters,
+  customFilter,
 }) => {
+  const currentSearch = search !== undefined ? search : (searchValue !== undefined ? searchValue : "");
+  const activeCustomFilters = customFilters || customFilter;
   const displayTotal = totalRecords !== undefined ? totalRecords : totalCount;
   const activeDateVal = date || dateFilter || "";
   const isDateActive = Boolean(activeDateVal || fromDate || toDate);
@@ -365,9 +369,9 @@ export const InvTopToolbar = ({
         )}
 
         {/* Custom Filters (e.g. Category Filter) on the same line */}
-        {customFilters && (
+        {activeCustomFilters && (
           <InvCustomFiltersWrapper>
-            {customFilters}
+            {activeCustomFilters}
           </InvCustomFiltersWrapper>
         )}
       </InvToolbarLeft>
@@ -380,10 +384,10 @@ export const InvTopToolbar = ({
               style={{ width: 165, minWidth: 120, maxWidth: 200, height: 28 }}
               type="text"
               placeholder={searchPlaceholder}
-              value={search || ""}
+              value={currentSearch}
               onChange={(e) => onSearchChange(e.target.value)}
             />
-            {search && (
+            {currentSearch && (
               <InvPillBtn onClick={() => onSearchChange("")} title="Clear search">
                 ✕
               </InvPillBtn>

@@ -435,8 +435,22 @@ const formatDoctor = (pd, doctorsMap = {}) => {
   return resolveDocName(doc, doctorsMap);
 };
 
-const formatDepartment = (pd, bill) => {
-  const dept = pd.department || bill.department || "PULMONOLOGY"
+const formatDepartment = (pd, bill, deptMap = {}) => {
+  let dept = String(pd.department || bill.department || "").trim();
+  if (dept && deptMap && deptMap[dept]) {
+    dept = deptMap[dept];
+  } else if (dept && deptMap && deptMap[dept.toUpperCase()]) {
+    dept = deptMap[dept.toUpperCase()];
+  }
+  if (!dept || dept.toUpperCase().startsWith("DEPT") || dept === "—") {
+    const doc = pd.doctor || pd.doctorName || bill.doctor || "";
+    if (doc && deptMap && deptMap[doc]) {
+      dept = deptMap[doc];
+    }
+  }
+  if (!dept || dept === "—" || dept.toUpperCase().startsWith("DEPT")) {
+    dept = "GENERAL";
+  }
   return String(dept).toUpperCase();
 };
 
@@ -521,6 +535,7 @@ const NormalBillSheet = ({
   headerSpacerHeight = 200,
   preparedByName = "",
   doctorsMap = {},
+  deptMap = {},
   viewMode = "NORMAL",
   loadedMeds = [],
   paperSize = "A5",
@@ -668,15 +683,15 @@ const NormalBillSheet = ({
   const patientName = formatPatientName(pd, bill);
   const guardian = formatGuardian(pd);
   const address = pd.address || pd.permanent_address || "—";
-  const doctor = formatDoctor(pd, doctorsMap);
-  const department = formatDepartment(pd, bill);
+  const doctor = formatDoctor({ ...pd, doctor: bill.doctor || pd.doctor }, doctorsMap);
+  const department = formatDepartment(pd, bill, deptMap);
 
   const billNo = String(bill.bill_no || bill.bill_number || bill.estimate_number || "—").toUpperCase().replace(/\//g, "");
-  const ipNumber = String(bill.ip_number || pd.ip_number || pd.ipNumber || "—").toUpperCase();
+  const ipNumber = String(bill.ip_number || bill.ipNumber || pd.ip_number || pd.ipNumber || "—").toUpperCase();
   const billDate = fmtDateStr(bill.bill_date || bill.created_date || new Date());
-  const doa = fmtDateStr(pd.admission_date || pd.admissionDateTime || pd.doa);
-  const dod = fmtDateStr(pd.discharge_date || bill.discharge_date || pd.dischargeDateTime || bill.dischargeDateTime || bill.bill_date || pd.dod);
-  const roomNumber = String(pd.room_no || pd.roomNo || pd.bed_no || "—").toUpperCase();
+  const doa = fmtDateStr(bill.admission_date || bill.admissionDateTime || pd.admission_date || pd.admissionDateTime || pd.doa);
+  const dod = fmtDateStr(bill.discharge_date || pd.discharge_date || bill.dischargeDateTime || pd.dischargeDateTime || bill.bill_date || pd.dod);
+  const roomNumber = String(bill.room_no || pd.room_no || pd.roomNo || pd.bed_no || "—").toUpperCase();
   const billId = String(bill.estimate_number || bill.bill_id || bill.discharge_id || bill.bill_no || "—").toUpperCase();
 
   // Address lines formatting matching reference
@@ -1254,13 +1269,13 @@ const InsuranceClaimSheet = ({
         lLabel: "ADDRESS",
         lVal: String(pd.address || pd.permanent_address || "—").toUpperCase(),
         rLabel: "DATE OF ADMISSION",
-        rVal: fmtDateStr(pd.admission_date || pd.admissionDateTime)
+        rVal: fmtDateStr(bill.admission_date || bill.admissionDateTime || pd.admission_date || pd.admissionDateTime)
       },
       {
         lLabel: "ID CARD NO",
         lVal: String(bill.id_card_number || pd.id_card_number || pd.card_no || "—").toUpperCase(),
         rLabel: "DATE OF DISCHARGE",
-        rVal: fmtDateStr(pd.discharge_date || bill.discharge_date || pd.dischargeDateTime || bill.dischargeDateTime || bill.bill_date)
+        rVal: fmtDateStr(bill.discharge_date || pd.discharge_date || bill.dischargeDateTime || pd.dischargeDateTime || bill.bill_date)
       },
       {
         lLabel: "REFERRAL NO",
@@ -1689,6 +1704,7 @@ export const PrintSheet = React.forwardRef(({
   preparedByName,
   preparedByDesig,
   doctorsMap = {},
+  deptMap = {},
   loadedMeds = [],
 }, ref) => {
   if (!bill) return null;
@@ -1828,6 +1844,7 @@ export const PrintSheet = React.forwardRef(({
           headerSpacerHeight={headerSpacerHeight}
           preparedByName={preparedByName}
           doctorsMap={doctorsMap}
+          deptMap={deptMap}
           viewMode={viewMode}
           loadedMeds={loadedMeds}
           paperSize={paperSize}
@@ -1941,7 +1958,7 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
           if (Array.isArray(meds) && meds.length > 0) {
             setLoadedMeds(meds);
           } else {
-            const pParam = ip ? `ipNumber=${encodeURIComponent(ip)}` : `uhid=${encodeURIComponent(uhid)}`;
+            const pParam = ip ? `ipNumber=${encodeURIComponent(ip)}${uhid ? `&uhid=${encodeURIComponent(uhid)}` : ""}` : `uhid=${encodeURIComponent(uhid)}`;
             return apiRequest(`${HmsBaseUrl}search-discharge-patient/?${pParam}&for_print=true`, "GET");
           }
         })
@@ -1967,20 +1984,29 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
   const [managerName, setManagerName] = useState("DR.B.KAUSALYA");
   const [managerDesig, setManagerDesig] = useState("GENERAL INSURANCE MANAGER");
 
-  // Doctors mapping state (employeeId -> employeeName)
+  // Doctors and departments mapping state
   const [doctorsMap, setDoctorsMap] = useState({});
+  const [deptMap, setDeptMap] = useState({});
 
   useEffect(() => {
     const map = {};
+    const dMap = {};
     if (Array.isArray(doctors) && doctors.length > 0) {
       doctors.forEach(d => {
         const id = String(d.employeeId || d.employee_id || d.id || "").trim();
         const name = String(d.employeeName || d.name || d.doctorName || "").trim();
+        const dept = String(d.department || d.department_name || "").trim();
         if (id && name) {
           map[id] = name;
         }
+        if (dept) {
+          if (id) dMap[id] = dept;
+          if (name) dMap[name] = dept;
+          if (d.department_code) dMap[d.department_code] = dept;
+        }
       });
       setDoctorsMap({ ...map });
+      setDeptMap({ ...dMap });
     }
 
     const fetchDoctors = async () => {
@@ -1991,11 +2017,18 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
         list.forEach(d => {
           const id = String(d.employeeId || d.employee_id || d.id || "").trim();
           const name = String(d.employeeName || d.name || d.doctorName || "").trim();
+          const dept = String(d.department || d.department_name || "").trim();
           if (id && name) {
             map[id] = name;
           }
+          if (dept) {
+            if (id) dMap[id] = dept;
+            if (name) dMap[name] = dept;
+            if (d.department_code) dMap[d.department_code] = dept;
+          }
         });
         setDoctorsMap({ ...map });
+        setDeptMap({ ...dMap });
       } catch (e) {
         // Fallback to existing map
       }
@@ -2615,6 +2648,7 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
             preparedByName={preparedByName}
             preparedByDesig={preparedByDesig}
             doctorsMap={doctorsMap}
+            deptMap={deptMap}
             loadedMeds={loadedMeds}
           />
         </div>
