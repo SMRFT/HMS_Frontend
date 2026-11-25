@@ -243,10 +243,10 @@ const MasterMiscPaymentReport = ({
         if (activeVoucherType !== "all") {
             if (activeVoucherType === "receipt" || activeVoucherType === "cash" || activeVoucherType === "bank") {
                 list = list.filter(v => String(v.voucher_type || "").toLowerCase() === "receipt");
-            } else if (activeVoucherType === "sales return" || activeVoucherType === "sales_return") {
-                list = list.filter(v => v.is_sales_return || String(v.account_head || "").toLowerCase().includes("sales return"));
+            } else if (activeVoucherType === "sales return" || activeVoucherType === "sales_return" || activeVoucherType === "return") {
+                list = list.filter(v => v.is_sales_return || String(v.voucher_type || "").toLowerCase().includes("return") || String(v.account_head || "").toLowerCase().includes("sales return"));
             } else if (activeVoucherType === "payment") {
-                list = list.filter(v => String(v.voucher_type || "").toLowerCase() === "payment");
+                list = list.filter(v => String(v.voucher_type || "").toLowerCase() === "payment" && !v.is_sales_return);
             }
         }
         if (!searchTerm.trim()) return list;
@@ -269,7 +269,8 @@ const MasterMiscPaymentReport = ({
         filtered.forEach(v => {
             const dateKey = extractVoucherDate(v);
             const timeStr = extractVoucherTime(v);
-            const typeKey = String(v.voucher_type || "Receipt").trim().toUpperCase();
+            const isSR = Boolean(v.is_sales_return || String(v.voucher_type || "").toUpperCase().includes("RETURN"));
+            const typeKey = isSR ? "SALES RETURN" : String(v.voucher_type || "Receipt").trim().toUpperCase();
 
             if (!dateMap.has(dateKey)) {
                 dateMap.set(dateKey, new Map());
@@ -281,7 +282,8 @@ const MasterMiscPaymentReport = ({
             typeSubMap.get(typeKey).push({
                 ...v,
                 dateKey,
-                timeStr
+                timeStr,
+                isSR
             });
         });
 
@@ -292,19 +294,22 @@ const MasterMiscPaymentReport = ({
             const sections = [];
             let dateReceiptTotal = 0;
             let datePaymentTotal = 0;
+            let dateSalesReturnTotal = 0;
             let dateCount = 0;
 
-            // Maintain order: Receipts first, then Payments
+            // Maintain order: Receipts first, then Payments, then Sales Returns
+            const typeOrder = { "RECEIPT": 1, "PAYMENT": 2, "SALES RETURN": 3 };
             const typeKeys = Array.from(typeSubMap.keys()).sort((a, b) => {
-                if (a.includes("RECEIPT") && !b.includes("RECEIPT")) return -1;
-                if (!a.includes("RECEIPT") && b.includes("RECEIPT")) return 1;
-                return a.localeCompare(b);
+                const oA = typeOrder[a] || (a.includes("RECEIPT") ? 1 : a.includes("RETURN") ? 3 : 2);
+                const oB = typeOrder[b] || (b.includes("RECEIPT") ? 1 : b.includes("RETURN") ? 3 : 2);
+                return oA - oB;
             });
 
             typeKeys.forEach(typeKey => {
                 const items = typeSubMap.get(typeKey) || [];
                 let secReceiptTotal = 0;
                 let secPaymentTotal = 0;
+                let secSalesReturnTotal = 0;
 
                 // Sort items naturally by voucher_no ascending
                 const sortedItems = [...items].sort((a, b) => {
@@ -316,8 +321,12 @@ const MasterMiscPaymentReport = ({
                 const enrichedItems = sortedItems.map(it => {
                     const amt = Number(it.amount || 0);
                     const isRec = String(it.voucher_type || "").toLowerCase().includes("rec");
+                    const isSR = Boolean(it.is_sales_return || it.isSR || String(it.voucher_type || "").toUpperCase().includes("RETURN"));
+
                     if (isRec) {
                         secReceiptTotal += amt;
+                    } else if (isSR) {
+                        secSalesReturnTotal += amt;
                     } else {
                         secPaymentTotal += amt;
                     }
@@ -326,20 +335,25 @@ const MasterMiscPaymentReport = ({
                         ...it,
                         displaySlno: runningSlno++,
                         amt,
-                        isRec
+                        isRec,
+                        isSR
                     };
                 });
 
                 sections.push({
                     voucherType: typeKey,
+                    isSalesReturn: typeKey === "SALES RETURN",
                     items: enrichedItems,
                     receiptTotal: secReceiptTotal,
                     paymentTotal: secPaymentTotal,
+                    salesReturnTotal: secSalesReturnTotal,
+                    totalOutflow: secPaymentTotal + secSalesReturnTotal,
                     count: enrichedItems.length
                 });
 
                 dateReceiptTotal += secReceiptTotal;
                 datePaymentTotal += secPaymentTotal;
+                dateSalesReturnTotal += secSalesReturnTotal;
                 dateCount += enrichedItems.length;
             });
 
@@ -348,6 +362,8 @@ const MasterMiscPaymentReport = ({
                 sections,
                 dateReceiptTotal,
                 datePaymentTotal,
+                dateSalesReturnTotal,
+                dateOutflowTotal: datePaymentTotal + dateSalesReturnTotal,
                 dateCount
             });
         });
@@ -356,7 +372,9 @@ const MasterMiscPaymentReport = ({
     }, [filtered]);
 
     const totalReceipts = filtered.filter(v => v.voucher_type === "Receipt").reduce((a, x) => a + (Number(x.amount) || 0), 0);
-    const totalPayments = filtered.filter(v => v.voucher_type === "Payment").reduce((a, x) => a + (Number(x.amount) || 0), 0);
+    const totalPayments = filtered.filter(v => v.voucher_type === "Payment" && !v.is_sales_return).reduce((a, x) => a + (Number(x.amount) || 0), 0);
+    const totalSalesReturns = filtered.filter(v => v.is_sales_return || v.voucher_type === "Sales Return").reduce((a, x) => a + (Number(x.amount) || 0), 0);
+    const totalOutflow = totalPayments + totalSalesReturns;
 
     const handleExport = () => {
         const rows = [];
@@ -448,15 +466,20 @@ const MasterMiscPaymentReport = ({
                                 <span className="kpi-value" style={{ color: "#059669" }}>₹{formatINR(summary.total_receipts || totalReceipts)}</span>
                                 <span className="kpi-subtitle">Non-patient inflows</span>
                             </KPICard>
-                            <KPICard $border="#ef4444">
+                            <KPICard $border="#f97316">
                                 <span className="kpi-title">Counter Expense Payments</span>
-                                <span className="kpi-value" style={{ color: "#dc2626" }}>₹{formatINR(summary.total_payments || totalPayments)}</span>
+                                <span className="kpi-value" style={{ color: "#c2410c" }}>₹{formatINR(summary.total_expenses || totalPayments)}</span>
                                 <span className="kpi-subtitle">Drawer expense payouts</span>
+                            </KPICard>
+                            <KPICard $border="#ef4444">
+                                <span className="kpi-title">Sales Returns</span>
+                                <span className="kpi-value" style={{ color: "#dc2626" }}>₹{formatINR(summary.total_sales_returns || totalSalesReturns)}</span>
+                                <span className="kpi-subtitle">Pharmacy cash refunds</span>
                             </KPICard>
                             <KPICard $border="#0ea5e9">
                                 <span className="kpi-title">Net Sundry Position</span>
-                                <span className="kpi-value">₹{formatINR((summary.total_receipts || totalReceipts) - (summary.total_payments || totalPayments))}</span>
-                                <span className="kpi-subtitle">Receipts - Payments</span>
+                                <span className="kpi-value">₹{formatINR((summary.total_receipts || totalReceipts) - (summary.total_expenses || totalPayments) - (summary.total_sales_returns || totalSalesReturns))}</span>
+                                <span className="kpi-subtitle">Receipts - (Expenses + Returns)</span>
                             </KPICard>
                         </KPIGrid>
                     )}
@@ -473,7 +496,7 @@ const MasterMiscPaymentReport = ({
                                     <th>Narration / Purpose</th>
                                     <th style={{ width: "120px" }}>Cashier</th>
                                     <th style={{ width: "110px", textAlign: "right" }}>Receipt (₹)</th>
-                                    <th style={{ width: "110px", textAlign: "right" }}>Payment (₹)</th>
+                                    <th style={{ width: "110px", textAlign: "right" }}>Payment / Return (₹)</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -496,15 +519,25 @@ const MasterMiscPaymentReport = ({
                                             {dg.sections.map((sec) => (
                                                 <React.Fragment key={`${dg.date}-${sec.voucherType}`}>
                                                     {/* Type as Section Sub-Header */}
-                                                    <SectionHeaderTr>
-                                                        <td colSpan={9}>
-                                                            {sec.voucherType}
+                                                    <SectionHeaderTr style={{
+                                                        background: sec.isSalesReturn ? "#fee2e2" : sec.voucherType === "PAYMENT" ? "#ffedd5" : "#e2e8f0"
+                                                    }}>
+                                                        <td colSpan={9} style={{
+                                                            color: sec.isSalesReturn ? "#991b1b" : sec.voucherType === "PAYMENT" ? "#9a3412" : "#1e293b",
+                                                            fontWeight: 800
+                                                        }}>
+                                                            {sec.isSalesReturn ? "SALES RETURN (COUNTER CASH REFUND)" : sec.voucherType}
                                                         </td>
                                                     </SectionHeaderTr>
 
                                                     {/* Vouchers inside this Type */}
                                                     {sec.items.map((v) => (
-                                                        <tr key={v.voucher_no || v.displaySlno}>
+                                                        <tr 
+                                                            key={v.voucher_no || v.displaySlno}
+                                                            style={{
+                                                                background: v.is_sales_return ? "#fef2f2" : "inherit"
+                                                            }}
+                                                        >
                                                             <td className="text-center font-mono">{v.displaySlno}</td>
                                                             <td className="font-mono" style={{ fontWeight: 700 }}>{v.voucher_no}</td>
                                                             <td style={{ color: "#475569" }}>{v.timeStr || "-"}</td>
@@ -530,22 +563,26 @@ const MasterMiscPaymentReport = ({
                                                             <td className="text-right font-mono" style={{ color: "#059669", fontWeight: v.isRec ? 700 : 400 }}>
                                                                 {v.isRec ? formatINR(v.amount) : "-"}
                                                             </td>
-                                                            <td className="text-right font-mono" style={{ color: "#dc2626", fontWeight: !v.isRec ? 700 : 400 }}>
+                                                            <td className="text-right font-mono" style={{ color: v.is_sales_return ? "#b91c1c" : "#dc2626", fontWeight: !v.isRec ? 700 : 400 }}>
                                                                 {!v.isRec ? formatINR(v.amount) : "-"}
                                                             </td>
                                                         </tr>
                                                     ))}
 
                                                     {/* Subtotal per Type */}
-                                                    <SubtotalTr>
-                                                        <td colSpan={7} className="text-right font-bold">
-                                                            Total ({sec.voucherType}) -&gt;
+                                                    <SubtotalTr style={{
+                                                        background: sec.isSalesReturn ? "#fef2f2" : "inherit"
+                                                    }}>
+                                                        <td colSpan={7} className="text-right font-bold" style={{
+                                                            color: sec.isSalesReturn ? "#991b1b" : "inherit"
+                                                        }}>
+                                                            Total ({sec.isSalesReturn ? "SALES RETURN" : sec.voucherType}) -&gt;
                                                         </td>
                                                         <td className="text-right font-mono font-bold" style={{ color: "#059669" }}>
                                                             {sec.receiptTotal > 0 ? formatINR(sec.receiptTotal) : "-"}
                                                         </td>
-                                                        <td className="text-right font-mono font-bold" style={{ color: "#dc2626" }}>
-                                                            {sec.paymentTotal > 0 ? formatINR(sec.paymentTotal) : "-"}
+                                                        <td className="text-right font-mono font-bold" style={{ color: sec.isSalesReturn ? "#b91c1c" : "#dc2626" }}>
+                                                            {sec.totalOutflow > 0 ? formatINR(sec.totalOutflow) : "-"}
                                                         </td>
                                                     </SubtotalTr>
                                                 </React.Fragment>
@@ -561,7 +598,7 @@ const MasterMiscPaymentReport = ({
                                                         {dg.dateReceiptTotal > 0 ? formatINR(dg.dateReceiptTotal) : "-"}
                                                     </td>
                                                     <td className="text-right font-mono font-bold" style={{ color: "#dc2626" }}>
-                                                        {dg.datePaymentTotal > 0 ? formatINR(dg.datePaymentTotal) : "-"}
+                                                        {dg.dateOutflowTotal > 0 ? formatINR(dg.dateOutflowTotal) : "-"}
                                                     </td>
                                                 </SubtotalTr>
                                             )}
@@ -578,7 +615,7 @@ const MasterMiscPaymentReport = ({
                                         ₹{formatINR(totalReceipts)}
                                     </td>
                                     <td className="text-right font-mono font-bold" style={{ color: "#dc2626" }}>
-                                        ₹{formatINR(totalPayments)}
+                                        ₹{formatINR(totalOutflow)}
                                     </td>
                                 </tr>
                             </tbody>
