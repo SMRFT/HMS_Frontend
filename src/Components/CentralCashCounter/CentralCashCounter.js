@@ -2390,18 +2390,25 @@ export default function CentralCashCounter() {
               outlet_code: rawBill.outlet_code || selectedBill.outlet_code || "OLET002",
             };
 
-            // ✅ Close payment modal and OPEN pharmacy print bill immediately (0ms lag)
+            // ✅ Close payment modal
             setShowPaymentModal(false);
-            setPharmacyPrintBill(printPayload);
 
-            // ✅ Immediately invoke print execution dialog
-            try {
-              const html = buildPrintBillHtml(printPayload);
-              if (html) {
-                executeBillPrint(html);
+            // ✅ Only for selected_outlet OLET002: Open pharmacy print bill upon payment collection in Cash Counter
+            const rawOutlet = String(rawBill.outlet_code || selectedBill.raw_outlet_code || selectedBill.outlet || "OLET002").toUpperCase();
+            const isOlet002 = rawOutlet.includes("OLET002") || rawOutlet === "2" || rawOutlet.includes("OP PHARMACY");
+
+            if (isOlet002) {
+              setPharmacyPrintBill(printPayload);
+
+              // ✅ Immediately invoke print execution dialog
+              try {
+                const html = buildPrintBillHtml(printPayload);
+                if (html) {
+                  executeBillPrint(html);
+                }
+              } catch (errPrint) {
+                console.error("Pharmacy print execution error:", errPrint);
               }
-            } catch (errPrint) {
-              console.error("Pharmacy print execution error:", errPrint);
             }
 
             // Remove paid bill from table state immediately for snappy UI
