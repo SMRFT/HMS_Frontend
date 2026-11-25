@@ -553,7 +553,7 @@ const Slip = styled.div`
   height: 51.0mm;
   max-width: 100%;
   padding: 2.5mm 4mm 2mm 4mm;
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
   color: #000;
   border: 1px dashed #94a3b8;
   margin: 16px auto;
@@ -572,11 +572,11 @@ const SlipTopRow = styled.div`
   gap: 6px;
 `;
 const SR = styled.div`display:flex;justify-content:space-between;gap:6px;align-items:flex-start;`;
-const SL = styled.div`flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;`;
-const SRt = styled.div`flex:0 0 auto;text-align:left;display:flex;flex-direction:column;gap:1px;white-space:nowrap;`;
-const SBig = styled.div`font-size:12.5px;font-weight:900;letter-spacing:.2px;line-height:1.15;white-space:nowrap;text-align:right;`;
-const SLn = styled.div`margin:0;font-size:9.5px;font-weight:800;line-height:1.28;letter-spacing:.05px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#000;`;
-const SBold = styled.div`font-weight:900;margin:0 0 1px 0;font-size:10px;line-height:1.25;letter-spacing:-.1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#000;`;
+const SL = styled.div`flex:1;min-width:0;display:flex;flex-direction:column;gap:1.5px;`;
+const SRt = styled.div`flex:0 0 auto;text-align:left;display:flex;flex-direction:column;gap:1.5px;white-space:nowrap;`;
+const SBig = styled.div`font-size:13px;font-weight:600;line-height:1.2;white-space:nowrap;text-align:right;`;
+const SLn = styled.div`margin:0;font-size:11px;font-weight:400;line-height:1.32;letter-spacing:normal;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#000;`;
+const SBold = styled.div`font-weight:600;margin:0 0 1px 0;font-size:12px;line-height:1.28;letter-spacing:normal;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#000;`;
 const PA = styled.div`display:flex;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid #e5e7eb;`;
 const PBt = styled.button`height:32px;padding:0 16px;font-size:.78rem;font-weight:600;border-radius:4px;border:none;cursor:pointer;background:${p => p.sec ? '#e5e7eb' : '#7c3aed'};color:${p => p.sec ? '#374151' : '#fff'};&:hover{opacity:.88;}`;
 
@@ -681,17 +681,46 @@ const getGuardianDisplay = (pd) => {
 };
 
 const getDoctorDisplayName = (docVal, docNameFromRecord, docList) => {
-  let val = String(docNameFromRecord || docVal || "").trim();
-  if (!val || val === "-") return "";
-  if (/^\d+$/.test(val)) {
-    const found = docList?.find(d => String(d.employeeId) === val || String(d.id) === val || String(d.emp_id) === val);
-    if (found?.employeeName) val = found.employeeName;
+  const isId = (str) => {
+    if (!str) return false;
+    const clean = String(str).replace(/^(dr|doctor)[\s.]+/i, "").trim();
+    if (!clean) return false;
+    if (/^\d+$/.test(clean)) return true; // pure numeric e.g. "60195", "50203"
+    if (/^[A-Za-z]{1,4}\d+$/i.test(clean) && clean.length <= 8) return true; // alphanumeric e.g. "VC005"
+    return false;
+  };
+
+  const candidates = [docVal, docNameFromRecord].filter(Boolean).map(s => String(s).trim());
+
+  // 1. If any candidate is already a real doctor name (NOT an ID), prioritize and format it!
+  for (const cand of candidates) {
+    if (!isId(cand) && cand !== "-" && cand.length > 2) {
+      let clean = cand.replace(/^(dr|doctor)[\s.]+/i, "").replace(/^(dr|doctor)[\s.]+/i, "").trim();
+      if (clean) {
+        return /^[a-z]\./i.test(clean) ? `DR.${clean.toUpperCase()}` : `DR. ${clean.toUpperCase()}`;
+      }
+    }
   }
-  if (/^\d+$/.test(val) && docVal && !/^\d+$/.test(String(docVal).trim())) {
-    val = String(docVal).trim();
+
+  // 2. If candidates are IDs, look up in docList
+  for (const cand of candidates) {
+    const cleanId = cand.replace(/^(dr|doctor)[\s.]+/i, "").trim().toLowerCase();
+    if (docList && Array.isArray(docList)) {
+      const found = docList.find(d => {
+        const empId = String(d.employeeId || d.id || d.emp_id || "").trim().toLowerCase();
+        return empId === cleanId || empId === cand.toLowerCase();
+      });
+      if (found?.employeeName) {
+        let clean = String(found.employeeName).replace(/^(dr|doctor)[\s.]+/i, "").replace(/^(dr|doctor)[\s.]+/i, "").trim();
+        return /^[a-z]\./i.test(clean) ? `DR.${clean.toUpperCase()}` : `DR. ${clean.toUpperCase()}`;
+      }
+    }
   }
-  let clean = val.replace(/^(dr|doctor)[\s.]+/i, "").replace(/^(dr|doctor)[\s.]+/i, "").trim();
-  if (!clean) return "";
+
+  // 3. Fallback
+  const fallback = candidates[0] || "";
+  if (!fallback || fallback === "-") return "";
+  let clean = fallback.replace(/^(dr|doctor)[\s.]+/i, "").trim();
   return /^[a-z]\./i.test(clean) ? `DR.${clean.toUpperCase()}` : `DR. ${clean.toUpperCase()}`;
 };
 
@@ -2738,14 +2767,41 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
     }
     try {
       const res = await apiRequest(`${HmsBaseUrl}op-patient/${encodeURIComponent(uhid)}/`, "GET");
-      if (!res.success && res.error) {
-        toast.error(res.error || "No patient found for this UHID.");
+      const d = res?.data || res;
+      if ((!res.success && res.error) || !d || (!d.firstName && !d.patientname && !d.name && !d.uhid)) {
+        setForm(p => ({
+          ...p,
+          salutation: "",
+          firstName: "",
+          middleName: "",
+          lastName: "",
+          dob: "",
+          age: "",
+          gender: "",
+          mobilePhone: "",
+          permanent_address: "",
+          area: "",
+          zipcode: "",
+          city: "",
+          state: "",
+          spouseName: "",
+          fatherName: "",
+          relationship: "",
+          aadhaar: "",
+          customerType: "GENERAL",
+          insuranceCompanyName: "",
+          company_code: "",
+        }));
+        setErrors(p => ({ ...p, uhid: "Patient not found in Patient Master. Please register first." }));
+        toast.error(res?.error || "Patient not found in Patient Master. Please register before admitting.");
         return;
       }
-      const d = res.data || res;
+
+      // Canonical UHID from database (e.g. S026/005678 if user entered 5678)
+      const canonicalUhid = String(d.uhid || uhid).trim();
 
       // ── Check if patient has active admission from backend API ──────────────
-      const activeAdm = await checkActiveAdmission(uhid);
+      const activeAdm = await checkActiveAdmission(canonicalUhid);
 
       const dobVal = d.dob || d.dateOfBirth || "";
       const calcAge = calculateAgeFromDob(dobVal);
@@ -2754,7 +2810,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
 
       setForm(p => ({
         ...p,
-        uhid: uhid,
+        uhid: canonicalUhid,
         salutation: d.salutation || p.salutation || "",
         firstName: d.firstName || d.patientname || d.patient_name || d.name || p.firstName || "",
         middleName: d.middleName || p.middleName || "",
@@ -2778,15 +2834,22 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
         company_code: d.company_code || d.insuranceProviderCode || p.company_code || "",
       }));
 
+      // Clear any UHID error
+      setErrors(p => {
+        const next = { ...p };
+        delete next.uhid;
+        return next;
+      });
+
       if (activeAdm) {
         setAlreadyAdmInfo(activeAdm);
         toast.error(
-          `Patient ${d.firstName || uhid} is currently admitted (IP: ${activeAdm.ipNumber}). Patient cannot be admitted again until discharged.`,
+          `Patient ${d.firstName || canonicalUhid} is currently admitted (IP: ${activeAdm.ipNumber}). Patient cannot be admitted again until discharged.`,
           { autoClose: 7000 }
         );
       } else {
         setAlreadyAdmInfo(null);
-        if (!silent) toast.success("Patient loaded");
+        if (!silent) toast.success(`Patient loaded: ${d.firstName || canonicalUhid}`);
       }
     } catch {
       toast.error("Failed to fetch patient details.");
@@ -2934,7 +2997,11 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
   const getDrName = id => {
     if (!id || id === "-") return "-";
     const strId = String(id).trim();
-    const found = doctors?.find(d => String(d.employeeId) === strId || String(d.id) === strId || String(d.emp_id) === strId || String(d.employeeName) === strId);
+    const cleanId = strId.replace(/^(dr|doctor)[\s.]+/i, "").trim().toLowerCase();
+    const found = doctors?.find(d => {
+      const eid = String(d.employeeId || d.id || d.emp_id || "").trim().toLowerCase();
+      return eid === strId.toLowerCase() || eid === cleanId || String(d.employeeName || "").trim().toLowerCase() === strId.toLowerCase();
+    });
     return found?.employeeName || strId;
   };
 
@@ -3212,8 +3279,12 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
   // ── Submit (new or edit) ──────────────────────────────────────────────────
   const handleSubmit = async () => {
     const newErrors = {};
-    if (!editingId && !form.uhid?.trim()) {
-      newErrors.uhid = "This field is required";
+    if (!editingId) {
+      if (!form.uhid?.trim()) {
+        newErrors.uhid = "This field is required";
+      } else if (!form.firstName?.trim() && !form.lastName?.trim() && !form.patientname?.trim()) {
+        newErrors.uhid = "Valid patient record from Patient Master is required";
+      }
     }
     if (!form.admittingDoctor) {
       newErrors.admittingDoctor = "This field is required";
@@ -3239,7 +3310,11 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
-      toast.warning("Please fill all required fields");
+      if (newErrors.uhid && !form.firstName?.trim()) {
+        toast.error("Please search and select a registered patient from Patient Master before admitting.");
+      } else {
+        toast.warning("Please fill all required fields");
+      }
       return;
     }
     setErrors({});
@@ -3382,7 +3457,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
           package_name: savedAdm.package_name || form.package_name || savedAdm.packageName || form.packageName || "",
           admissionDateTime: admDateTime,
           admittingDoctor: admDoctor,
-          admittingDoctorName: savedAdm.admittingDoctorName || getDrName(admDoctor) || "",
+          admittingDoctorName: getDoctorDisplayName(savedAdm.admittingDoctorName, admDoctor, doctors),
           is_day_care: savedAdm.is_day_care !== undefined ? savedAdm.is_day_care : isDaycare,
           ward_status: savedAdm.ward_status || (isDaycare ? "Sent for billing" : (form.ward_status || "")),
           roomNo: savedAdm.roomNo || form.roomNo,
@@ -3432,7 +3507,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
 
   const handlePrint = adm => {
     setOpenMenu(null);
-    const resolvedDoc = adm.admittingDoctorName || getDrName(adm.admittingDoctor) || adm.admittingDoctor || "";
+    const resolvedDoc = getDoctorDisplayName(adm.admittingDoctorName, adm.admittingDoctor, doctors);
     setPrintData({
       ...adm,
       admittingDoctorName: resolvedDoc,
@@ -3615,7 +3690,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
         margin: 0;
         padding: 0;
         box-sizing: border-box;
-        font-family: Arial, Helvetica, sans-serif;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
         color: #000;
         background-color: #fff;
         overflow: hidden;
@@ -3630,6 +3705,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
         padding: 2.5mm 4mm 2mm 4mm;
         overflow: hidden;
         background: #fff;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
       }
       .top-row {
         display: flex;
@@ -3659,17 +3735,16 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
         flex-shrink: 0;
       }
       .ip-title {
-        font-size: 12.5px;
-        font-weight: 900;
-        letter-spacing: 0.2px;
+        font-size: 13px;
+        font-weight: 600;
         white-space: nowrap;
-        line-height: 1.1;
+        line-height: 1.2;
       }
       .comp-title {
-        font-size: 9px;
-        font-weight: 900;
+        font-size: 10.5px;
+        font-weight: 500;
         margin-top: 1.5px;
-        line-height: 1.15;
+        line-height: 1.2;
         max-width: 185px;
         white-space: nowrap;
         overflow: hidden;
@@ -3692,37 +3767,35 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
         white-space: nowrap;
       }
       .sticker-line {
-        font-size: 9.5px;
-        line-height: 1.28;
+        font-size: 11px;
+        line-height: 1.32;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        font-weight: 800;
-        letter-spacing: 0.05px;
+        font-weight: normal;
         color: #000;
       }
       .patient-line {
-        font-size: 10px;
-        font-weight: 900;
-        line-height: 1.25;
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1.28;
         margin-bottom: 1px;
-        letter-spacing: -0.1px;
       }
       .doc-line {
-        font-size: 9.8px;
-        font-weight: 900;
+        font-size: 11.5px;
+        font-weight: 600;
         margin-top: 1px;
       }
       .meta-line {
-        font-size: 9.5px;
-        line-height: 1.28;
-        font-weight: 800;
-        letter-spacing: 0.05px;
+        font-size: 11px;
+        line-height: 1.32;
+        font-weight: normal;
         white-space: nowrap;
         color: #000;
       }
       .meta-uhid {
-        font-weight: 900;
+        font-size: 11.5px;
+        font-weight: 600;
       }
     </style></head><body>
       <div class="sticker-content">
@@ -4181,7 +4254,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                       value={form.uhid}
                       onChange={handleFormChange}
                       onBlur={() => {
-                        if (!editingId && form.uhid?.trim() && form.uhid.trim().length >= 3) {
+                        if (!editingId && form.uhid?.trim()) {
                           fetchPatientByUHID(form.uhid.trim(), true);
                         }
                       }}
@@ -4191,7 +4264,11 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && !editingId) {
                           e.preventDefault();
-                          openUhidSearch();
+                          if (form.uhid?.trim()) {
+                            fetchPatientByUHID(form.uhid.trim(), false);
+                          } else {
+                            openUhidSearch();
+                          }
                         }
                       }}
                     />
@@ -5315,7 +5392,7 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                     <div style={{ textAlign: "right", minWidth: 0 }}>
                       <SBig>IP NO : {printData.ipNumber || printData.ip_number || ""}</SBig>
                       {custType && (
-                        <SLn style={{ textAlign: "right", fontSize: "9px", maxWidth: "185px", fontWeight: 900, marginTop: "2px" }}>
+                        <SLn style={{ textAlign: "right", fontSize: "10.5px", maxWidth: "185px", fontWeight: 500, marginTop: "2px" }}>
                           {custType}
                         </SLn>
                       )}
@@ -5328,11 +5405,11 @@ export default function Admission({ patient: propPatient, uhid: propUhid, ipNumb
                       {printData.permanent_address && <SLn>{String(printData.permanent_address).toUpperCase()}</SLn>}
                       {addr2 && <SLn>{addr2}</SLn>}
                       {printData.mobilePhone && <SLn>Ph.+91{String(printData.mobilePhone).replace(/^(\+91|91)/, "").trim()}</SLn>}
-                      {docDisplay && <SLn style={{ fontWeight: 900 }}>{docDisplay}</SLn>}
+                      {docDisplay && <SLn style={{ fontWeight: 600, fontSize: "11.5px" }}>{docDisplay}</SLn>}
                       {(printData.aadhaar || printData.aadhar) && <SLn>Adhar : {printData.aadhaar || printData.aadhar}</SLn>}
                     </SL>
                     <SRt>
-                      <SLn style={{ fontWeight: 900 }}>UHID : {printData.uhid || ""}</SLn>
+                      <SLn style={{ fontWeight: 600, fontSize: "11.5px" }}>UHID : {printData.uhid || ""}</SLn>
                       <SLn>DOA  : {doaDate}</SLn>
                       <SLn>TIME : {doaTime}</SLn>
                       <SLn>Room : {roomDisplay}</SLn>

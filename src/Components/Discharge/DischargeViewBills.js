@@ -434,16 +434,28 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
 
   const handleOpenPrint = async (b, defaultViewMode = "NORMAL") => {
     let updatedBill = { ...b };
-    const searchVal = b.uhid || b.ip_number;
-    if (searchVal) {
+    const ipVal = (b.ip_number || b.ipNumber || b.patient_details?.ip_number || b.patient_details?.ipNumber || "").trim();
+    const uhidVal = (b.uhid || b.patient_details?.uhid || "").trim();
+
+    // Preserve the bill's own immutable historical episode details
+    const origAdmDate = b.admission_date || b.admissionDateTime || b.patient_details?.admission_date || b.patient_details?.admissionDateTime;
+    const origDischDate = b.discharge_date || b.dischargeDateTime || b.patient_details?.discharge_date || b.patient_details?.dischargeDateTime;
+    const origRoom = b.room_no || b.patient_details?.room_no || b.patient_details?.roomNo;
+    const origDoctor = b.doctor || b.patient_details?.doctor;
+    const origDepartment = b.department || b.patient_details?.department;
+
+    if (ipVal || uhidVal) {
       try {
-        const param = b.uhid ? `uhid=${encodeURIComponent(b.uhid)}` : `ipNumber=${encodeURIComponent(b.ip_number)}`;
-        const raw = await apiRequest(`${BASE}search-discharge-patient/?${param}&for_print=true`, "GET");
+        const queryParams = new URLSearchParams({ for_print: "true" });
+        if (ipVal) queryParams.set("ipNumber", ipVal);
+        if (uhidVal) queryParams.set("uhid", uhidVal);
+        const raw = await apiRequest(`${BASE}search-discharge-patient/?${queryParams.toString()}`, "GET");
         const res = raw?.success && raw?.data?.success ? raw.data.data : (raw?.success ? raw.data : raw);
         if (res?.patient) {
+          // Spread res.patient first as supplementary base, then preserve the bill's own patient_details on top
           updatedBill.patient_details = {
-            ...(b.patient_details || {}),
             ...res.patient,
+            ...(b.patient_details || {}),
           };
         }
         const existingMeds = Array.isArray(b.pharmacy_medicines) ? b.pharmacy_medicines : [];
@@ -458,6 +470,44 @@ const ViewBills = ({ onEditBill, onRefreshTrigger, autoPrintBill }) => {
         console.error("Print patient details fetch error:", err);
       }
     }
+
+    // Always enforce the bill's own admission date, discharge date, room, doctor, and IP number
+    if (origAdmDate) {
+      updatedBill.admission_date = origAdmDate;
+      if (!updatedBill.patient_details) updatedBill.patient_details = {};
+      updatedBill.patient_details.admission_date = origAdmDate;
+      updatedBill.patient_details.doa = origAdmDate;
+    }
+    if (origDischDate) {
+      updatedBill.discharge_date = origDischDate;
+      if (!updatedBill.patient_details) updatedBill.patient_details = {};
+      updatedBill.patient_details.discharge_date = origDischDate;
+      updatedBill.patient_details.dod = origDischDate;
+    }
+    if (origRoom) {
+      updatedBill.room_no = origRoom;
+      if (!updatedBill.patient_details) updatedBill.patient_details = {};
+      updatedBill.patient_details.room_no = origRoom;
+      updatedBill.patient_details.roomNo = origRoom;
+    }
+    if (origDoctor) {
+      updatedBill.doctor = origDoctor;
+      if (!updatedBill.patient_details) updatedBill.patient_details = {};
+      updatedBill.patient_details.doctor = origDoctor;
+    }
+    if (origDepartment) {
+      updatedBill.department = origDepartment;
+      if (!updatedBill.patient_details) updatedBill.patient_details = {};
+      updatedBill.patient_details.department = origDepartment;
+    }
+    if (ipVal) {
+      updatedBill.ip_number = ipVal;
+      updatedBill.ipNumber = ipVal;
+      if (!updatedBill.patient_details) updatedBill.patient_details = {};
+      updatedBill.patient_details.ip_number = ipVal;
+      updatedBill.patient_details.ipNumber = ipVal;
+    }
+
     setPrintBill({ bill: updatedBill, defaultViewMode });
   };
 
