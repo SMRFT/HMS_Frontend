@@ -379,6 +379,7 @@ const SearchableDropdown = ({
   displayKey = "name",
   valueKey = "id",
   disabled = false,
+  lockWhenSelected = false, // when true: once a value is selected, it can only be cleared via ×
 }) => {
   const getLabel = (val) => {
     if (!val) return "";
@@ -403,6 +404,9 @@ const SearchableDropdown = ({
   const listRef = useRef(null);
   const inputRef = useRef(null);
   const isSearchingRef = useRef(false);
+
+  // Locked = a value is selected and the field must only be cleared with ×
+  const locked = lockWhenSelected && !!value;
 
   // Only sync from outside when NOT actively typing
   useEffect(() => {
@@ -455,6 +459,7 @@ const SearchableDropdown = ({
   }, [isOpen, highlightedIndex]);
 
   const handleInputChange = (e) => {
+    if (locked) return; // locked: no typing, only × can clear
     const typed = e.target.value;
     isSearchingRef.current = true;
     setInputValue(typed);
@@ -498,6 +503,7 @@ const SearchableDropdown = ({
   };
 
   const handleFocus = () => {
+    if (locked) return; // locked: keep the label, don't open the list
     isSearchingRef.current = true;
     setInputValue(""); // clear text so user sees all options
     setIsOpen(true);
@@ -505,6 +511,16 @@ const SearchableDropdown = ({
   };
 
   const handleKeyDown = (e) => {
+    if (locked) {
+      // locked: Enter just advances to the next field; everything else is ignored
+      if (e.key === "Enter") {
+        e.preventDefault();
+        e.stopPropagation();
+        moveToNextField(e.target);
+      }
+      return;
+    }
+
     if (e.key === "ArrowDown") {
       e.preventDefault();
       if (!isOpen) {
@@ -575,7 +591,11 @@ const SearchableDropdown = ({
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           disabled={disabled}
-          style={{ paddingRight: value ? "28px" : undefined }}
+          readOnly={locked}
+          style={{
+            paddingRight: value ? "28px" : undefined,
+            ...(locked ? { cursor: "default", background: "#f1f5f9" } : {}),
+          }}
         />
         {value && !disabled && (
           <span
@@ -626,6 +646,12 @@ const normalizeGender = (g) => {
   if (s === "OTHER" || s === "O" || s === "TRANSGENDER") return "Other";
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 };
+
+// SYRINGE (SYG01) is identified by name / item_id only — it carries no test_id.
+const isSyringeItem = (p) =>
+  p?.billTypeNo === "SYG01" ||
+  (p?.itemName && String(p.itemName).trim().toUpperCase() === "SYRINGE") ||
+  String(p?.item_id) === "1";
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -765,14 +791,19 @@ const InvestigationBilling = () => {
       itemsArray = data.item;
     }
 
-    // Normalize items to ensure itemName, price, quantity, status are well-formed
-    itemsArray = itemsArray.map((it) => ({
-      ...it,
-      itemName: it.itemName || it.name || it.test_name || "",
-      price: it.price !== undefined ? it.price : 0,
-      quantity: it.quantity || 1,
-      status: it.status || "Result Pending",
-    }));
+    // Normalize items to ensure itemName, price, quantity, status are well-formed.
+    // SYRINGE (SYG01) must not carry test_id — item_id is enough.
+    itemsArray = itemsArray.map((it) => {
+      const { test_id, ...withoutTestId } = it;
+      const base = isSyringeItem(it) ? withoutTestId : it;
+      return {
+        ...base,
+        itemName: it.itemName || it.name || it.test_name || "",
+        price: it.price !== undefined ? it.price : 0,
+        quantity: it.quantity || 1,
+        status: it.status || "Result Pending",
+      };
+    });
 
     const resolvedBillName = data.bill_name || data.billType || "";
 
@@ -856,6 +887,12 @@ const InvestigationBilling = () => {
 
   // ── Bill type & item handlers ───────────────────────────────────────────────
 
+  const isLabBillType = (billName, billTypeNo) => {
+    const name = String(billName || "").trim().toUpperCase();
+    const no = String(billTypeNo || "").trim().toUpperCase();
+    return name.startsWith("LAB") || no.startsWith("LAB");
+  };
+
   const handleBillTypeChange = async (
     billName,
     billType,
@@ -866,9 +903,66 @@ const InvestigationBilling = () => {
   ) => {
     setIsDiscountAllowed(allowDiscount);
     setIsPriceEditable(Boolean(isEdit));
+
+    const isLab = isLabBillType(billName, billTypeNo);
+    // SYRINGE (SYG01): item_id only — no test_id
+    const syringeProduct = {
+      item_id: 1,
+      itemName: "SYRINGE",
+      billTypeNo: "SYG01",
+      price: 10,
+      rate: 10,
+      quantity: Number(quantity) > 0 ? Number(quantity) : 1,
+      nabh_code: "",
+      status: "Result Pending",
+    };
+
     if (clearProducts) {
-      setProductList([]);
+      if (isLab) {
+        setProductList([syringeProduct]);
+      } else {
+        setProductList([]);
+      }
+    } else {
+      if (isLab) {
+        const isInitialPatientLoad =
+          Boolean(location.state?.patientData?.investBillNo) &&
+          !billTypeInitialized.current;
+        if (!isInitialPatientLoad) {
+          setProductList((prev) => {
+            const hasSyringe = prev.some(
+              (p) =>
+                (p.itemName && p.itemName.trim().toUpperCase() === "SYRINGE") ||
+                String(p.item_id) === "1" ||
+                p.billTypeNo === "SYG01",
+            );
+            if (!hasSyringe) {
+              const updated = [...prev, syringeProduct];
+              setFormData((fPrev) => ({ ...fPrev, item: JSON.stringify(updated) }));
+              return updated;
+            }
+            return prev;
+          });
+        }
+      } else {
+        // If switching from Lab to non-Lab, remove auto-included SYRINGE
+        setProductList((prev) => {
+          const filtered = prev.filter(
+            (p) =>
+              !(
+                ((p.itemName && p.itemName.trim().toUpperCase() === "SYRINGE") ||
+                  String(p.item_id) === "1") &&
+                p.billTypeNo === "SYG01"
+              ),
+          );
+          if (filtered.length !== prev.length) {
+            setFormData((fPrev) => ({ ...fPrev, item: JSON.stringify(filtered) }));
+          }
+          return filtered;
+        });
+      }
     }
+
     setFormData((prev) => ({
       ...prev,
       billType: billName,
@@ -876,7 +970,7 @@ const InvestigationBilling = () => {
       billTypeNo: billTypeNo,
       ...(billTypeNo !== "PACK" ? { package_id: "" } : {}),
       ...(clearProducts && {
-        item: JSON.stringify([]),
+        item: JSON.stringify(isLab ? [syringeProduct] : []),
         ...(billTypeNo === "PACK" ? { total: 0 } : {}),
       }),
       ...(!allowDiscount && {
@@ -903,8 +997,27 @@ const InvestigationBilling = () => {
       `${HMSURL}investigation-items/?billTypeNo=${billTypeNo}&billType=${billType}`,
       "GET",
     );
-    if (result.success) setItems(result.data.items || []);
-    else setItems([]);
+    let fetchedItems = result.success ? (result.data.items || []) : [];
+    if (isLab) {
+      const hasSyringeInItems = fetchedItems.some(
+        (it) =>
+          (it.itemName && it.itemName.trim().toUpperCase() === "SYRINGE") ||
+          String(it.item_id) === "1",
+      );
+      if (!hasSyringeInItems) {
+        fetchedItems = [
+          {
+            item_id: 1,
+            itemName: "SYRINGE",
+            billTypeNo: "SYG01",
+            price: 10,
+            rate: 10,
+          },
+          ...fetchedItems,
+        ];
+      }
+    }
+    setItems(fetchedItems);
     setSelectedItem("");
     setSelectedPrice("");
   };
@@ -997,6 +1110,37 @@ const InvestigationBilling = () => {
     });
 
     if (isDuplicate) {
+      const isSyringe =
+        (selectedItem && selectedItem.trim().toUpperCase() === "SYRINGE") ||
+        String(obj?.item_id) === "1";
+      if (isSyringe) {
+        const updatedList = productList.map((p) => {
+          const matchName =
+            p.itemName &&
+            selectedItem &&
+            p.itemName.trim().toLowerCase() === selectedItem.trim().toLowerCase();
+          const matchTestId =
+            p.test_id && obj?.test_id && String(p.test_id) === String(obj.test_id);
+          const matchItemId =
+            p.item_id && obj?.item_id && String(p.item_id) === String(obj.item_id);
+          if (matchName || matchTestId || matchItemId) {
+            return {
+              ...p,
+              quantity: quantity,
+              price: selectedPrice !== "" ? selectedPrice : p.price,
+              rate: selectedPrice !== "" ? selectedPrice : p.rate,
+            };
+          }
+          return p;
+        });
+        setProductList(updatedList);
+        setFormData((prev) => ({ ...prev, item: JSON.stringify(updatedList) }));
+        toast.success(`Updated "${selectedItem}" quantity to ${quantity}.`);
+        setSelectedItem("");
+        setSelectedPrice("");
+        setQuantity(1);
+        return;
+      }
       toast.error(`"${selectedItem}" is already added to the list!`);
       return;
     }
@@ -1012,7 +1156,8 @@ const InvestigationBilling = () => {
       ...(obj?.non_nabh_rate !== undefined && obj?.non_nabh_rate !== null && { non_nabh_rate: obj.non_nabh_rate }),
       ...(obj?.no_nabh_rate !== undefined && obj?.no_nabh_rate !== null && { no_nabh_rate: obj.no_nabh_rate }),
       status: "Result Pending",
-      ...(obj?.test_id && { test_id: obj.test_id }),
+      // SYRINGE (SYG01) carries item_id only — never test_id
+      ...(obj?.test_id && !isSyringeItem(obj) && { test_id: obj.test_id }),
       ...(obj?.item_id && { item_id: obj.item_id }),
     };
     const updatedList = [...productList, newProduct];
@@ -1514,11 +1659,10 @@ const InvestigationBilling = () => {
                       String(formData.paymentMethod).toLowerCase() === "cash"
                         ? "#047857"
                         : "#1d4ed8",
-                    border: `1px solid ${
-                      String(formData.paymentMethod).toLowerCase() === "cash"
-                        ? "#a7f3d0"
-                        : "#bfdbfe"
-                    }`,
+                    border: `1px solid ${String(formData.paymentMethod).toLowerCase() === "cash"
+                      ? "#a7f3d0"
+                      : "#bfdbfe"
+                      }`,
                   }}
                 >
                   {formData.paymentMethod || "—"}
@@ -1609,10 +1753,10 @@ const InvestigationBilling = () => {
                       🕒{" "}
                       {h.modified_date
                         ? new Date(
-                            h.modified_date.endsWith("Z")
-                              ? h.modified_date
-                              : h.modified_date + "Z",
-                          ).toLocaleString("en-IN")
+                          h.modified_date.endsWith("Z")
+                            ? h.modified_date
+                            : h.modified_date + "Z",
+                        ).toLocaleString("en-IN")
                         : ""}
                     </span>
                   </div>
@@ -1865,9 +2009,10 @@ const InvestigationBilling = () => {
               <Label required>Bill Type</Label>
               <SearchableDropdown
                 value={formData.billType}
+                lockWhenSelected
                 onChange={(billName) => {
                   if (!billName) {
-                    // ← This is what's missing. Clear all bill type state.
+                    // Cleared via × → reset all bill type state.
                     setFormData((prev) => ({
                       ...prev,
                       billType: "",
@@ -2067,7 +2212,36 @@ const InvestigationBilling = () => {
                     {productList.map((product, index) => (
                       <Tr key={index}>
                         <Td>{product.itemName}</Td>
-                        <Td>{product.quantity}</Td>
+                        <Td>
+                          {selectedBillTypeNo === "PACK" ? (
+                            product.quantity
+                          ) : (
+                            <input
+                              type="number"
+                              min="1"
+                              value={product.quantity}
+                              onChange={(e) => {
+                                const val = Math.max(1, parseInt(e.target.value, 10) || 1);
+                                const updatedList = productList.map((p, i) =>
+                                  i === index ? { ...p, quantity: val } : p
+                                );
+                                setProductList(updatedList);
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  item: JSON.stringify(updatedList),
+                                }));
+                              }}
+                              style={{
+                                width: "60px",
+                                padding: "3px 6px",
+                                border: "1px solid #cbd5e1",
+                                borderRadius: "4px",
+                                textAlign: "center",
+                                fontSize: "13px",
+                              }}
+                            />
+                          )}
+                        </Td>
                         {selectedBillTypeNo !== "PACK" && (
                           <Td>
                             ₹ {(product.price * product.quantity).toFixed(2)}

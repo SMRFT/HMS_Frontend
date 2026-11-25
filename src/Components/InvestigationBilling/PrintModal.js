@@ -235,26 +235,54 @@ function buildBillHtml(bill, doctors, size, isEstimate = false, isDuplicate = fa
     0,
   );
 
-  const billTotal =
-    items.length > 0 ? calculatedItemsTotal : parseFloat(bill.total || 0);
-
-  const originalTotal = parseFloat(bill.total || calculatedItemsTotal || 0);
-  let billDiscount = parseFloat(bill.discount || 0);
-  const discountPercent = parseFloat(bill.discountPercent || 0);
-
-  if (discountPercent > 0) {
-    billDiscount = (billTotal * discountPercent) / 100;
-  } else if (originalTotal > 0 && billTotal < originalTotal && billDiscount > 0) {
-    billDiscount = (billTotal / originalTotal) * billDiscount;
-  } else if (billTotal === 0) {
-    billDiscount = 0;
-  }
-  billDiscount = Math.round(billDiscount * 100) / 100;
-
-  const billFinalPrice = Math.max(
-    0,
-    Math.round((billTotal - billDiscount) * 100) / 100,
+  const isPackage = Boolean(
+    bill.package_id ||
+      bill.billTypeNo === "PACK" ||
+      bill.billType === "PACK" ||
+      (typeof bill.bill_name === "string" && bill.bill_name.toUpperCase().includes("PACK")),
   );
+
+  let billTotal;
+  let billDiscount = parseFloat(bill.discount || 0);
+  let billFinalPrice;
+
+  if (isPackage || (calculatedItemsTotal === 0 && (parseFloat(bill.total || 0) > 0 || parseFloat(bill.finalPrice || 0) > 0))) {
+    // Package bills have 0-price line items because the entire package is billed as a bundle.
+    // Use the package's stored total and finalPrice.
+    billTotal = parseFloat(bill.total || bill.finalPrice || 0);
+    const discountPercent = parseFloat(bill.discountPercent || 0);
+    if (discountPercent > 0) {
+      billDiscount = (billTotal * discountPercent) / 100;
+    }
+    billDiscount = Math.round(billDiscount * 100) / 100;
+    billFinalPrice = parseFloat(
+      bill.finalPrice !== undefined && bill.finalPrice !== null && bill.finalPrice !== ""
+        ? bill.finalPrice
+        : billTotal - billDiscount,
+    );
+    billFinalPrice = Math.max(0, Math.round(billFinalPrice * 100) / 100);
+  } else {
+    // Standard investigation bills: recalculate dynamically from remaining active items (handles refunds)
+    billTotal =
+      items.length > 0 ? calculatedItemsTotal : parseFloat(bill.total || 0);
+
+    const originalTotal = parseFloat(bill.total || calculatedItemsTotal || 0);
+    const discountPercent = parseFloat(bill.discountPercent || 0);
+
+    if (discountPercent > 0) {
+      billDiscount = (billTotal * discountPercent) / 100;
+    } else if (originalTotal > 0 && billTotal < originalTotal && billDiscount > 0) {
+      billDiscount = (billTotal / originalTotal) * billDiscount;
+    } else if (billTotal === 0) {
+      billDiscount = 0;
+    }
+    billDiscount = Math.round(billDiscount * 100) / 100;
+
+    billFinalPrice = Math.max(
+      0,
+      Math.round((billTotal - billDiscount) * 100) / 100,
+    );
+  }
   const doctorName = resolveDoctor(bill.doctor, doctors);
   const roomNo = bill.roomNo ? String(bill.roomNo).trim() : "";
   const patientName = fmtName(bill.salutation, bill.firstName, bill.lastName);
