@@ -111,7 +111,16 @@ const PrintTable = styled.table`
 
 /* ─── Component ─────────────────────────────────────────────────────────── */
 
-const MasterAdvanceRegistration = ({ isModalView = false, startDate, endDate, outlet: propOutlet, initialOutlet }) => {
+const MasterAdvanceRegistration = ({ 
+    isModalView = false, 
+    startDate, 
+    endDate, 
+    outlet: propOutlet, 
+    initialOutlet,
+    cardMachine = "all",
+    selectedCardMachine: propCardMachine,
+    onLoadOptions
+}) => {
     const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
     const effectiveOutlet = propOutlet || initialOutlet || "all";
@@ -119,9 +128,16 @@ const MasterAdvanceRegistration = ({ isModalView = false, startDate, endDate, ou
     const [fromDate, setFromDate] = useState(startDate || dayjs().format("YYYY-MM-DD"));
     const [toDate, setToDate]     = useState(endDate   || dayjs().format("YYYY-MM-DD"));
     const [outlet, setOutlet]     = useState(effectiveOutlet);
+    const [selectedCardMachine, setSelectedCardMachine] = useState(cardMachine || propCardMachine || "all");
     const [outletsList, setOutletsList] = useState([]);
     const [reportData, setReportData]   = useState([]);
     const [loading, setLoading]         = useState(false);
+
+    /* sync props */
+    useEffect(() => {
+        const cm = cardMachine || propCardMachine;
+        if (cm !== undefined && cm !== selectedCardMachine) setSelectedCardMachine(cm);
+    }, [cardMachine, propCardMachine]);
 
     /* sync props */
     useEffect(() => {
@@ -190,11 +206,39 @@ const MasterAdvanceRegistration = ({ isModalView = false, startDate, endDate, ou
 
     useEffect(() => { fetchReport(); }, [fetchReport]);
 
+    /* ── Card Machines List & Filtered Data ───────────────────────────────── */
+    const cardMachinesList = useMemo(() => {
+        const set = new Set();
+        (reportData || []).forEach(r => {
+            if (r.card_machine) set.add(r.card_machine);
+            else if (r.card_number && !/^\d+$/.test(r.card_number)) set.add(r.card_number);
+        });
+        return Array.from(set).sort();
+    }, [reportData]);
+
+    useEffect(() => {
+        if (onLoadOptions && reportData && reportData.length > 0) {
+            onLoadOptions({
+                cardMachines: cardMachinesList
+            });
+        }
+    }, [onLoadOptions, cardMachinesList, reportData]);
+
+    const filteredReportData = useMemo(() => {
+        if (!Array.isArray(reportData)) return [];
+        if (selectedCardMachine === "all") return reportData;
+        const cmFilter = selectedCardMachine.toLowerCase().trim();
+        return reportData.filter(r => {
+            const cm = String(r.card_machine || r.card_number || "").toLowerCase().trim();
+            return cm === cmFilter || cm.includes(cmFilter);
+        });
+    }, [reportData, selectedCardMachine]);
+
     /* ── Group by date ─────────────────────────────────────────────────── */
     const groupedData = useMemo(() => {
         const groups = {};
-        if (!Array.isArray(reportData)) return groups;
-        reportData.forEach(item => {
+        if (!Array.isArray(filteredReportData)) return groups;
+        filteredReportData.forEach(item => {
             const rawDate = item.paid_date || item.date || item.created_date || item.admission_date;
             let dateKey = "Others";
             if (rawDate) {
@@ -205,31 +249,53 @@ const MasterAdvanceRegistration = ({ isModalView = false, startDate, endDate, ou
             groups[dateKey].push(item);
         });
         return groups;
-    }, [reportData]);
+    }, [filteredReportData]);
+
+    /* ── Helpers ───────────────────────────────────────────────────────── */
+    const getCashCredit = (row) => {
+        let cash = row.cash_amount !== undefined && row.cash_amount !== null 
+            ? Number(row.cash_amount) 
+            : (row.cash !== undefined && row.cash !== null ? Number(row.cash) : null);
+        let credit = row.credit_amount !== undefined && row.credit_amount !== null 
+            ? Number(row.credit_amount) 
+            : (row.credit !== undefined && row.credit !== null ? Number(row.credit) : null);
+
+        if (credit === null || credit === undefined) {
+            const nonCash = Number(row.bank_amount || row.bank || row.card_amount || row.card || row.credit_card_amount || 0);
+            if (nonCash > 0) credit = nonCash;
+        }
+
+        if (cash === null && credit === null) {
+            const mode = String(row.payment_mode || "").toLowerCase();
+            const amt = Number(row.amount || row.advance_amount || row.gross || 0);
+            if (mode === "cash") {
+                cash = amt;
+                credit = 0;
+            } else if (mode.includes("card") || mode.includes("upi") || mode.includes("bank") || mode.includes("credit") || mode.includes("online")) {
+                cash = 0;
+                credit = amt;
+            } else {
+                cash = 0;
+                credit = amt;
+            }
+        }
+
+        const sc = isNaN(cash) || cash === null ? 0 : Number(cash);
+        const sk = isNaN(credit) || credit === null ? 0 : Number(credit);
+        return { sc, sk };
+    };
 
     /* ── Grand totals ──────────────────────────────────────────────────── */
     const grandTotals = useMemo(() => {
-        if (!Array.isArray(reportData)) return { cash: 0, credit: 0, total: 0 };
-        return reportData.reduce((acc, row) => {
-            const cash   = Number(row.cash_amount   ?? ((row.payment_mode || "").toLowerCase() === "cash" ? row.amount : 0) ?? 0);
-            const credit = Number(row.credit_amount || row.credit_card_amount || row.bank_amount ||
-                                  ((row.payment_mode || "").toLowerCase() !== "cash" ? row.amount : 0) || 0);
-            const sc = isNaN(cash)   ? 0 : cash;
-            const sk = isNaN(credit) ? 0 : credit;
+        if (!Array.isArray(filteredReportData)) return { cash: 0, credit: 0, total: 0 };
+        return filteredReportData.reduce((acc, row) => {
+            const { sc, sk } = getCashCredit(row);
             acc.cash   += sc;
             acc.credit += sk;
             acc.total  += sc + sk;
             return acc;
         }, { cash: 0, credit: 0, total: 0 });
     }, [reportData]);
-
-    /* ── Helpers ───────────────────────────────────────────────────────── */
-    const getCashCredit = (row) => {
-        const cash   = Number(row.cash_amount   ?? ((row.payment_mode || "").toLowerCase() === "cash"  ? row.amount : 0) ?? 0);
-        const credit = Number(row.credit_amount || row.credit_card_amount || row.bank_amount ||
-                              ((row.payment_mode || "").toLowerCase() !== "cash" ? row.amount : 0) || 0);
-        return { sc: isNaN(cash) ? 0 : cash, sk: isNaN(credit) ? 0 : credit };
-    };
 
     /* ── Print ─────────────────────────────────────────────────────────── */
     const handlePrint = () => printAccountsReport("printable-advance-master-area", "portrait");
@@ -338,6 +404,16 @@ const MasterAdvanceRegistration = ({ isModalView = false, startDate, endDate, ou
                                 </Select>
                             </InputWrapper>
 
+                            <InputWrapper>
+                                <Label>Card Machine</Label>
+                                <Select value={selectedCardMachine} onChange={e => setSelectedCardMachine(e.target.value)}>
+                                    <option value="all">All Machines</option>
+                                    {cardMachinesList.map(m => (
+                                        <option key={m} value={m}>{m}</option>
+                                    ))}
+                                </Select>
+                            </InputWrapper>
+
                             <div style={{ display: "flex", gap: "10px", alignItems: "flex-end" }}>
                                 <Button onClick={fetchReport} disabled={loading} style={{ height: "40px" }}>
                                     <FaSearch style={{ marginRight: "8px" }} />
@@ -440,6 +516,11 @@ const MasterAdvanceRegistration = ({ isModalView = false, startDate, endDate, ou
                                                     </Td>
                                                     <Td style={{ textAlign: "right", color: sk > 0 ? (colors.primary || "#0284c7") : "inherit" }}>
                                                         {sk > 0 ? sk.toFixed(2) : "0.00"}
+                                                        {Boolean(sk > 0 && row.card_machine) && (
+                                                            <span style={{ fontSize: "0.72rem", background: "#e0e7ff", color: "#3730a3", padding: "1px 5px", borderRadius: "4px", marginLeft: "4px" }}>
+                                                                {row.card_machine}
+                                                            </span>
+                                                        )}
                                                     </Td>
                                                     <Td style={{ textTransform: "uppercase", fontSize: "0.85rem" }}>
                                                         {row.user || row.created_by || row.cashier_name || row.cashier_id || "STAFF"}

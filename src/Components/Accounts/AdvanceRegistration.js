@@ -121,13 +121,43 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate, initialS
         return groups;
     }, [reportData]);
 
+    const getCashCredit = (row) => {
+        let cash = row.cash_amount !== undefined && row.cash_amount !== null 
+            ? Number(row.cash_amount) 
+            : (row.cash !== undefined && row.cash !== null ? Number(row.cash) : null);
+        let credit = row.credit_amount !== undefined && row.credit_amount !== null 
+            ? Number(row.credit_amount) 
+            : (row.credit !== undefined && row.credit !== null ? Number(row.credit) : null);
+
+        if (credit === null || credit === undefined) {
+            const nonCash = Number(row.bank_amount || row.bank || row.card_amount || row.card || row.credit_card_amount || 0);
+            if (nonCash > 0) credit = nonCash;
+        }
+
+        if (cash === null && credit === null) {
+            const mode = String(row.payment_mode || "").toLowerCase();
+            const amt = Number(row.amount || row.advance_amount || row.gross || 0);
+            if (mode === "cash") {
+                cash = amt;
+                credit = 0;
+            } else if (mode.includes("card") || mode.includes("upi") || mode.includes("bank") || mode.includes("credit") || mode.includes("online")) {
+                cash = 0;
+                credit = amt;
+            } else {
+                cash = 0;
+                credit = amt;
+            }
+        }
+
+        const safeCash = isNaN(cash) || cash === null ? 0 : Number(cash);
+        const safeCredit = isNaN(credit) || credit === null ? 0 : Number(credit);
+        return { safeCash, safeCredit };
+    };
+
     const grandTotals = useMemo(() => {
         if (!Array.isArray(reportData)) return { cash: 0, credit: 0, total: 0 };
         return reportData.reduce((acc, curr) => {
-            const cash = Number(curr.cash_amount ?? ((curr.payment_mode || "").toLowerCase() === "cash" ? curr.amount : 0) ?? 0);
-            const credit = Number(curr.credit_amount || curr.credit_card_amount || curr.bank_amount || ((curr.payment_mode || "").toLowerCase() !== "cash" ? curr.amount : 0) || 0);
-            const safeCash = isNaN(cash) ? 0 : cash;
-            const safeCredit = isNaN(credit) ? 0 : credit;
+            const { safeCash, safeCredit } = getCashCredit(curr);
             acc.cash += safeCash;
             acc.credit += safeCredit;
             acc.total += (safeCash + safeCredit);
@@ -153,10 +183,7 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate, initialS
                 let dayCredit = 0;
 
                 items.forEach((row) => {
-                    const cash = Number(row.cash_amount ?? ((row.payment_mode || "").toLowerCase() === "cash" ? row.amount : 0) ?? 0);
-                    const credit = Number(row.credit_amount || row.credit_card_amount || row.bank_amount || ((row.payment_mode || "").toLowerCase() !== "cash" ? row.amount : 0) || 0);
-                    const safeCash = isNaN(cash) ? 0 : cash;
-                    const safeCredit = isNaN(credit) ? 0 : credit;
+                    const { safeCash, safeCredit } = getCashCredit(row);
                     dayCash += safeCash;
                     dayCredit += safeCredit;
 
@@ -321,10 +348,7 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate, initialS
                                             </Td>
                                         </Tr>
                                         {items.map((row, rowIdx) => {
-                                            const cash = Number(row.cash_amount ?? ((row.payment_mode || "").toLowerCase() === "cash" ? row.amount : 0) ?? 0);
-                                            const credit = Number(row.credit_amount || row.credit_card_amount || row.bank_amount || ((row.payment_mode || "").toLowerCase() !== "cash" ? row.amount : 0) || 0);
-                                            const safeCash = isNaN(cash) ? 0 : cash;
-                                            const safeCredit = isNaN(credit) ? 0 : credit;
+                                            const { safeCash, safeCredit } = getCashCredit(row);
                                             dayCash += safeCash;
                                             dayCredit += safeCredit;
                                             const sl = runningIndex++;
@@ -450,10 +474,7 @@ const AdvanceRegistration = ({ isModalView = false, startDate, endDate, initialS
                                             </td>
                                         </tr>
                                         {items.map((row, rowIdx) => {
-                                            const cash = Number(row.cash_amount ?? ((row.payment_mode || "").toLowerCase() === "cash" ? row.amount : 0) ?? 0);
-                                            const credit = Number(row.credit_amount || row.credit_card_amount || row.bank_amount || ((row.payment_mode || "").toLowerCase() !== "cash" ? row.amount : 0) || 0);
-                                            const safeCash = isNaN(cash) ? 0 : cash;
-                                            const safeCredit = isNaN(credit) ? 0 : credit;
+                                            const { safeCash, safeCredit } = getCashCredit(row);
                                             dayCash += safeCash;
                                             dayCredit += safeCredit;
                                             const curSl = printSl++;

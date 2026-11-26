@@ -1227,13 +1227,27 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
         setBillTypeOptions(allBillTypes);
 
         if (allBillTypes.length > 0) {
-          const defaultOpt =
-            allBillTypes.find(
-              (b) =>
-                b.bill_name?.toUpperCase().includes("PHARMACY IP") ||
-                (b.outlet_code === "OLET001" && b.billTypeNo === "PH01") ||
-                b.outlet_code === "OLET001"
-            ) || allBillTypes[0];
+          // Auto-select bill type matching admission details
+          let defaultOpt = null;
+          const admBt = patient?.bill_type || patient?.billType;
+          const admBtNo = (patient?.billTypeNo || patient?.bill_type_no || "").toUpperCase();
+          const admOutlet = (patient?.outlet_code || "").toUpperCase();
+
+          if (admBt) {
+            defaultOpt = allBillTypes.find((b) => String(b.bill_type) === String(admBt));
+          }
+          if (!defaultOpt && admBtNo) {
+            defaultOpt = allBillTypes.find((b) => String(b.billTypeNo).toUpperCase() === admBtNo);
+          }
+          if (!defaultOpt) {
+            defaultOpt =
+              allBillTypes.find(
+                (b) =>
+                  b.bill_name?.toUpperCase().includes("PHARMACY IP") ||
+                  (b.outlet_code === "OLET001" && b.billTypeNo === "PH01") ||
+                  (admOutlet && b.outlet_code === admOutlet)
+              ) || allBillTypes[0];
+          }
 
           if (defaultOpt) {
             setBillTypeNo(defaultOpt.billTypeNo);
@@ -1284,15 +1298,35 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
             : []
         : [];
 
-      const filtered = list.map((item) => ({
-        id: item.item_id + "_" + item.batch_number,
-        item_id: item.item_id,
-        batch_number: item.batch_number,
-        name: item.item_name,
-        price: item.mrp || item.Selling_Price || item.price || 0,
-        total_stock: item.available_stock != null ? item.available_stock : (item.total_stock || 0),
-        expiry_date: item.expiry_date || "-",
-      }));
+      // Group by item_id so all batches of a medicine are combined into a single entry with overall total stock
+      const itemMap = new Map();
+      list.forEach((item) => {
+        const iid = String(item.item_id);
+        const avail = item.available_stock != null ? Number(item.available_stock) : Number(item.total_stock || 0);
+        const stockQty = Math.max(0, isNaN(avail) ? 0 : avail);
+        const p = Number(item.mrp || item.Selling_Price || item.price || 0);
+
+        if (!itemMap.has(iid)) {
+          itemMap.set(iid, {
+            id: iid,
+            item_id: item.item_id,
+            batch_number: "", // Ward requests do not pre-assign batch
+            name: item.item_name || item.name,
+            price: p,
+            total_stock: stockQty,
+            category: item.category || "",
+            shelf_no: item.shelf_no || "",
+            rack_no: item.rack_no || "",
+            batch_count: 1
+          });
+        } else {
+          const existing = itemMap.get(iid);
+          existing.total_stock += stockQty;
+          existing.batch_count += 1;
+          if (p > 0 && existing.price === 0) existing.price = p;
+        }
+      });
+      const filtered = Array.from(itemMap.values());
       setSearchResults(filtered);
     } catch (e) {
       console.error("Search error", e);
@@ -1957,11 +1991,28 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
               {/* Row 2: Medicine Name with Search & Package */}
               <div style={{ marginBottom: "10px" }}>
                 <FormItem>
-                  <FormLabel>Medicine Name</FormLabel>
+                  <FormLabel style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span>Medicine Name</span>
+                    {selectedDrug && (
+                      <span
+                        style={{
+                          fontSize: "0.75rem",
+                          fontWeight: 700,
+                          color: selectedDrug.total_stock > 0 ? "#0d8a7a" : "#ef4444",
+                          background: selectedDrug.total_stock > 0 ? "#e6f9f3" : "#fee2e2",
+                          padding: "2px 8px",
+                          borderRadius: "10px",
+                          border: `1px solid ${selectedDrug.total_stock > 0 ? "#a7f3d0" : "#fca5a5"}`
+                        }}
+                      >
+                        Total Stock: {selectedDrug.total_stock}
+                      </span>
+                    )}
+                  </FormLabel>
                   <div style={{ display: "flex", gap: "6px" }}>
                     <StyledInput
                       style={{ flex: 1 }}
-                      placeholder="Search medicine (min 3 chars)..."
+                      placeholder="Search medicine (e.g. Dolo, NS 100, Pantop)..."
                       value={selectedDrug ? selectedDrug.name : searchQuery}
                       onChange={(e) => {
                         if (selectedDrug) setSelectedDrug(null);
@@ -2842,16 +2893,13 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
                           Item Name
                         </th>
                         <th style={{ padding: "10px", textAlign: "left" }}>
-                          Batch No
-                        </th>
-                        <th style={{ padding: "10px", textAlign: "left" }}>
-                          Expiry
+                          Category
                         </th>
                         <th style={{ padding: "10px", textAlign: "right" }}>
                           MRP (₹)
                         </th>
                         <th style={{ padding: "10px", textAlign: "right" }}>
-                          Stock
+                          Overall Available Stock
                         </th>
                         <th style={{ padding: "10px", textAlign: "center" }}>
                           Action
@@ -2875,21 +2923,40 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
                           }}
                         >
                           <td style={{ padding: "10px", fontWeight: idx === highlightedMedicineIndex ? 700 : 500, color: idx === highlightedMedicineIndex ? "#0d8a7a" : "inherit" }}>
-                            {item.name}
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                              <span>{item.name}</span>
+                              {item.batch_count > 1 && (
+                                <span style={{
+                                  fontSize: "0.7rem",
+                                  fontWeight: 700,
+                                  background: "#f1f5f9",
+                                  color: "#475569",
+                                  border: "1px solid #cbd5e1",
+                                  padding: "1px 6px",
+                                  borderRadius: "4px"
+                                }}>
+                                  {item.batch_count} Batches
+                                </span>
+                              )}
+                            </div>
                           </td>
-                          <td style={{ padding: "10px" }}>
-                            {item.batch_number}
-                          </td>
-                          <td style={{ padding: "10px" }}>
-                            {item.expiry_date && item.expiry_date !== "-"
-                              ? new Date(item.expiry_date).toLocaleDateString()
-                              : "-"}
+                          <td style={{ padding: "10px", color: colors.textMuted }}>
+                            {item.category || "-"}
                           </td>
                           <td style={{ padding: "10px", textAlign: "right" }}>
                             {Number(item.price).toFixed(2)}
                           </td>
-                          <td style={{ padding: "10px", textAlign: "right" }}>
-                            {item.total_stock}
+                          <td style={{ padding: "10px", textAlign: "right", fontWeight: 700 }}>
+                            <span style={{
+                              display: "inline-block",
+                              padding: "2px 8px",
+                              borderRadius: "6px",
+                              background: item.total_stock > 0 ? "#e6f9f3" : "#fee2e2",
+                              color: item.total_stock > 0 ? "#0d8a7a" : "#dc2626",
+                              border: `1px solid ${item.total_stock > 0 ? "#a7f3d0" : "#fca5a5"}`
+                            }}>
+                              {item.total_stock}
+                            </span>
                           </td>
                           <td style={{ padding: "10px", textAlign: "center" }}>
                             <button

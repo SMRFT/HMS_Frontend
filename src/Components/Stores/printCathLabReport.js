@@ -139,6 +139,8 @@ export const printCathLabIntentsLog = (intentsList = [], options = {}) => {
                     ${timeStr ? `<div style="font-size: 7.5pt; color: #64748b;">${timeStr}</div>` : ""}
                 </td>
                 <td style="font-family: monospace; font-weight: 700; color: #0f172a;">${intent.intent_id || "-"}</td>
+                <td style="font-weight: 700; color: #0f172a;">${intent.patient_name || "—"}</td>
+                <td style="font-family: monospace; font-weight: 600; color: #475569;">${intent.uhid || "—"}</td>
                 <td style="font-weight: 600; color: #1e40af;">${intent.ipnumber ? intent.ipnumber : "—"}</td>
                 <td style="color: #334155;">${itemsSummary}</td>
                 <td style="text-align: center; font-weight: 700; color: #0f172a;">${totalReq}</td>
@@ -286,20 +288,22 @@ export const printCathLabIntentsLog = (intentsList = [], options = {}) => {
         <thead>
             <tr>
                 <th style="width: 35px; text-align: center;">#</th>
-                <th style="width: 110px; text-align: left;">DATE & TIME</th>
-                <th style="width: 130px; text-align: left;">INTENT ID</th>
-                <th style="width: 110px; text-align: left;">IP NUMBER</th>
+                <th style="width: 100px; text-align: left;">DATE & TIME</th>
+                <th style="width: 115px; text-align: left;">INTENT ID</th>
+                <th style="width: 140px; text-align: left;">PATIENT NAME</th>
+                <th style="width: 95px; text-align: left;">UHID</th>
+                <th style="width: 95px; text-align: left;">IP NUMBER</th>
                 <th style="text-align: left;">ITEMS DESCRIPTION</th>
-                <th style="width: 90px; text-align: center;">FOR BILL</th>
-                <th style="width: 120px; text-align: right;">TOTAL AMOUNT</th>
+                <th style="width: 80px; text-align: center;">FOR BILL</th>
+                <th style="width: 110px; text-align: right;">TOTAL AMOUNT</th>
             </tr>
         </thead>
         <tbody>
-            ${tableRowsHtml || `<tr><td colspan="7" style="text-align: center; padding: 24px; color: #94a3b8;">No Cath Lab requisitions recorded for this period.</td></tr>`}
+            ${tableRowsHtml || `<tr><td colspan="9" style="text-align: center; padding: 24px; color: #94a3b8;">No Cath Lab requisitions recorded for this period.</td></tr>`}
         </tbody>
         <tfoot>
             <tr>
-                <td colspan="5" style="text-align: right; color: #0f172a;">GRAND TOTAL:</td>
+                <td colspan="7" style="text-align: right; color: #0f172a;">GRAND TOTAL:</td>
                 <td style="text-align: center; color: #0f172a;">${totalUnitsAll} units</td>
                 <td style="text-align: right; color: #0d9488;">₹${formatCurrency(grandTotalAmtAll)}</td>
             </tr>
@@ -528,6 +532,14 @@ export const printCathLabSingleIntent = (intent, options = {}) => {
         <div class="info-row">
             <span class="info-label">Department:</span>
             <span class="info-val">Cath lab (DEPT027)</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Patient Name:</span>
+            <span class="info-val" style="font-size: 9.5pt; color: #0f172a;">${intent.patient_name || "—"}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">UHID:</span>
+            <span class="info-val" style="font-family: monospace; color: #475569;">${intent.uhid || "—"}</span>
         </div>
         <div class="info-row">
             <span class="info-label">Patient IP No:</span>

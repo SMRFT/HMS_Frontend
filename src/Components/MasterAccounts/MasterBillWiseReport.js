@@ -21,7 +21,8 @@ import {
     KPICard,
     DataTableWrapper,
     ReportPrintHeader,
-    ReportPrintFooter
+    ReportPrintFooter,
+    matchCategoryOrBillType
 } from "./masterAccountsHelper";
 
 const { RangePicker } = DatePicker;
@@ -147,18 +148,27 @@ const MasterBillWiseReport = ({
     startDate, 
     endDate, 
     outlet: propOutlet, 
-    initialOutlet = "all" 
+    initialOutlet = "all",
+    billType,
+    initialBillType,
+    category,
+    cardMachine,
+    selectedCardMachine: propCardMachine,
+    onLoadOptions
 }) => {
     const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
     const effectiveOutlet = propOutlet || initialOutlet || "all";
+    const effectiveCategory = billType || initialBillType || category || "all";
     const [dateRange, setDateRange] = useState([
         startDate ? dayjs(startDate) : dayjs(),
         endDate ? dayjs(endDate) : dayjs()
     ]);
     const [outlet, setOutlet] = useState(effectiveOutlet);
     const [outletsList, setOutletsList] = useState([]);
-    const [selectedCategory, setSelectedCategory] = useState("all");
+    const [selectedCategory, setSelectedCategory] = useState(effectiveCategory);
+    const [selectedCardType, setSelectedCardType] = useState("all");
+    const [selectedCardMachine, setSelectedCardMachine] = useState(cardMachine || propCardMachine || "all");
     const [loading, setLoading] = useState(false);
     const [reportData, setReportData] = useState(null);
     const [searchTerm, setSearchTerm] = useState("");
@@ -177,6 +187,22 @@ const MasterBillWiseReport = ({
             setOutlet(o);
         }
     }, [propOutlet, initialOutlet]);
+
+    /* Synchronize category / billType */
+    useEffect(() => {
+        const c = billType || initialBillType || category;
+        if (c !== undefined && c !== selectedCategory) {
+            setSelectedCategory(c);
+        }
+    }, [billType, initialBillType, category]);
+
+    /* Synchronize card machine */
+    useEffect(() => {
+        const cm = cardMachine || propCardMachine;
+        if (cm !== undefined && cm !== selectedCardMachine) {
+            setSelectedCardMachine(cm);
+        }
+    }, [cardMachine, propCardMachine]);
 
     /* Load outlets */
     useEffect(() => {
@@ -223,16 +249,65 @@ const MasterBillWiseReport = ({
     const categoryList = useMemo(() => {
         const set = new Set();
         bills.forEach(b => {
-            if (b.category) set.add(b.category);
+            if (b.category) set.add(String(b.category).trim());
         });
-        return Array.from(set);
+        return Array.from(set).sort();
     }, [bills]);
 
-    /* Filter by category and search */
+    const cardTypeList = useMemo(() => {
+        const set = new Set();
+        bills.forEach(b => {
+            if (b.card_type) set.add(b.card_type);
+            if (b.card_machine) set.add(b.card_machine);
+        });
+        return Array.from(set).sort();
+    }, [bills]);
+
+    const cardMachinesList = useMemo(() => {
+        const set = new Set();
+        bills.forEach(b => {
+            if (b.card_machine) set.add(b.card_machine);
+            else if (b.card_number && !/^\d+$/.test(b.card_number)) set.add(b.card_number);
+        });
+        return Array.from(set).sort();
+    }, [bills]);
+
+    useEffect(() => {
+        if (onLoadOptions && reportData) {
+            onLoadOptions({
+                categories: categoryList,
+                cardMachines: cardMachinesList
+            });
+        }
+    }, [onLoadOptions, categoryList, cardMachinesList, reportData]);
+
+    /* Filter by category, card type, card machine and search */
     const filtered = useMemo(() => {
         let list = bills;
-        if (selectedCategory !== "all") {
-            list = list.filter(b => b.category === selectedCategory);
+        if (selectedCategory && selectedCategory.toLowerCase() !== "all") {
+            list = list.filter(b => matchCategoryOrBillType(b.category, selectedCategory, b.module || b.bill_type_name));
+        }
+        if (selectedCardType !== "all") {
+            const ctFilter = selectedCardType.toLowerCase().trim();
+            list = list.filter(b => {
+                if (ctFilter === "cash") {
+                    return (cleanNum(b.cash) > 0 && cleanNum(b.bank) === 0) || String(b.payment_mode || "").toLowerCase() === "cash";
+                }
+                if (ctFilter === "card" || ctFilter === "card / pos") {
+                    return cleanNum(b.bank) > 0 || String(b.payment_mode || "").toLowerCase().includes("card");
+                }
+                const ct = String(b.card_type || "").toLowerCase().trim();
+                const cm = String(b.card_machine || "").toLowerCase().trim();
+                const pm = String(b.payment_mode || "").toLowerCase().trim();
+                return ct === ctFilter || cm === ctFilter || cm.includes(ctFilter) || pm.includes(ctFilter);
+            });
+        }
+        if (selectedCardMachine !== "all") {
+            const cmFilter = selectedCardMachine.toLowerCase().trim();
+            list = list.filter(b => {
+                const cm = String(b.card_machine || b.card_number || "").toLowerCase().trim();
+                return cm === cmFilter || cm.includes(cmFilter);
+            });
         }
         if (searchTerm.trim()) {
             const q = searchTerm.toLowerCase();
@@ -242,7 +317,9 @@ const MasterBillWiseReport = ({
                 String(b.mr_no || b.uhid || "").toLowerCase().includes(q) ||
                 String(b.ip_number || "").toLowerCase().includes(q) ||
                 String(b.category || "").toLowerCase().includes(q) ||
-                String(b.payment_mode || "").toLowerCase().includes(q)
+                String(b.payment_mode || "").toLowerCase().includes(q) ||
+                String(b.card_type || "").toLowerCase().includes(q) ||
+                String(b.card_machine || "").toLowerCase().includes(q)
             );
         }
         return [...list].sort((a, b) => {
@@ -250,7 +327,7 @@ const MasterBillWiseReport = ({
             const s2 = String(b.bill_no || "").trim();
             return s1.localeCompare(s2, undefined, { numeric: true, sensitivity: 'base' });
         });
-    }, [bills, selectedCategory, searchTerm]);
+    }, [bills, selectedCategory, selectedCardType, selectedCardMachine, searchTerm]);
 
     /* Calculated totals */
     const totals = useMemo(() => {
@@ -532,10 +609,30 @@ const MasterBillWiseReport = ({
                         </div>
                         <div className="filter-item">
                             <label>Category:</label>
-                            <Select value={selectedCategory} onChange={setSelectedCategory} style={{ width: 190 }}>
+                            <Select value={selectedCategory} onChange={setSelectedCategory} style={{ width: 170 }}>
                                 <Option value="all">All Categories ({categoryList.length})</Option>
                                 {categoryList.map(c => (
                                     <Option key={c} value={c}>{c}</Option>
+                                ))}
+                            </Select>
+                        </div>
+                        <div className="filter-item">
+                            <label>Card / Pay Type:</label>
+                            <Select value={selectedCardType} onChange={setSelectedCardType} style={{ width: 160 }}>
+                                <Option value="all">All Pay Types</Option>
+                                <Option value="Cash">Cash Only</Option>
+                                <Option value="Card">Card / POS</Option>
+                                {cardTypeList.map(c => (
+                                    <Option key={c} value={c}>{c}</Option>
+                                ))}
+                            </Select>
+                        </div>
+                        <div className="filter-item">
+                            <label>Card Machine:</label>
+                            <Select value={selectedCardMachine} onChange={setSelectedCardMachine} style={{ width: 160 }}>
+                                <Option value="all">All Machines</Option>
+                                {cardMachinesList.map(cm => (
+                                    <Option key={cm} value={cm}>{cm}</Option>
                                 ))}
                             </Select>
                         </div>
@@ -699,7 +796,24 @@ const MasterBillWiseReport = ({
                                                                         </div>
                                                                     )}
                                                                 </td>
-                                                                <td style={{ fontSize: "0.82rem", fontWeight: 500 }}>{it.payment_mode || "Cash"}</td>
+                                                                <td style={{ fontSize: "0.82rem", fontWeight: 500 }}>
+                                                                    {it.payment_mode || "Cash"}
+                                                                    {Boolean(it.cardAmt > 0 && it.card_machine) && (
+                                                                        <span style={{
+                                                                            display: "inline-block",
+                                                                            marginLeft: "6px",
+                                                                            padding: "1px 6px",
+                                                                            borderRadius: "4px",
+                                                                            fontSize: "0.72rem",
+                                                                            fontWeight: 700,
+                                                                            background: "#e0e7ff",
+                                                                            color: "#3730a3",
+                                                                            border: "1px solid #c7d2fe"
+                                                                        }}>
+                                                                            {it.card_machine}
+                                                                        </span>
+                                                                    )}
+                                                                </td>
                                                                 <td className="text-right font-mono font-bold" style={{ color: it.srAmt > 0 ? "#dc2626" : "#64748b", fontSize: "0.92rem" }}>
                                                                     {it.srAmt > 0 ? `-₹${formatINR(it.srAmt)}` : "—"}
                                                                 </td>

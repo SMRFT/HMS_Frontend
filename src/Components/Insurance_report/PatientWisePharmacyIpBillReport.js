@@ -392,6 +392,9 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
 
             if (res && res.success) {
                 const dataObj = (res.data && res.data.patient_info) ? res.data : (res.data?.data || res.data || res);
+                if (dataObj && Array.isArray(dataObj.bills)) {
+                    dataObj.bills = dataObj.bills.filter(b => String(b.payment_mode || b.payment_method || '').trim().toLowerCase() !== 'cash');
+                }
                 setReportPayload(dataObj);
                 if (dataObj.patient_info?.uhid && !uhid) {
                     setUhid(dataObj.patient_info.uhid);
@@ -565,7 +568,7 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
                         'HSN': it.hsn,
                         'Batch': it.batch,
                         'Expiry': it.expiry,
-                        'Taxable Amt': it.taxable_amt,
+                        'Rate': Number(it.amount || 0).toFixed(2),
                         'CGST %': it.cgst_pct,
                         'CGST': it.cgst_amt,
                         'SGST %': it.sgst_pct,
@@ -903,7 +906,7 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
                                 <th style={{ width: '70px', textAlign: 'center' }} className="text-center">HSN</th>
                                 <th style={{ width: '95px', textAlign: 'left' }} className="text-left">Batch</th>
                                 <th style={{ width: '85px', textAlign: 'center' }} className="text-center">Expiry</th>
-                                <th style={{ width: '90px', textAlign: 'right' }} className="text-right">Taxable Amt</th>
+                                <th style={{ width: '90px', textAlign: 'right' }} className="text-right">Rate</th>
                                 <th style={{ width: '55px', textAlign: 'center' }} className="text-center">CGST %</th>
                                 <th style={{ width: '65px', textAlign: 'right' }} className="text-right">CGST</th>
                                 <th style={{ width: '55px', textAlign: 'center' }} className="text-center">SGST %</th>
@@ -949,6 +952,7 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
                                             {Array.isArray(bill.items) && bill.items.map((it, iIdx) => {
                                                 const cgstVal = it.cgst_amt ?? it.cgst ?? 0;
                                                 const sgstVal = it.sgst_amt ?? it.sgst ?? 0;
+                                                const itAmt = Number(it.amount || 0);
                                                 return (
                                                     <tr key={iIdx}>
                                                         <td className="text-center" style={{ textAlign: 'center' }}>{it.qty}</td>
@@ -956,12 +960,12 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
                                                         <td className="text-center" style={{ textAlign: 'center' }}>{it.hsn || '-'}</td>
                                                         <td className="text-left" style={{ textAlign: 'left' }}>{it.batch || '-'}</td>
                                                         <td className="text-center" style={{ textAlign: 'center' }}>{it.expiry || '-'}</td>
-                                                        <td className="text-right" style={{ textAlign: 'right', fontWeight: 800 }}>{Number(it.taxable_amt || 0).toFixed(2)}</td>
+                                                        <td className="text-right" style={{ textAlign: 'right', fontWeight: 800 }}>{itAmt.toFixed(2)}</td>
                                                         <td className="text-center" style={{ textAlign: 'center' }}>{it.cgst_pct ?? '-'}</td>
                                                         <td className="text-right" style={{ textAlign: 'right', fontWeight: 800 }}>{Number(cgstVal || 0).toFixed(2)}</td>
                                                         <td className="text-center" style={{ textAlign: 'center' }}>{it.sgst_pct ?? '-'}</td>
                                                         <td className="text-right" style={{ textAlign: 'right', fontWeight: 800 }}>{Number(sgstVal || 0).toFixed(2)}</td>
-                                                        <td className="text-right" style={{ textAlign: 'right', fontWeight: 800, color: '#000000' }}>{Number(it.amount || 0).toFixed(2)}</td>
+                                                        <td className="text-right" style={{ textAlign: 'right', fontWeight: 800, color: '#000000' }}>{itAmt.toFixed(2)}</td>
                                                     </tr>
                                                 );
                                             })}
@@ -1000,12 +1004,8 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
                                                                 borderTop: '1.5px solid #000000',
                                                                 borderBottom: '1px solid #000000'
                                                             }}>
-                                                                {/* Left Column: Taxable Amt, CGST, SGST */}
+                                                                {/* Left Column: CGST, SGST */}
                                                                 <div className="tax-col-left" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                                                                    <div className="tax-row-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                                        <span className="tax-label" style={{ fontSize: '11px', color: '#1e293b' }}>Taxable Amt :</span>
-                                                                        <span className="tax-val" style={{ fontSize: '11px', fontWeight: 'bold', minWidth: '70px', textAlign: 'right' }}>{bTaxable.toFixed(2)}</span>
-                                                                    </div>
                                                                     <div className="tax-row-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                                         <span className="tax-label" style={{ fontSize: '11px', color: '#1e293b' }}>CGST :</span>
                                                                         <span className="tax-val" style={{ fontSize: '11px', fontWeight: 'bold', minWidth: '70px', textAlign: 'right' }}>{bCgst.toFixed(2)}</span>

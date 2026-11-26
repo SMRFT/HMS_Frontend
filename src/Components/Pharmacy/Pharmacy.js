@@ -789,7 +789,7 @@ const chunkMedicinesForPrint = (items) => {
 };
 
 // ── Reliable Cross-Browser Print Execution (Uses hidden iframe to prevent popup blockers & premature close) ──
-const executeBillPrint = (html) => {
+export const executeBillPrint = (html) => {
   if (!html) return;
   try {
     let iframe = document.getElementById("hms-pharmacy-print-frame");
@@ -810,6 +810,7 @@ const executeBillPrint = (html) => {
     doc.open();
     doc.write(html);
     doc.close();
+    doc.title = "";
     iframe.contentWindow.focus();
     setTimeout(() => {
       try {
@@ -831,6 +832,7 @@ const fallbackWindowPrint = (html) => {
     pw.document.open();
     pw.document.write(html);
     pw.document.close();
+    pw.document.title = "";
     pw.focus();
     setTimeout(() => {
       pw.print();
@@ -951,8 +953,28 @@ export const calculateMedicinePricing = (item, customQty = null, customDiscVal =
   };
 };
 
+// ── Check if a medicine item in particulars has been deleted ──
+export const isMedicineDeleted = (m) => {
+  if (!m || typeof m !== "object") return true;
+  if (m.is_deleted === true || m.deleted_is === true || m.is_active === false) return true;
+  const history = m.edit_history || [];
+  if (Array.isArray(history) && history.length > 0) {
+    const delQty = history
+      .filter((h) => h && h.action === "medicine_deleted")
+      .reduce((s, h) => s + Number(h.qty_deleted || h.qty || 0), 0);
+    const origQty = Number(m.qty || m.quantity || 0);
+    if (delQty >= origQty && origQty > 0) return true;
+  }
+  return false;
+};
+
+// ── Filter out deleted medicines from active billing & printing ──
+export const filterActiveMedicines = (meds) => {
+  return (meds || []).filter((m) => !isMedicineDeleted(m));
+};
+
 // ── Elegant Pharmacy Tax Invoice Generator (A5 Alignment Sheet Layout with Multi-Page Support) ──
-const buildPrintBillHtml = (data) => {
+export const buildPrintBillHtml = (data) => {
   const {
     billNo = "—",
     billDate = "—",
@@ -1042,21 +1064,25 @@ const buildPrintBillHtml = (data) => {
   const extractDate = (raw) => formatBillDate(raw);
   const extractTime = (raw) => formatBillTime(raw);
 
-  // Calculate Gross Total (actual amount before any discount)
-  const computedGross = (medicines || []).reduce((sum, m) => {
+  // ✅ Filter out deleted medicines (single source of truth)
+  const activeMedicines = filterActiveMedicines(medicines);
+
+  // Calculate Gross Total: strictly honor stored DB total_amount if available, fallback to computed
+  const computedGross = activeMedicines.reduce((sum, m) => {
     const q = Number(m.quantity || m.qty || 0);
     const p = Number(m.mrp || m.price || m.Selling_Price || m.selling_price || 0);
     return sum + (q * p);
   }, 0);
-  const grossTotal = computedGross > 0 ? computedGross : Number(totalAmount || 0);
+  const dbTotal = Number(totalAmount || (data && (data.total_amount || data.totalAmount)) || 0);
+  const grossTotal = dbTotal > 0 ? dbTotal : (computedGross > 0 ? computedGross : 0);
 
-  // Total CGST and SGST using reverse-calculated pricing on base
-  const totalCgstAmt = (medicines || []).reduce((sum, m) => {
+  // Total CGST and SGST using reverse-calculated pricing on active medicines
+  const totalCgstAmt = activeMedicines.reduce((sum, m) => {
     const pricing = calculateMedicinePricing(m);
     return sum + (isNaN(pricing.cgstAmt) ? 0 : pricing.cgstAmt);
   }, 0);
 
-  const totalSgstAmt = (medicines || []).reduce((sum, m) => {
+  const totalSgstAmt = activeMedicines.reduce((sum, m) => {
     const pricing = calculateMedicinePricing(m);
     return sum + (isNaN(pricing.sgstAmt) ? 0 : pricing.sgstAmt);
   }, 0);
@@ -1064,7 +1090,7 @@ const buildPrintBillHtml = (data) => {
   const totalTaxAmt = totalCgstAmt + totalSgstAmt;
 
   // Item discount sum (product discount + GST savings on MRP)
-  const computedItemDisc = (medicines || []).reduce((sum, m) => {
+  const computedItemDisc = activeMedicines.reduce((sum, m) => {
     const pricing = calculateMedicinePricing(m);
     return sum + pricing.totalDiscountOnMrp;
   }, 0);
@@ -1083,7 +1109,12 @@ const buildPrintBillHtml = (data) => {
     Number(data?.discount || 0)
   );
 
-  const totalItemDiscPct = (medicines || []).reduce((sum, m) => {
+  const expectedNet = Math.max(0, grossTotal - totalDiscount);
+  // ✅ Direct DB amount: What is stored in the database MUST display on the print bill
+  const rawNet = Number(netAmount || (data && (data.net_amount || data.netAmount)) || 0);
+  const calculatedNet = rawNet > 0 ? rawNet : Math.round(expectedNet);
+
+  const totalItemDiscPct = activeMedicines.reduce((sum, m) => {
     const dVal = parseFloat(m.discount_value ?? m.discount ?? (m.discount_percent !== "%" ? m.discount_percent : 0) ?? 0);
     return sum + (isNaN(dVal) ? 0 : dVal);
   }, 0);
@@ -1095,7 +1126,9 @@ const buildPrintBillHtml = (data) => {
     ? ` (${totalDiscPct % 1 === 0 ? totalDiscPct.toFixed(0) : totalDiscPct.toFixed(2).replace(/\.?0+$/, "")}%)`
     : "";
 
-  const medicinePages = chunkMedicinesForPrint(medicines);
+  const resolvedRoundOff = Number(round_off || (data && (data.round_off ?? data.roundOff)) || 0);
+
+  const medicinePages = chunkMedicinesForPrint(activeMedicines);
   const totalPages = medicinePages.length;
 
   const renderMedicineRow = (m) => {
@@ -1239,7 +1272,7 @@ const buildPrintBillHtml = (data) => {
         <div style="font-size: 11px; color: #111; line-height: 1.35; max-width: 360px; padding-top: 2px;">
           <span style="font-weight: 700;">Rupees in Words:</span>
           <div style="font-style: italic; font-weight: 600; color: #1e293b; text-transform: capitalize; margin-top: 1px;">
-            ${numberToWords(netAmount)}
+            ${numberToWords(calculatedNet)}
           </div>
         </div>
 
@@ -1280,7 +1313,7 @@ const buildPrintBillHtml = (data) => {
             `}
             <tr>
               <td style="padding: 2.5px 12px 2.5px 0; text-align: right; font-weight: 800; font-size: 12.5px; white-space: nowrap;">Net Amount (Payable) :</td>
-              <td style="padding: 2.5px 0; text-align: right; font-weight: 800; font-size: 12.5px; min-width: 72px;">${formatCurrency(netAmount)}</td>
+              <td style="padding: 2.5px 0; text-align: right; font-weight: 800; font-size: 12.5px; min-width: 72px;">${formatCurrency(calculatedNet)}</td>
             </tr>
           </tbody>
         </table>
@@ -1305,7 +1338,7 @@ const buildPrintBillHtml = (data) => {
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Pharmacy Bill - ${billNo}</title>
+  <title></title>
   <style>
     @page {
       size: A5 landscape;
@@ -3781,10 +3814,22 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             payment_mode: isInsuranceFinal ? "Credit" : resolvedPaymentMode,
             paymentMode: isInsuranceFinal ? "Credit" : resolvedPaymentMode,
           });
-          if (mappedBillable.length > 0) {
-            setShowPrintModal(true);
-          } else {
-            toast.info("Ward request updated. Out-of-stock items remain pending in Medicine Chart.", { autoClose: 3500 });
+
+          // ✅ 1. Only for selected_outlet OLET002: Print bill is generated after collecting payment in Cash Counter (not on Save Bill)
+          // ✅ 2. For selected_outlet OLET001 & others: Print bill comes immediately as usual on Save Bill
+          const currentOutletWard = String(
+            localStorage.getItem("selected_outlet") ||
+            localStorage.getItem("outlet_code") ||
+            ""
+          ).trim().toUpperCase();
+          const isOlet002Ward = currentOutletWard === "OLET002" || currentOutletWard === "2" || currentOutletWard.includes("OLET002") || currentOutletWard.includes("OP PHARMACY");
+
+          if (!isOlet002Ward) {
+            if (mappedBillable.length > 0) {
+              setShowPrintModal(true);
+            } else {
+              toast.info("Ward request updated. Out-of-stock items remain pending in Medicine Chart.", { autoClose: 3500 });
+            }
           }
 
           // Deduct billed stock in memory immediately for 0ms instant UI update
@@ -4150,7 +4195,20 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             payment_mode: resolvedPaymentMode,
             paymentMode: resolvedPaymentMode,
           });
-          setShowPrintModal(true);
+
+          // ✅ 1. Only for selected_outlet OLET002: Print bill is generated after collecting payment in Cash Counter
+          // ✅ 2. For selected_outlet OLET001 & others: Print bill comes immediately as usual on Save Bill
+          const currentOutletDirect = String(
+            localStorage.getItem("selected_outlet") ||
+            localStorage.getItem("outlet_code") ||
+            ""
+          ).trim().toUpperCase();
+          const isOlet002Direct = currentOutletDirect === "OLET002" || currentOutletDirect === "2" || currentOutletDirect.includes("OLET002") || currentOutletDirect.includes("OP PHARMACY");
+
+          if (!isOlet002Direct) {
+            setShowPrintModal(true);
+          }
+
           resetForm();
           setTodayBillDate();
         }
@@ -7326,7 +7384,8 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             <ModalBody style={{ padding: "0" }}>
               {/* Bill Preview (A5 Alignment Sheet Layout with Multi-Page Support) */}
               {(() => {
-                const previewPages = chunkMedicinesForPrint(printBillData.medicines);
+                const activePreviewMeds = filterActiveMedicines(printBillData.medicines);
+                const previewPages = chunkMedicinesForPrint(activePreviewMeds);
                 const totalPreviewPages = previewPages.length;
 
                 return (
@@ -7532,13 +7591,15 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
                             <>
                               {/* Totals & Payment */}
                               {(() => {
-                                const previewGross = (printBillData.medicines || []).reduce((sum, m) => {
+                                const dbGross = Number(printBillData.totalAmount || 0);
+                                const computedGross = (activePreviewMeds || []).reduce((sum, m) => {
                                   const qty = Number(m.quantity || m.qty || 0);
                                   const price = Number(m.mrp || m.price || m.Selling_Price || m.selling_price || 0);
                                   return sum + (qty * price);
-                                }, 0) || Number(printBillData.totalAmount || 0);
+                                }, 0);
+                                const previewGross = dbGross > 0 ? dbGross : (computedGross > 0 ? computedGross : 0);
 
-                                const previewItemDisc = (printBillData.medicines || []).reduce((sum, m) => {
+                                const previewItemDisc = (activePreviewMeds || []).reduce((sum, m) => {
                                   const pricing = calculateMedicinePricing(m);
                                   return sum + pricing.totalDiscountOnMrp;
                                 }, 0);
@@ -7557,7 +7618,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
                                   Number(printBillData.discount || 0)
                                 );
 
-                                const previewItemDiscPct = (printBillData.medicines || []).reduce((sum, m) => {
+                                const previewItemDiscPct = (activePreviewMeds || []).reduce((sum, m) => {
                                   const dVal = parseFloat(m.discount_value ?? m.discount ?? (m.discount_percent !== "%" ? m.discount_percent : 0) ?? 0);
                                   return sum + (isNaN(dVal) ? 0 : dVal);
                                 }, 0);
@@ -7569,21 +7630,21 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
                                   ? ` (${previewTotalDiscPct % 1 === 0 ? previewTotalDiscPct.toFixed(0) : previewTotalDiscPct.toFixed(2).replace(/\.?0+$/, "")}%)`
                                   : "";
 
-                                const previewCgst = (printBillData.medicines || []).reduce((sum, m) => {
+                                const previewCgst = (activePreviewMeds || []).reduce((sum, m) => {
                                   const pricing = calculateMedicinePricing(m);
                                   return sum + (isNaN(pricing.cgstAmt) ? 0 : pricing.cgstAmt);
                                 }, 0);
 
-                                const previewSgst = (printBillData.medicines || []).reduce((sum, m) => {
+                                const previewSgst = (activePreviewMeds || []).reduce((sum, m) => {
                                   const pricing = calculateMedicinePricing(m);
                                   return sum + (isNaN(pricing.sgstAmt) ? 0 : pricing.sgstAmt);
                                 }, 0);
 
                                 const previewTax = previewCgst + previewSgst;
 
-                                const netPayable = Number(printBillData.netAmount || 0) > 0
-                                  ? Number(printBillData.netAmount)
-                                  : Math.max(0, previewGross - previewTotalDisc);
+                                const expectedNet = Math.max(0, previewGross - previewTotalDisc);
+                                const rawNet = Number(printBillData.netAmount || 0);
+                                const netPayable = rawNet > 0 ? rawNet : Math.round(expectedNet);
 
                                 return (
                                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginTop: 4 }}>

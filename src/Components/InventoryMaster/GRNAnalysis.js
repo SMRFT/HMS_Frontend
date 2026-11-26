@@ -37,8 +37,8 @@ const DraftBadge = styled.span`background:#fef9c3;color:#854d0e;font-size:0.68re
 const GrnBadge = styled.span`background:#dcfce7;color:#166534;font-size:0.68rem;font-weight:700;padding:2px 6px;border-radius:20px;`
 const PendingText = styled.span`color:#94a3b8;font-size:0.68rem;font-style:italic;`
 const StatusBadge = styled.span`
-  background: ${p => p.status === "Verified" ? "#dcfce7" : p.status === "Draft" ? "#fef9c3" : "#e0f2fe"};
-  color:       ${p => p.status === "Verified" ? "#166534" : p.status === "Draft" ? "#854d0e" : "#0369a1"};
+  background: ${p => p.status === "Received" ? "#d1fae5" : p.status === "Verified" ? "#dcfce7" : p.status === "Draft" || p.status === "Pending" ? "#fef9c3" : "#e0f2fe"};
+  color:       ${p => p.status === "Received" ? "#047857" : p.status === "Verified" ? "#166534" : p.status === "Draft" || p.status === "Pending" ? "#854d0e" : "#0369a1"};
   font-size: 0.68rem; font-weight: 700; padding: 2px 6px; border-radius: 20px;
 `
 
@@ -103,7 +103,11 @@ const GRN_TYPE_FILTERS = [
   { value: "OPENING_STOCK_DRUG", label: "Opening Stock" },
 ]
 
-const fmtDate = (d) => d ? d.split("T")[0] : "—"
+const fmtDate = (d) => {
+  if (!d) return "—";
+  const s = String(d);
+  return s.includes("T") ? s.split("T")[0] : s.split(" ")[0];
+};
 const fmt2 = (v) => {
   const n = parseFloat(v || 0);
   if (!Number.isFinite(n)) return "0.00";
@@ -746,25 +750,6 @@ const GRNAnalysis = () => {
             <PageTitle>📊 GRN Analysis</PageTitle>
             <PageSubtitle>View, Generate &amp; Manage Goods Receipt Notes</PageSubtitle>
           </div>
-          <button
-            type="button"
-            onClick={() => navigate("/GRNReceive")}
-            style={{
-              background: "rgba(255,255,255,0.18)",
-              color: "white",
-              border: "1px solid rgba(255,255,255,0.35)",
-              borderRadius: "6px",
-              padding: "6px 14px",
-              fontSize: "0.8rem",
-              fontWeight: 600,
-              cursor: "pointer",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px",
-            }}
-          >
-            📥 GRN Stock Receipt &rarr;
-          </button>
         </PageHeader>
 
         <FormContent style={{ padding: "10px 0" }}>
@@ -791,10 +776,19 @@ const GRNAnalysis = () => {
               setToDate(val);
               setPage(1);
             }}
+            onReset={() => {
+              setSearch("");
+              setFromDate(getTodayDateString());
+              setToDate(getTodayDateString());
+              setStatusFilter("");
+              setTypeFilter("");
+              setVendorFilter("ALL");
+              setPage(1);
+            }}
             totalRecords={totalCount}
             customFilters={
               <div style={{ display: "inline-flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                {/* Status Radio Buttons (Pending / Verified / All) */}
+                {/* Status Radio Buttons (All / Draft / Verified / Received) */}
                 <div style={{
                   display: "inline-flex",
                   alignItems: "center",
@@ -811,8 +805,9 @@ const GRNAnalysis = () => {
                   </span>
                   {[
                     { value: "", label: "All" },
-                    { value: "Pending", label: "Pending" },
-                    { value: "Verified", label: "Verified" }
+                    { value: "Pending", label: "Draft / Pending" },
+                    { value: "Verified", label: "Verified" },
+                    { value: "Received", label: "Received" }
                   ].map((opt) => {
                     const isChecked = statusFilter === opt.value;
                     return (
@@ -825,7 +820,7 @@ const GRNAnalysis = () => {
                           fontSize: "0.75rem",
                           fontWeight: isChecked ? 700 : 500,
                           color: isChecked
-                            ? (opt.value === "Verified" ? "#166534" : opt.value === "Pending" ? "#c2410c" : "#0f766e")
+                            ? (opt.value === "Received" ? "#047857" : opt.value === "Verified" ? "#166534" : opt.value === "Pending" ? "#c2410c" : "#0f766e")
                             : "#475569",
                           cursor: "pointer",
                           userSelect: "none"
@@ -843,7 +838,7 @@ const GRNAnalysis = () => {
                           style={{
                             margin: 0,
                             cursor: "pointer",
-                            accentColor: opt.value === "Verified" ? "#166534" : opt.value === "Pending" ? "#ea580c" : "#0f766e"
+                            accentColor: opt.value === "Received" ? "#047857" : opt.value === "Verified" ? "#166534" : opt.value === "Pending" ? "#ea580c" : "#0f766e"
                           }}
                         />
                         {opt.label}

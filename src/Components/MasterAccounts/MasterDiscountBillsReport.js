@@ -18,12 +18,21 @@ import {
     KPICard,
     DataTableWrapper,
     ReportPrintHeader,
-    ReportPrintFooter
+    ReportPrintFooter,
+    matchCategoryOrBillType
 } from "./masterAccountsHelper";
 
 const { RangePicker } = DatePicker;
 
-const MasterDiscountBillsReport = ({ isModalView = false, startDate, endDate }) => {
+const MasterDiscountBillsReport = ({ 
+    isModalView = false, 
+    startDate, 
+    endDate,
+    billType,
+    category,
+    initialBillType = "all",
+    onLoadOptions
+}) => {
     const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
     const [dateRange, setDateRange] = useState([
         startDate ? dayjs(startDate) : dayjs().startOf("month"),
@@ -32,6 +41,15 @@ const MasterDiscountBillsReport = ({ isModalView = false, startDate, endDate }) 
     const [loading, setLoading] = useState(false);
     const [reportData, setReportData] = useState(null);
     const [searchTerm, setSearchTerm] = useState("");
+    const [activeCategory, setActiveCategory] = useState(billType || category || initialBillType || "all");
+
+    useEffect(() => {
+        const c = billType || category || initialBillType;
+        if (c !== undefined && c !== activeCategory) {
+            setActiveCategory(c);
+        }
+    }, [billType, category, initialBillType, activeCategory]);
+
     useEffect(() => {
         if (startDate && endDate) {
             setDateRange([dayjs(startDate), dayjs(endDate)]);
@@ -63,16 +81,37 @@ const MasterDiscountBillsReport = ({ isModalView = false, startDate, endDate }) 
     const records = getSafeArray(reportData?.data);
     const summary = reportData?.summary || {};
 
+    const categoriesList = useMemo(() => {
+        const set = new Set();
+        records.forEach(r => {
+            if (r.category) set.add(String(r.category).trim());
+        });
+        return Array.from(set).sort();
+    }, [records]);
+
+    useEffect(() => {
+        if (onLoadOptions && reportData) {
+            onLoadOptions({
+                categories: categoriesList
+            });
+        }
+    }, [onLoadOptions, categoriesList, reportData]);
+
     const filtered = useMemo(() => {
-        if (!searchTerm.trim()) return records;
+        let list = records;
+        if (activeCategory && activeCategory.toLowerCase() !== "all") {
+            list = list.filter(r => matchCategoryOrBillType(r.category, activeCategory));
+        }
+        if (!searchTerm.trim()) return list;
         const q = searchTerm.toLowerCase();
-        return records.filter(r =>
+        return list.filter(r =>
             String(r.bill_no || "").toLowerCase().includes(q) ||
             String(r.patient_name || "").toLowerCase().includes(q) ||
             String(r.doctor_name || "").toLowerCase().includes(q) ||
-            String(r.authorized_by || "").toLowerCase().includes(q)
+            String(r.authorized_by || "").toLowerCase().includes(q) ||
+            String(r.category || "").toLowerCase().includes(q)
         );
-    }, [records, searchTerm]);
+    }, [records, activeCategory, searchTerm]);
 
     const handleExport = () => {
         const rows = filtered.map(r => ({

@@ -1038,8 +1038,10 @@ const getField = (obj, field) => {
     gender: ["gender", "sex"],
     age: ["age"],
     uhid: ["uhid", "UHID"],
-    ipNumber: ["ipNumber", "ip_number", "ipNumber"],
-    insurance: ["insurance_name", "insuranceName", "insurance_provider", "insurance_company", "insuranceCompany", "insurance", "customer_type", "patient_type", "payment_mode", "payment_type"]
+    ipNumber: ["ipNumber", "ip_number", "ipNumber", "ipNo", "inpatient_number"],
+    insurance: ["insurance_name", "insuranceName", "insurance_provider", "insurance_company", "insuranceCompany", "insurance", "customer_type", "patient_type", "payment_mode", "payment_type"],
+    customer_type: ["customer_type", "customerType", "patient_type", "patientType", "payment_mode", "payment_type"],
+    insurance_company: ["insurance_company", "insuranceCompany", "insurance_name", "insuranceName", "company_name", "companyName", "insurance_provider", "insuranceProvider"]
   };
 
   const aliases = fieldAliases[field] || [field];
@@ -1112,7 +1114,7 @@ const formatToIST = (dateStr) => {
   return s;
 };
 
-// Flexible Room Matcher: handles prefixes (e.g. 'TS - 422' vs '422', 'SR-509' vs '509', 'SUT006' vs 'S-6')
+// Strict Prefix & Room Matcher (prevents false matches like Bed 1 vs Room 1 or Room 5 vs ICU 5)
 const isRoomMatch = (r1, r2) => {
   if (!r1 || !r2) return false;
   const s1 = String(r1).trim().toUpperCase();
@@ -1123,13 +1125,13 @@ const isRoomMatch = (r1, r2) => {
   if (c1 === c2) return true;
   if ((c1 === "DAYCAR" && c2 === "DAYCARE") || (c1 === "DAYCARE" && c2 === "DAYCAR")) return true;
   if ((c1 === "DLS" && c2.includes("DIALYSIS")) || (c2 === "DLS" && c1.includes("DIALYSIS"))) return true;
-  const n1 = s1.match(/\d+/g);
-  const n2 = s2.match(/\d+/g);
-  if (n1 && n2) {
-    const num1 = parseInt(n1[n1.length - 1], 10);
-    const num2 = parseInt(n2[n2.length - 1], 10);
-    if (num1 === num2) return true;
-  }
+
+  // Normalized prefix strip: e.g. "TS-507" vs "507", "SR-509" vs "509"
+  const stripPrefix = (str) => str.replace(/^(TS|SR|RM|ROOM|BED|W|WD|SUT|MICU|SICU|NICU)[\s-_]*/i, "").trim();
+  const p1 = stripPrefix(s1);
+  const p2 = stripPrefix(s2);
+  if (p1 && p2 && p1 === p2 && (s1.includes(p1) || s2.includes(p2))) return true;
+
   return false;
 };
 
@@ -1548,18 +1550,23 @@ const WardRequest = () => {
     const groupsMap = new Map();
 
     const getOrCreateRoom = (roomNum, roomCat, blockName, nsName) => {
-      const key = String(roomNum || "101").trim();
-      if (!groupsMap.has(key)) {
-        groupsMap.set(key, {
-          room_no: key,
+      const cleanR = String(roomNum || "101").trim();
+      const cleanB = String(blockName || "Main Block").trim();
+      const cleanNS = String(nsName || "").trim();
+      const compoundKey = `${cleanB}__${cleanNS}__${cleanR}`;
+
+      if (!groupsMap.has(compoundKey)) {
+        groupsMap.set(compoundKey, {
+          compound_key: compoundKey,
+          room_no: cleanR,
           room_category: roomCat || "General",
-          block: blockName || "Main Block",
-          nursing_station: nsName || "",
+          block: cleanB,
+          nursing_station: cleanNS,
           total_capacity: 0,
           beds: []
         });
       }
-      return groupsMap.get(key);
+      return groupsMap.get(compoundKey);
     };
 
     // 1. Populate from locationMapping master rooms/beds
@@ -1605,6 +1612,12 @@ const WardRequest = () => {
           const admission = filteredAdmissions.find(adm => {
             const r = String(getField(adm, "canonical_room_no") || getField(adm, "room_no")).trim();
             const b = String(getField(adm, "bed_no")).trim();
+            const admBlock = String(getField(adm, "block") || "").trim();
+            const admNs = String(getAdmNursingStation(adm) || "").trim();
+
+            if (admBlock && blockName && admBlock.toLowerCase() !== blockName.toLowerCase()) return false;
+            if (admNs && nsName && admNs.toLowerCase() !== nsName.toLowerCase()) return false;
+
             return isRoomMatch(r, roomNum) && (b === bedNum || b.replace(/bed\s*/i, '').trim() === bedNum.replace(/bed\s*/i, '').trim());
           });
 
@@ -1634,7 +1647,9 @@ const WardRequest = () => {
 
       let roomObj = null;
       for (const existingRoom of groupsMap.values()) {
-        if (isRoomMatch(existingRoom.room_no, roomNum) || isRoomMatch(existingRoom.room_no, rawRoom)) {
+        const blkMatch = !blockName || !existingRoom.block || existingRoom.block.toLowerCase() === blockName.toLowerCase();
+        const nsMatch = !nsName || !existingRoom.nursing_station || existingRoom.nursing_station.toLowerCase() === nsName.toLowerCase();
+        if (blkMatch && nsMatch && (isRoomMatch(existingRoom.room_no, roomNum) || isRoomMatch(existingRoom.room_no, rawRoom))) {
           roomObj = existingRoom;
           break;
         }
@@ -2288,11 +2303,101 @@ const WardRequest = () => {
                     )}
                   </div>
                   <div className="bed-details">
-                    Room {getField(selectedPatient, "room_no") || "-"} · Bed {getField(selectedPatient, "bed_no") || "-"} · Dr. {getField(selectedPatient, "doctorName") || "-"} · {getField(selectedPatient, "insurance") || "Normal Pay"}
+                    Room {getField(selectedPatient, "room_no") || "-"} · Bed {getField(selectedPatient, "bed_no") || "-"} · Dr. {getField(selectedPatient, "doctorName") || "-"}
                   </div>
                 </div>
               </div>
               <button className="close-btn" onClick={() => setShowActionModal(false)}>✕</button>
+            </div>
+
+            {/* Customer Details & Admission Information Strip */}
+            <div style={{
+              margin: "14px 20px 0 20px",
+              padding: "10px 16px",
+              background: "#f8fafc",
+              border: "1px solid #e2e8f0",
+              borderRadius: "10px",
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "12px",
+              boxShadow: "0 1px 2px rgba(0, 0, 0, 0.03)"
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "16px", flexWrap: "wrap" }}>
+                <div>
+                  <span style={{ fontSize: "10px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", display: "block", letterSpacing: "0.5px" }}>
+                    IP Number
+                  </span>
+                  <span style={{ fontSize: "13px", fontWeight: 800, color: "#0f172a" }}>
+                    {getField(selectedPatient, "ipNumber") || selectedPatient?.ipNumber || "-"}
+                  </span>
+                </div>
+                <div style={{ width: "1px", height: "24px", background: "#cbd5e1" }} />
+                <div>
+                  <span style={{ fontSize: "10px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", display: "block", letterSpacing: "0.5px" }}>
+                    UHID
+                  </span>
+                  <span style={{ fontSize: "13px", fontWeight: 700, color: "#334155" }}>
+                    {getField(selectedPatient, "uhid") || selectedPatient?.uhid || "-"}
+                  </span>
+                </div>
+                <div style={{ width: "1px", height: "24px", background: "#cbd5e1" }} />
+                <div>
+                  <span style={{ fontSize: "10px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", display: "block", letterSpacing: "0.5px" }}>
+                    Admission Date
+                  </span>
+                  <span style={{ fontSize: "12px", fontWeight: 600, color: "#475569" }}>
+                    {selectedPatient?.admissionDate ? `${selectedPatient.admissionDate} ${selectedPatient.admissionTime || ""}` : (getField(selectedPatient, "admission_date") || "-")}
+                  </span>
+                </div>
+              </div>
+
+              {/* Customer Type & Insurance details */}
+              <div>
+                {(() => {
+                  const rawType = (getField(selectedPatient, "customer_type") || "").toUpperCase();
+                  const insComp = getField(selectedPatient, "insurance_company") || (rawType.includes("INSUR") ? (getField(selectedPatient, "insurance") || "") : "") || "";
+                  const isInsurance = rawType.includes("INSUR") || Boolean(insComp && insComp !== "Normal Pay");
+                  const displayType = isInsurance ? "INSURANCE PATIENT" : (rawType || "PAY PATIENT (GENERAL)");
+
+                  return (
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                      <span style={{
+                        background: isInsurance ? "#eff6ff" : "#f0fdf4",
+                        color: isInsurance ? "#1d4ed8" : "#15803d",
+                        border: `1px solid ${isInsurance ? "#bfdbfe" : "#bbf7d0"}`,
+                        padding: "4px 10px",
+                        borderRadius: "6px",
+                        fontSize: "12px",
+                        fontWeight: 800,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px"
+                      }}>
+                        <span>{isInsurance ? "🛡️" : "💳"}</span>
+                        <span>{displayType}</span>
+                        {isInsurance && rawType && rawType !== "INSURANCE" && (
+                          <span style={{ opacity: 0.85, fontWeight: 600 }}>({rawType})</span>
+                        )}
+                      </span>
+                      {insComp && insComp !== "Normal Pay" && (
+                        <span style={{
+                          background: "#f1f5f9",
+                          color: "#334155",
+                          border: "1px solid #cbd5e1",
+                          padding: "4px 10px",
+                          borderRadius: "6px",
+                          fontSize: "12px",
+                          fontWeight: 700
+                        }}>
+                          🏢 {insComp}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
             </div>
 
             {Boolean(getField(selectedPatient, "is_discharged")) && (

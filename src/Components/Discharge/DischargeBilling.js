@@ -2521,11 +2521,15 @@ const DischargeBilling = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
 
     // Fetch full patient & admission details from search API to populate card fields
-    const searchVal = est.uhid || est.ip_number;
+    const ipVal = (est.ip_number || est.ipNumber || pd.ip_number || pd.ipNumber || "").trim();
+    const uhidVal = (est.uhid || pd.uhid || "").trim();
+    const searchVal = ipVal || uhidVal;
     if (searchVal) {
       try {
-        const param = est.uhid ? `uhid=${encodeURIComponent(est.uhid)}` : `ipNumber=${encodeURIComponent(est.ip_number)}`;
-        const raw = await apiRequest(`${BASE}search-discharge-patient/?${param}`, "GET");
+        const queryParams = new URLSearchParams();
+        if (ipVal) queryParams.set("ipNumber", ipVal);
+        if (uhidVal) queryParams.set("uhid", uhidVal);
+        const raw = await apiRequest(`${BASE}search-discharge-patient/?${queryParams.toString()}`, "GET");
         const res = raw?.success && raw?.data?.success ? raw.data.data : (raw?.success ? raw.data : raw);
         const p = res?.patient;
         if (p) {
@@ -2596,6 +2600,10 @@ const DischargeBilling = () => {
   };
 
   const executeSave = async (actionType, reason, customInsurance = null, paymentMethod = "Cash") => {
+    if (!patient || !patient.uhid || !String(patient.uhid).trim()) {
+      showToast("Valid patient from Patient Master is required. Please search and select a registered patient first.", true);
+      return;
+    }
     setSaving(true);
     setEditReasonModal(null);
     setShowPaymentModal(false);

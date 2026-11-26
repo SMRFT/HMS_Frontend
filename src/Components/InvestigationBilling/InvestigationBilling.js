@@ -317,6 +317,11 @@ const SubmitBtn = styled(Button)`
   &:hover {
     background: ${colors.primaryDark};
   }
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    filter: grayscale(0.5);
+  }
 `;
 
 // ─── Focus Navigation Helper ──────────────────────────────────────────────────
@@ -374,6 +379,7 @@ const SearchableDropdown = ({
   displayKey = "name",
   valueKey = "id",
   disabled = false,
+  lockWhenSelected = false, // when true: once a value is selected, it can only be cleared via ×
 }) => {
   const getLabel = (val) => {
     if (!val) return "";
@@ -398,6 +404,9 @@ const SearchableDropdown = ({
   const listRef = useRef(null);
   const inputRef = useRef(null);
   const isSearchingRef = useRef(false);
+
+  // Locked = a value is selected and the field must only be cleared with ×
+  const locked = lockWhenSelected && !!value;
 
   // Only sync from outside when NOT actively typing
   useEffect(() => {
@@ -450,6 +459,7 @@ const SearchableDropdown = ({
   }, [isOpen, highlightedIndex]);
 
   const handleInputChange = (e) => {
+    if (locked) return; // locked: no typing, only × can clear
     const typed = e.target.value;
     isSearchingRef.current = true;
     setInputValue(typed);
@@ -493,6 +503,7 @@ const SearchableDropdown = ({
   };
 
   const handleFocus = () => {
+    if (locked) return; // locked: keep the label, don't open the list
     isSearchingRef.current = true;
     setInputValue(""); // clear text so user sees all options
     setIsOpen(true);
@@ -500,6 +511,16 @@ const SearchableDropdown = ({
   };
 
   const handleKeyDown = (e) => {
+    if (locked) {
+      // locked: Enter just advances to the next field; everything else is ignored
+      if (e.key === "Enter") {
+        e.preventDefault();
+        e.stopPropagation();
+        moveToNextField(e.target);
+      }
+      return;
+    }
+
     if (e.key === "ArrowDown") {
       e.preventDefault();
       if (!isOpen) {
@@ -570,7 +591,11 @@ const SearchableDropdown = ({
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           disabled={disabled}
-          style={{ paddingRight: value ? "28px" : undefined }}
+          readOnly={locked}
+          style={{
+            paddingRight: value ? "28px" : undefined,
+            ...(locked ? { cursor: "default", background: "#f1f5f9" } : {}),
+          }}
         />
         {value && !disabled && (
           <span
@@ -622,6 +647,12 @@ const normalizeGender = (g) => {
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 };
 
+// SYRINGE (SYG01) is identified by name / item_id only — it carries no test_id.
+const isSyringeItem = (p) =>
+  p?.billTypeNo === "SYG01" ||
+  (p?.itemName && String(p.itemName).trim().toUpperCase() === "SYRINGE") ||
+  String(p?.item_id) === "1";
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const InvestigationBilling = () => {
@@ -671,7 +702,10 @@ const InvestigationBilling = () => {
   const [productList, setProductList] = useState([]);
   const [quantity, setQuantity] = useState(1);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [billHistory, setBillHistory] = useState([]);
+  const [showHistoryAccordion, setShowHistoryAccordion] = useState(false);
   const [isPriceEditable, setIsPriceEditable] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // ── Print modal state: { bill, isEstimate, toastMsg } ──────────────────────
   const [printJob, setPrintJob] = useState(null);
@@ -738,6 +772,11 @@ const InvestigationBilling = () => {
     const isEstimate = data.EstBillNo !== undefined;
 
     setIsEditMode(Boolean(data.investBillNo) && Boolean(data.editRemarks));
+    if (Array.isArray(data.history)) {
+      setBillHistory(data.history);
+    } else {
+      setBillHistory([]);
+    }
 
     let itemsArray = [];
     if (typeof data.item === "string") {
@@ -752,14 +791,19 @@ const InvestigationBilling = () => {
       itemsArray = data.item;
     }
 
-    // Normalize items to ensure itemName, price, quantity, status are well-formed
-    itemsArray = itemsArray.map((it) => ({
-      ...it,
-      itemName: it.itemName || it.name || it.test_name || "",
-      price: it.price !== undefined ? it.price : 0,
-      quantity: it.quantity || 1,
-      status: it.status || "Result Pending",
-    }));
+    // Normalize items to ensure itemName, price, quantity, status are well-formed.
+    // SYRINGE (SYG01) must not carry test_id — item_id is enough.
+    itemsArray = itemsArray.map((it) => {
+      const { test_id, ...withoutTestId } = it;
+      const base = isSyringeItem(it) ? withoutTestId : it;
+      return {
+        ...base,
+        itemName: it.itemName || it.name || it.test_name || "",
+        price: it.price !== undefined ? it.price : 0,
+        quantity: it.quantity || 1,
+        status: it.status || "Result Pending",
+      };
+    });
 
     const resolvedBillName = data.bill_name || data.billType || "";
 
@@ -843,6 +887,12 @@ const InvestigationBilling = () => {
 
   // ── Bill type & item handlers ───────────────────────────────────────────────
 
+  const isLabBillType = (billName, billTypeNo) => {
+    const name = String(billName || "").trim().toUpperCase();
+    const no = String(billTypeNo || "").trim().toUpperCase();
+    return name.startsWith("LAB") || no.startsWith("LAB");
+  };
+
   const handleBillTypeChange = async (
     billName,
     billType,
@@ -853,9 +903,66 @@ const InvestigationBilling = () => {
   ) => {
     setIsDiscountAllowed(allowDiscount);
     setIsPriceEditable(Boolean(isEdit));
+
+    const isLab = isLabBillType(billName, billTypeNo);
+    // SYRINGE (SYG01): item_id only — no test_id
+    const syringeProduct = {
+      item_id: 1,
+      itemName: "SYRINGE",
+      billTypeNo: "SYG01",
+      price: 10,
+      rate: 10,
+      quantity: Number(quantity) > 0 ? Number(quantity) : 1,
+      nabh_code: "",
+      status: "Result Pending",
+    };
+
     if (clearProducts) {
-      setProductList([]);
+      if (isLab) {
+        setProductList([syringeProduct]);
+      } else {
+        setProductList([]);
+      }
+    } else {
+      if (isLab) {
+        const isInitialPatientLoad =
+          Boolean(location.state?.patientData?.investBillNo) &&
+          !billTypeInitialized.current;
+        if (!isInitialPatientLoad) {
+          setProductList((prev) => {
+            const hasSyringe = prev.some(
+              (p) =>
+                (p.itemName && p.itemName.trim().toUpperCase() === "SYRINGE") ||
+                String(p.item_id) === "1" ||
+                p.billTypeNo === "SYG01",
+            );
+            if (!hasSyringe) {
+              const updated = [...prev, syringeProduct];
+              setFormData((fPrev) => ({ ...fPrev, item: JSON.stringify(updated) }));
+              return updated;
+            }
+            return prev;
+          });
+        }
+      } else {
+        // If switching from Lab to non-Lab, remove auto-included SYRINGE
+        setProductList((prev) => {
+          const filtered = prev.filter(
+            (p) =>
+              !(
+                ((p.itemName && p.itemName.trim().toUpperCase() === "SYRINGE") ||
+                  String(p.item_id) === "1") &&
+                p.billTypeNo === "SYG01"
+              ),
+          );
+          if (filtered.length !== prev.length) {
+            setFormData((fPrev) => ({ ...fPrev, item: JSON.stringify(filtered) }));
+          }
+          return filtered;
+        });
+      }
     }
+
     setFormData((prev) => ({
       ...prev,
       billType: billName,
@@ -863,7 +970,7 @@ const InvestigationBilling = () => {
       billTypeNo: billTypeNo,
       ...(billTypeNo !== "PACK" ? { package_id: "" } : {}),
       ...(clearProducts && {
-        item: JSON.stringify([]),
+        item: JSON.stringify(isLab ? [syringeProduct] : []),
         ...(billTypeNo === "PACK" ? { total: 0 } : {}),
       }),
       ...(!allowDiscount && {
@@ -890,8 +997,27 @@ const InvestigationBilling = () => {
       `${HMSURL}investigation-items/?billTypeNo=${billTypeNo}&billType=${billType}`,
       "GET",
     );
-    if (result.success) setItems(result.data.items || []);
-    else setItems([]);
+    let fetchedItems = result.success ? (result.data.items || []) : [];
+    if (isLab) {
+      const hasSyringeInItems = fetchedItems.some(
+        (it) =>
+          (it.itemName && it.itemName.trim().toUpperCase() === "SYRINGE") ||
+          String(it.item_id) === "1",
+      );
+      if (!hasSyringeInItems) {
+        fetchedItems = [
+          {
+            item_id: 1,
+            itemName: "SYRINGE",
+            billTypeNo: "SYG01",
+            price: 10,
+            rate: 10,
+          },
+          ...fetchedItems,
+        ];
+      }
+    }
+    setItems(fetchedItems);
     setSelectedItem("");
     setSelectedPrice("");
   };
@@ -984,6 +1110,37 @@ const InvestigationBilling = () => {
     });
 
     if (isDuplicate) {
+      const isSyringe =
+        (selectedItem && selectedItem.trim().toUpperCase() === "SYRINGE") ||
+        String(obj?.item_id) === "1";
+      if (isSyringe) {
+        const updatedList = productList.map((p) => {
+          const matchName =
+            p.itemName &&
+            selectedItem &&
+            p.itemName.trim().toLowerCase() === selectedItem.trim().toLowerCase();
+          const matchTestId =
+            p.test_id && obj?.test_id && String(p.test_id) === String(obj.test_id);
+          const matchItemId =
+            p.item_id && obj?.item_id && String(p.item_id) === String(obj.item_id);
+          if (matchName || matchTestId || matchItemId) {
+            return {
+              ...p,
+              quantity: quantity,
+              price: selectedPrice !== "" ? selectedPrice : p.price,
+              rate: selectedPrice !== "" ? selectedPrice : p.rate,
+            };
+          }
+          return p;
+        });
+        setProductList(updatedList);
+        setFormData((prev) => ({ ...prev, item: JSON.stringify(updatedList) }));
+        toast.success(`Updated "${selectedItem}" quantity to ${quantity}.`);
+        setSelectedItem("");
+        setSelectedPrice("");
+        setQuantity(1);
+        return;
+      }
       toast.error(`"${selectedItem}" is already added to the list!`);
       return;
     }
@@ -999,7 +1156,8 @@ const InvestigationBilling = () => {
       ...(obj?.non_nabh_rate !== undefined && obj?.non_nabh_rate !== null && { non_nabh_rate: obj.non_nabh_rate }),
       ...(obj?.no_nabh_rate !== undefined && obj?.no_nabh_rate !== null && { no_nabh_rate: obj.no_nabh_rate }),
       status: "Result Pending",
-      ...(obj?.test_id && { test_id: obj.test_id }),
+      // SYRINGE (SYG01) carries item_id only — never test_id
+      ...(obj?.test_id && !isSyringeItem(obj) && { test_id: obj.test_id }),
       ...(obj?.item_id && { item_id: obj.item_id }),
     };
     const updatedList = [...productList, newProduct];
@@ -1278,79 +1436,100 @@ const InvestigationBilling = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
     if (!validateForm()) return;
 
-    const formPayload = {
-      investBillNo: formData.investBillNo,
-      uhid: formData.uhid,
-      ipNumber: formData.ipNumber,
-      doctor: formData.doctor,
-      bill_type: formData.bill_type,
-      billTypeNo: formData.billTypeNo,
-      package_id:
-        formData.package_id ||
-        (selectedBillTypeNo === "PACK" ? selectedPackageNo : "") ||
-        "",
-      referredBy: formData.referredBy,
-      discountPercent: formData.discountPercent
-        ? parseFloat(formData.discountPercent)
-        : 0,
-      discount: formData.discount ? parseFloat(formData.discount) : 0,
-      discountRemarks: formData.discountRemarks,
-      total: formData.total,
-      finalPrice: formData.finalPrice,
-      paymentMethod: formData.paymentMethod,
-      paymentStatus: formData.paymentStatus,
-      item: productList,
-      is_emergency: !!formData.is_emergency,
-      EstBillNo: formData.EstBillNo,
-      age: formData.calculatedAge || formData.age || "",
-      age_type: formData.ageType || "",
-      roomNo: formData.roomNo || "",
-      wardName: formData.wardName || "",
-      is_ward_request: Boolean(formData.is_ward_request),
-      ward_request_type: formData.ward_request_type || "",
-      ...getPatientIdentityFields(),
-      ...(isEditMode && formData.editRemarks
-        ? { editRemarks: formData.editRemarks }
-        : {}),
-    };
+    setIsSubmitting(true);
+    try {
+      const formPayload = {
+        investBillNo: formData.investBillNo,
+        uhid: formData.uhid,
+        ipNumber: formData.ipNumber,
+        doctor: formData.doctor,
+        bill_type: formData.bill_type,
+        billTypeNo: formData.billTypeNo,
+        package_id:
+          formData.package_id ||
+          (selectedBillTypeNo === "PACK" ? selectedPackageNo : "") ||
+          "",
+        referredBy: formData.referredBy,
+        discountPercent: formData.discountPercent
+          ? parseFloat(formData.discountPercent)
+          : 0,
+        discount: formData.discount ? parseFloat(formData.discount) : 0,
+        discountRemarks: formData.discountRemarks,
+        total: formData.total,
+        finalPrice: formData.finalPrice,
+        paymentMethod: formData.paymentMethod,
+        paymentStatus: formData.paymentStatus,
+        item: productList,
+        is_emergency: !!formData.is_emergency,
+        EstBillNo: formData.EstBillNo,
+        age: formData.calculatedAge || formData.age || "",
+        age_type: formData.ageType || "",
+        roomNo: formData.roomNo || "",
+        wardName: formData.wardName || "",
+        is_ward_request: Boolean(formData.is_ward_request),
+        ward_request_type: formData.ward_request_type || "",
+        ...getPatientIdentityFields(),
+        ...(isEditMode && formData.editRemarks
+          ? { editRemarks: formData.editRemarks }
+          : {}),
+      };
 
-    const result = await apiRequest(
-      `${HMSURL}investBilling/`,
-      "POST",
-      formPayload,
-    );
-    if (result.success) {
-      const billNo = result.data?.investBillNo;
-      if (billNo) {
-        if (isEditMode) {
-          toast.success("Bill updated successfully! Sent for approval in Dept BUD Report.");
-          navigate("/ViewBills");
-          return;
+      const result = await apiRequest(
+        `${HMSURL}investBilling/`,
+        "POST",
+        formPayload,
+      );
+      if (result.success) {
+        const billNo = result.data?.investBillNo;
+        if (billNo) {
+          if (isEditMode) {
+            const isCash =
+              String(formData.paymentMethod || "")
+                .trim()
+                .toLowerCase() === "cash";
+            if (isCash) {
+              toast.success(
+                "Cash bill updated successfully! Sent for approval in Dept BUD Report.",
+              );
+            } else {
+              toast.success(
+                "Credit bill updated successfully (approval not required).",
+              );
+            }
+            navigate("/ViewBills");
+            return;
+          }
+          // ── Open print modal with an in-modal toast instead of alert(). ──
+          // ── The modal stays open until the user explicitly closes it — ──
+          // ── form reset/reload happens on that close, not on a timer.  ──
+          setPrintJob({
+            bill: {
+              ...formData,
+              investBillNo: billNo,
+              investBillDate: formData.investBillDate,
+              item: productList,
+            },
+            isEstimate: false,
+            toastMsg: "Bill generated successfully!",
+          });
+        } else {
+          toast.error("Bill generated but bill number not received from server!");
         }
-        // ── Open print modal with an in-modal toast instead of alert(). ──
-        // ── The modal stays open until the user explicitly closes it — ──
-        // ── form reset/reload happens on that close, not on a timer.  ──
-        setPrintJob({
-          bill: {
-            ...formData,
-            investBillNo: billNo,
-            investBillDate: formData.investBillDate,
-            item: productList,
-          },
-          isEstimate: false,
-          toastMsg: "Bill generated successfully!",
-        });
       } else {
-        toast.error("Bill generated but bill number not received from server!");
+        Swal.fire({
+          icon: "error",
+          title: "Failed to Save Bill",
+          text: result.error || "An error occurred while saving the bill.",
+        });
       }
-    } else {
-      Swal.fire({
-        icon: "error",
-        title: "Failed to Save Bill",
-        text: result.error || "An error occurred while saving the bill.",
-      });
+    } catch (err) {
+      console.error("Error saving bill:", err);
+      toast.error("An unexpected error occurred while saving the bill.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -1441,13 +1620,183 @@ const InvestigationBilling = () => {
         <NavLink onClick={() => navigate("/ViewBills")}>📄 View Bills</NavLink>
       </NavigationLinks>
 
-      {/* ── Edit mode banner showing the remarks ── */}
+      {/* ── Edit mode banner showing the remarks & history ── */}
       {isEditMode && formData.editRemarks && (
-        <EditRemarksBanner>
-          <span>✏️</span>
-          <div>
-            <strong>Edit Mode — Remarks:</strong> {formData.editRemarks}
+        <EditRemarksBanner
+          style={{
+            flexDirection: "column",
+            alignItems: "flex-start",
+            gap: 8,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              width: "100%",
+              justifyContent: "space-between",
+              flexWrap: "wrap",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <span>✏️</span>
+              <div>
+                <strong>Edit Mode — Remarks:</strong> {formData.editRemarks}
+                <span
+                  style={{
+                    marginLeft: 10,
+                    padding: "2px 6px",
+                    borderRadius: 4,
+                    fontSize: "0.72rem",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    background:
+                      String(formData.paymentMethod).toLowerCase() === "cash"
+                        ? "#ecfdf5"
+                        : "#eff6ff",
+                    color:
+                      String(formData.paymentMethod).toLowerCase() === "cash"
+                        ? "#047857"
+                        : "#1d4ed8",
+                    border: `1px solid ${String(formData.paymentMethod).toLowerCase() === "cash"
+                      ? "#a7f3d0"
+                      : "#bfdbfe"
+                      }`,
+                  }}
+                >
+                  {formData.paymentMethod || "—"}
+                </span>
+                {String(formData.paymentMethod).toLowerCase() === "cash" && (
+                  <span
+                    style={{
+                      marginLeft: 8,
+                      fontSize: "0.75rem",
+                      color: "#b45309",
+                      fontWeight: 600,
+                    }}
+                  >
+                    (Requires Dept BUD Report approval on save)
+                  </span>
+                )}
+              </div>
+            </div>
+            {billHistory.length > 0 && (
+              <button
+                type="button"
+                style={{
+                  background: "#fff",
+                  border: "1px solid #d97706",
+                  color: "#b45309",
+                  padding: "4px 10px",
+                  borderRadius: 6,
+                  fontSize: "0.75rem",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+                onClick={() => setShowHistoryAccordion((prev) => !prev)}
+              >
+                📜 {showHistoryAccordion ? "Hide Previous Edits" : `View Previous Edits (${billHistory.length})`}
+              </button>
+            )}
           </div>
+
+          {/* Previous Edit History List */}
+          {showHistoryAccordion && billHistory.length > 0 && (
+            <div
+              style={{
+                width: "100%",
+                marginTop: 6,
+                background: "#fff",
+                borderRadius: 6,
+                padding: 10,
+                border: "1px solid #fde68a",
+              }}
+            >
+              <div
+                style={{
+                  fontWeight: 700,
+                  fontSize: "0.8rem",
+                  color: "#92400e",
+                  marginBottom: 6,
+                }}
+              >
+                Previous Edit History for this Bill:
+              </div>
+              {[...billHistory].reverse().map((h, hi) => (
+                <div
+                  key={hi}
+                  style={{
+                    padding: "6px 8px",
+                    background: "#fefce8",
+                    borderRadius: 4,
+                    marginBottom: 6,
+                    border: "1px solid #fef08a",
+                    fontSize: "0.74rem",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      fontWeight: 600,
+                      color: "#854d0e",
+                      flexWrap: "wrap",
+                      gap: 4,
+                    }}
+                  >
+                    <span>
+                      Edit #{billHistory.length - hi} by{" "}
+                      {h.modified_by_name || h.modified_by || "—"}
+                    </span>
+                    <span>
+                      🕒{" "}
+                      {h.modified_date
+                        ? new Date(
+                          h.modified_date.endsWith("Z")
+                            ? h.modified_date
+                            : h.modified_date + "Z",
+                        ).toLocaleString("en-IN")
+                        : ""}
+                    </span>
+                  </div>
+                  {h.editRemarks && (
+                    <div style={{ marginTop: 2, color: "#78350f" }}>
+                      Remarks: <em>{h.editRemarks}</em>
+                    </div>
+                  )}
+                  {h.changes && Object.keys(h.changes).length > 0 && (
+                    <div
+                      style={{
+                        marginTop: 4,
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: 6,
+                      }}
+                    >
+                      {Object.entries(h.changes).map(([k, val]) => (
+                        <span
+                          key={k}
+                          style={{
+                            background: "#fff",
+                            border: "1px solid #cbd5e1",
+                            borderRadius: 3,
+                            padding: "1px 5px",
+                            fontSize: "0.7rem",
+                          }}
+                        >
+                          <strong>{k}:</strong>{" "}
+                          {typeof val === "object" && val !== null
+                            ? `${JSON.stringify(val.old ?? val)} ➔ ${JSON.stringify(val.new ?? "")}`
+                            : String(val)}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </EditRemarksBanner>
       )}
 
@@ -1660,9 +2009,10 @@ const InvestigationBilling = () => {
               <Label required>Bill Type</Label>
               <SearchableDropdown
                 value={formData.billType}
+                lockWhenSelected
                 onChange={(billName) => {
                   if (!billName) {
-                    // ← This is what's missing. Clear all bill type state.
+                    // Cleared via × → reset all bill type state.
                     setFormData((prev) => ({
                       ...prev,
                       billType: "",
@@ -1862,7 +2212,36 @@ const InvestigationBilling = () => {
                     {productList.map((product, index) => (
                       <Tr key={index}>
                         <Td>{product.itemName}</Td>
-                        <Td>{product.quantity}</Td>
+                        <Td>
+                          {selectedBillTypeNo === "PACK" ? (
+                            product.quantity
+                          ) : (
+                            <input
+                              type="number"
+                              min="1"
+                              value={product.quantity}
+                              onChange={(e) => {
+                                const val = Math.max(1, parseInt(e.target.value, 10) || 1);
+                                const updatedList = productList.map((p, i) =>
+                                  i === index ? { ...p, quantity: val } : p
+                                );
+                                setProductList(updatedList);
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  item: JSON.stringify(updatedList),
+                                }));
+                              }}
+                              style={{
+                                width: "60px",
+                                padding: "3px 6px",
+                                border: "1px solid #cbd5e1",
+                                borderRadius: "4px",
+                                textAlign: "center",
+                                fontSize: "13px",
+                              }}
+                            />
+                          )}
+                        </Td>
                         {selectedBillTypeNo !== "PACK" && (
                           <Td>
                             ₹ {(product.price * product.quantity).toFixed(2)}
@@ -1986,8 +2365,12 @@ const InvestigationBilling = () => {
               <EstimateBtn type="button" data-skip-enter="true" onClick={handleEstimate}>
                 📊 Make Estimate
               </EstimateBtn>
-              <SubmitBtn type="submit">
-                {isEditMode ? "💾 Update Bill" : "💾 Save Bill"}
+              <SubmitBtn type="submit" disabled={isSubmitting}>
+                {isSubmitting
+                  ? "⏳ Saving..."
+                  : isEditMode
+                    ? "💾 Update Bill"
+                    : "💾 Save Bill"}
               </SubmitBtn>
             </ActionRow>
           </ProductSection>
