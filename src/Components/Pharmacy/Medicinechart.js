@@ -4194,9 +4194,16 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
         let totalSgstAmt = 0;
         items.forEach((it) => {
           const pricing = calculateMedicinePricing(it);
+          const q = Number(it.qty !== undefined ? it.qty : (it.quantity ?? pricing.qty));
           const lineAmt = Number(it.total !== undefined && Number(it.total) > 0 ? it.total : pricing.lineTotal);
-          const cgst = Number(it.CGST_Amt !== undefined ? it.CGST_Amt : (it.cgst_amount ?? pricing.cgstAmt));
-          const sgst = Number(it.SGST_Amt !== undefined ? it.SGST_Amt : (it.sgst_amount ?? pricing.sgstAmt));
+          const rawC = Number(it.CGST_Amt !== undefined ? it.CGST_Amt : (it.cgst_amount ?? pricing.cgstAmt));
+          const rawS = Number(it.SGST_Amt !== undefined ? it.SGST_Amt : (it.sgst_amount ?? pricing.sgstAmt));
+          const cgst = (q > 1 && rawC > 0 && Math.abs(rawC * q - pricing.cgstAmt) < Math.abs(rawC - pricing.cgstAmt) - 0.05)
+            ? (rawC * q)
+            : rawC;
+          const sgst = (q > 1 && rawS > 0 && Math.abs(rawS * q - pricing.sgstAmt) < Math.abs(rawS - pricing.sgstAmt) - 0.05)
+            ? (rawS * q)
+            : rawS;
           calcTotal += lineAmt;
           totalCgstAmt += (isNaN(cgst) ? 0 : cgst);
           totalSgstAmt += (isNaN(sgst) ? 0 : sgst);
@@ -4413,8 +4420,14 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                           const rate = Number(item.mrp !== undefined && Number(item.mrp) > 0 ? item.mrp : pricing.mrp);
                           const cgstPct = Number(item.CGST_Percentage !== undefined ? item.CGST_Percentage : pricing.cgstRate);
                           const sgstPct = Number(item.SGST_Percentage !== undefined ? item.SGST_Percentage : pricing.sgstRate);
-                          const cgstAmt = Number(item.CGST_Amt !== undefined ? item.CGST_Amt : (item.cgst_amount ?? pricing.cgstAmt));
-                          const sgstAmt = Number(item.SGST_Amt !== undefined ? item.SGST_Amt : (item.sgst_amount ?? pricing.sgstAmt));
+                          const rawC = Number(item.CGST_Amt !== undefined ? item.CGST_Amt : (item.cgst_amount ?? pricing.cgstAmt));
+                          const rawS = Number(item.SGST_Amt !== undefined ? item.SGST_Amt : (item.sgst_amount ?? pricing.sgstAmt));
+                          const cgstAmt = (q > 1 && rawC > 0 && Math.abs(rawC * q - pricing.cgstAmt) < Math.abs(rawC - pricing.cgstAmt) - 0.05)
+                            ? (rawC * q)
+                            : rawC;
+                          const sgstAmt = (q > 1 && rawS > 0 && Math.abs(rawS * q - pricing.sgstAmt) < Math.abs(rawS - pricing.sgstAmt) - 0.05)
+                            ? (rawS * q)
+                            : rawS;
                           const lineAmt = Number(item.total !== undefined && Number(item.total) > 0 ? item.total : pricing.lineTotal);
                           return (
                             <tr key={i}>
