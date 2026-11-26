@@ -1781,7 +1781,7 @@ const extractWardDate = (dateVal) => {
   return String(dateVal).split("T")[0];
 };
 
-// Returns Selling_Price in place of Unit Price, with fallbacks to price and mrp
+// Currency formatter
 const formatBillCurrency = (val) => {
   const num = parseFloat(val);
   return isNaN(num) ? "0.00" : num.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1855,7 +1855,7 @@ const numberToWords = (num) => {
 // Reverse GST Pharmacy Pricing Calculation Helper
 const calculateMedicinePricing = (item, customQty = null, customDiscVal = null) => {
   const qty = customQty !== null ? (parseFloat(customQty) || 0) : (parseFloat(item?.qty ?? item?.quantity ?? 0) || 0);
-  const mrp = parseFloat(item?.mrp || item?.price || item?.rate || item?.Selling_Price || item?.selling_price || 0);
+  const mrp = parseFloat(item?.mrp || item?.rate || 0);
   const gross = parseFloat((qty * mrp).toFixed(2));
 
   const cgstRate = parseFloat(item?.cgst_rate ?? item?.CGST_Percentage ?? item?.cgst_percentage ?? item?.cgst_pct ?? 2.5);
@@ -1927,25 +1927,9 @@ const formatBillDateTime = (val) => {
 
 const getUnitPrice = (item) => {
   if (!item) return 0;
-  // 1. Selling_Price or selling_price
-  const sp = item.Selling_Price !== undefined ? item.Selling_Price : item.selling_price;
-  if (sp !== undefined && sp !== null && sp !== "") {
-    const num = Number(sp);
-    if (!isNaN(num) && num > 0) return num;
-  }
-  // 2. Direct price
-  if (item.price !== undefined && item.price !== null && item.price !== "") {
-    const num = Number(item.price);
-    if (!isNaN(num) && num > 0) return num;
-  }
-  // 3. MRP
   if (item.mrp !== undefined && item.mrp !== null && item.mrp !== "") {
     const num = Number(item.mrp);
     if (!isNaN(num) && num > 0) return num;
-  }
-  // 4. Zero value if explicitly numeric
-  if (sp !== undefined && sp !== null && !isNaN(Number(sp))) {
-    return Number(sp);
   }
   return 0;
 };
@@ -2450,8 +2434,8 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
           if (!id) continue;
           const name = item.item_name || `${item.item_first_name || ""} ${item.item_last_name || ""}`.trim();
           const stock = item.available_stock != null ? Number(item.available_stock) : Number(item.total_stock ?? 0);
-          const mrpVal = parseFloat(item.Selling_Price ?? item.selling_price ?? item.price ?? item.mrp ?? 0);
-          const priceVal = parseFloat(item.price ?? item.Selling_Price ?? item.selling_price ?? item.mrp ?? 0);
+          const mrpVal = parseFloat(item.mrp ?? 0);
+          const priceVal = mrpVal;
           const batchNum = item.batch_number || "N/A";
           const expDate = item.expiry_date || "N/A";
 
@@ -2731,10 +2715,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
           ...it,
           item_name: resName,
           medicine_name: resName,
-          price: up,
           mrp: up > 0 ? up : (Number(it.mrp) || 0),
-          selling_price: up,
-          Selling_Price: up,
           qty: pendingQ,
           requested_qty: origQ > 0 ? origQ : pendingQ,
           dispatched_qty: dispQ,
@@ -4213,9 +4194,12 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
         let totalSgstAmt = 0;
         items.forEach((it) => {
           const pricing = calculateMedicinePricing(it);
-          calcTotal += pricing.lineTotal;
-          totalCgstAmt += pricing.cgstAmt;
-          totalSgstAmt += pricing.sgstAmt;
+          const lineAmt = Number(it.total !== undefined && Number(it.total) > 0 ? it.total : pricing.lineTotal);
+          const cgst = Number(it.CGST_Amt !== undefined ? it.CGST_Amt : (it.cgst_amount ?? pricing.cgstAmt));
+          const sgst = Number(it.SGST_Amt !== undefined ? it.SGST_Amt : (it.sgst_amount ?? pricing.sgstAmt));
+          calcTotal += lineAmt;
+          totalCgstAmt += cgst;
+          totalSgstAmt += sgst;
         });
 
         const totalTaxAmt = totalCgstAmt + totalSgstAmt;
@@ -4409,7 +4393,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                         <th rowSpan={2} style={{ width: 75, textAlign: "center", padding: 3, color: "#111", fontWeight: 700, fontSize: 10.5 }}>Batch</th>
                         <th rowSpan={2} style={{ width: 62, textAlign: "center", padding: 3, color: "#111", fontWeight: 700, fontSize: 10.5 }}>Expiry</th>
                         <th rowSpan={2} style={{ width: 36, textAlign: "center", padding: 3, color: "#111", fontWeight: 700, fontSize: 10.5 }}>Qty</th>
-                        <th rowSpan={2} style={{ width: 58, textAlign: "right", padding: "3px 4px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>Rate</th>
+                        <th rowSpan={2} style={{ width: 58, textAlign: "right", padding: "3px 4px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>MRP</th>
                         <th colSpan={2} style={{ textAlign: "center", padding: "2px 3px", borderBottom: "1px solid #888", color: "#111", fontWeight: 700, fontSize: 10.5 }}>CGST</th>
                         <th colSpan={2} style={{ textAlign: "center", padding: "2px 3px", borderBottom: "1px solid #888", color: "#111", fontWeight: 700, fontSize: 10.5 }}>SGST</th>
                         <th rowSpan={2} style={{ width: 72, textAlign: "right", padding: "3px 4px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>Amount</th>
@@ -4425,13 +4409,13 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                       {items.length > 0 ? (
                         items.map((item, i) => {
                           const pricing = calculateMedicinePricing(item);
-                          const q = pricing.qty;
-                          const rate = pricing.mrp;
-                          const cgstPct = pricing.cgstRate;
-                          const sgstPct = pricing.sgstRate;
-                          const cgstAmt = pricing.cgstAmt;
-                          const sgstAmt = pricing.sgstAmt;
-                          const lineAmt = pricing.lineTotal;
+                          const q = Number(item.qty !== undefined ? item.qty : (item.quantity ?? pricing.qty));
+                          const rate = Number(item.mrp !== undefined && Number(item.mrp) > 0 ? item.mrp : pricing.mrp);
+                          const cgstPct = Number(item.CGST_Percentage !== undefined ? item.CGST_Percentage : pricing.cgstRate);
+                          const sgstPct = Number(item.SGST_Percentage !== undefined ? item.SGST_Percentage : pricing.sgstRate);
+                          const cgstAmt = Number(item.CGST_Amt !== undefined ? item.CGST_Amt : (item.cgst_amount ?? pricing.cgstAmt));
+                          const sgstAmt = Number(item.SGST_Amt !== undefined ? item.SGST_Amt : (item.sgst_amount ?? pricing.sgstAmt));
+                          const lineAmt = Number(item.total !== undefined && Number(item.total) > 0 ? item.total : pricing.lineTotal);
                           return (
                             <tr key={i}>
                               <td style={{ padding: "2.5px 4px", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 180 }}>

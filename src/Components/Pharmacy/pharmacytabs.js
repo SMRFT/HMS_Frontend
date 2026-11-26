@@ -383,13 +383,7 @@ const OPPharmacyTabs = () => {
 
       // ── Medicine items — map ALL fields from the enriched API response ──
       medicine_items: items.map((item) => {
-        const rate = (() => {
-          const sp = item.Selling_Price !== undefined ? item.Selling_Price : item.selling_price;
-          if (sp !== undefined && sp !== null && sp !== "" && !isNaN(Number(sp)) && Number(sp) > 0) return Number(sp);
-          if (item.price !== undefined && item.price !== null && item.price !== "" && !isNaN(Number(item.price)) && Number(item.price) > 0) return Number(item.price);
-          if (item.mrp !== undefined && item.mrp !== null && item.mrp !== "" && !isNaN(Number(item.mrp)) && Number(item.mrp) > 0) return Number(item.mrp);
-          return Number(sp || item.price || item.mrp || 0);
-        })();
+        const rate = Number(item.mrp || 0);
 
         return {
           ...item,
@@ -415,10 +409,7 @@ const OPPharmacyTabs = () => {
           SGST_Percentage:     item.SGST_Percentage ?? 0,
           CGST_Amt:            item.CGST_Amt        ?? 0,
           SGST_Amt:            item.SGST_Amt        ?? 0,
-          price:               rate,
           mrp:                 rate,
-          selling_price:       rate,
-          Selling_Price:       rate,
           is_consumable_items: Boolean(item.is_consumable_items),
         };
       }),
