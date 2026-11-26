@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import apiRequest from "../../Auth/apiRequest";
+import { createClientRequestId, getDuplicateWarningMessage } from "./wardRequestSubmitHelper";
 import styled, { keyframes } from "styled-components";
 import { Loader2 } from "lucide-react";
 import {
@@ -458,10 +459,18 @@ const SaveBtn = styled.button`
   font-weight: 700;
   cursor: pointer;
   width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   transition: background 0.15s;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background: #5fa890;
+  }
+  &:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
   }
 `;
 
@@ -478,8 +487,12 @@ const CancelBtn = styled.button`
   margin-top: 8px;
   transition: background 0.15s;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background: #4f5e6e;
+  }
+  &:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
   }
 `;
 
@@ -753,6 +766,9 @@ export default function RadiologyWardRequest({ patient, onClose, onBack }) {
   const [showRequestForm, setShowRequestForm] = useState(false);
   const [requests, setRequests] = useState([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
+  const clientRequestIdRef = useRef(createClientRequestId());
   const [doctors, setDoctors] = useState([]);
   const [billTypes, setBillTypes] = useState([]);
   const [investigationItems, setInvestigationItems] = useState([]);
@@ -1024,6 +1040,7 @@ export default function RadiologyWardRequest({ patient, onClose, onBack }) {
       bill_type: item.bill_type || item.billtype || selectedBT?.bill_type,
       nabh_code: item.nabh_code || ""
     }]);
+    clientRequestIdRef.current = createClientRequestId();
   };
 
   const addPackageToList = async (pkg) => {
@@ -1046,15 +1063,21 @@ export default function RadiologyWardRequest({ patient, onClose, onBack }) {
           }
         });
         setSelectedTests(newTests);
+        clientRequestIdRef.current = createClientRequestId();
       }
     } catch (e) { console.error(e); }
   };
 
-  const handleSave = async () => {
+  const handleSave = async (forceDuplicate = false) => {
+    if (isSubmittingRef.current || isSubmitting) return;
     if (!doctor || selectedTests.length === 0) {
       alert("Please select doctor and at least one test");
       return;
     }
+
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
+
     const selectedBT = billTypes.find(bt => String(bt.bill_type) === String(selectedBillType));
     const mappedTests = selectedTests.map(t => ({
       itemName: t.itemName,
@@ -1069,6 +1092,7 @@ export default function RadiologyWardRequest({ patient, onClose, onBack }) {
     }));
 
     const resolvedRoom = (resolvedPatient.roomNo || patient?.roomNo || patient?.room_no || (resolvedPatient.roomBed ? resolvedPatient.roomBed.split("|")[0].trim() : "")).replace(/^-\s*$/, "").trim();
+    const requestKey = forceDuplicate ? createClientRequestId() : clientRequestIdRef.current;
     const payload = {
       uhid: resolvedPatient.uhid,
       ipNumber: resolvedPatient.ipNo,
@@ -1079,7 +1103,9 @@ export default function RadiologyWardRequest({ patient, onClose, onBack }) {
       item: mappedTests,
       roomNo: resolvedRoom,
       wardName: resolvedRoom || (resolvedPatient.wardName !== "-" ? resolvedPatient.wardName : "RAD"),
-      total_amount: selectedTests.reduce((sum, t) => sum + (parseFloat(t.price) || 0), 0)
+      total_amount: selectedTests.reduce((sum, t) => sum + (parseFloat(t.price) || 0), 0),
+      client_request_id: requestKey,
+      force_duplicate: Boolean(forceDuplicate),
     };
 
     try {
@@ -1087,13 +1113,34 @@ export default function RadiologyWardRequest({ patient, onClose, onBack }) {
       if (res.success) {
         setShowRequestForm(false);
         setSelectedTests([]);
+        clientRequestIdRef.current = createClientRequestId();
         fetchRequests();
-        const goBack = window.confirm("Radiology request saved successfully!\n\nDo you want to return to the Actions Menu?");
+        const savedMsg = res.data?.duplicate_suppressed
+          ? `${res.data?.message || "Radiology request already recorded."}\n\nDo you want to return to the Actions Menu?`
+          : "Radiology request saved successfully!\n\nDo you want to return to the Actions Menu?";
+        const goBack = window.confirm(savedMsg);
         if (goBack && onBack) {
           onBack();
         }
+      } else {
+        const warnMsg = getDuplicateWarningMessage(res);
+        if (warnMsg) {
+          isSubmittingRef.current = false;
+          setIsSubmitting(false);
+          if (window.confirm(warnMsg)) {
+            await handleSave(true);
+          }
+          return;
+        }
+        alert("Failed to save: " + (res.error || res.data?.message || "Unknown error"));
       }
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+      alert("An error occurred while saving.");
+    } finally {
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
+    }
   };
 
   const handleCancelRequest = async (billId) => {
@@ -1228,7 +1275,15 @@ export default function RadiologyWardRequest({ patient, onClose, onBack }) {
             🔒 Discharged (Read-Only)
           </span>
         ) : (
-          <ViewHistoryBtn onClick={() => { setShowRequestForm(!showRequestForm); if (!showRequestForm) setExpandedRow(null); }}>
+          <ViewHistoryBtn
+            onClick={() => {
+              if (!showRequestForm) {
+                setExpandedRow(null);
+                clientRequestIdRef.current = createClientRequestId();
+              }
+              setShowRequestForm(!showRequestForm);
+            }}
+          >
             {showRequestForm ? "View History" : "+ New Other Request"}
           </ViewHistoryBtn>
         )}
@@ -1450,8 +1505,21 @@ export default function RadiologyWardRequest({ patient, onClose, onBack }) {
                   ₹{selectedTests.reduce((sum, t) => sum + (parseFloat(t.price) || 0), 0).toFixed(2)}
                 </span>
               </div>
-              <SaveBtn onClick={handleSave}>Save Request</SaveBtn>
-              <CancelBtn onClick={() => setShowRequestForm(false)}>✕ Cancel</CancelBtn>
+              <SaveBtn
+                type="button"
+                onClick={() => handleSave(false)}
+                disabled={isSubmitting}
+                aria-busy={isSubmitting}
+              >
+                {isSubmitting ? <><SpinningLoader size={14} /> Saving...</> : "Save Request"}
+              </SaveBtn>
+              <CancelBtn
+                type="button"
+                onClick={() => setShowRequestForm(false)}
+                disabled={isSubmitting}
+              >
+                ✕ Cancel
+              </CancelBtn>
             </SidePanelFooter>
           </SidePanel>
         </RequestFormWrapper>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import styled, { keyframes, css } from "styled-components";
 import axios from "axios";
 import {
@@ -13,7 +13,9 @@ import {
   FiRefreshCw,
   FiExternalLink,
   FiInbox,
-  FiLayers
+  FiLayers,
+  FiSearch,
+  FiX
 } from "react-icons/fi";
 import {
   BarChart,
@@ -38,7 +40,12 @@ const COLORS = ["#10b981", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"
 const currency = (v) =>
   `₹${Number(v || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 
-const formatDateISO = (d) => d.toISOString().split("T")[0];
+const formatDateISO = (d) => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 
 // ─── ANIMATIONS ──────────────────────────────────────────────────────────────
 const fadeIn = keyframes`
@@ -416,6 +423,223 @@ const StatCard = styled.div`
   }
 `;
 
+// ─── CURRENT OCCUPANCY BREAKDOWN & DRILLDOWN ─────────────────────────────────
+const OccupancyCatGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 16px;
+
+  @media (max-width: 1024px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  @media (max-width: 540px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const OccupancyCatCard = styled.button`
+  text-align: left;
+  background: ${({ $active, $tint }) => ($active ? $tint || "#eef2ff" : "white")};
+  border: 1.5px solid ${({ $active, $accent }) => ($active ? $accent || "#4f46e5" : "#eef2f6")};
+  border-radius: 18px;
+  padding: 16px 18px;
+  cursor: pointer;
+  box-shadow: ${({ $active, $accent }) =>
+    $active ? `0 8px 20px -6px ${$accent}40` : "0 2px 8px rgba(15, 23, 42, 0.04)"};
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  &:hover {
+    transform: translateY(-2px);
+    border-color: ${({ $accent }) => $accent || "#4f46e5"};
+  }
+
+  .cat-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+
+    .cat-name {
+      font-size: 0.76rem;
+      font-weight: 800;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .cat-pill {
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: ${({ $tint }) => $tint || "#eef2ff"};
+      color: ${({ $accent }) => $accent || "#4f46e5"};
+    }
+  }
+
+  .cat-val {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.1;
+  }
+
+  .cat-sub {
+    font-size: 0.74rem;
+    color: #64748b;
+    font-weight: 500;
+  }
+`;
+
+const DrilldownPanel = styled.div`
+  background: white;
+  border-radius: 20px;
+  border: 1px solid #eef2f6;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  padding: 18px 20px;
+  margin-bottom: 10px;
+`;
+
+const DrilldownToolbar = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 14px;
+`;
+
+const CatFilterTabs = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+
+  button {
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    color: #475569;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+
+    &.active {
+      background: #4f46e5;
+      color: white;
+      border-color: #4f46e5;
+    }
+
+    &:hover:not(.active) {
+      background: #eef2ff;
+      color: #4338ca;
+    }
+  }
+`;
+
+const SearchBox = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 6px 12px;
+  min-width: 240px;
+
+  input {
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 0.8rem;
+    color: #0f172a;
+    width: 100%;
+  }
+
+  button {
+    border: none;
+    background: transparent;
+    color: #94a3b8;
+    cursor: pointer;
+    display: flex;
+    padding: 0;
+    &:hover {
+      color: #475569;
+    }
+  }
+`;
+
+const OccTableWrap = styled.div`
+  max-height: 390px;
+  overflow: auto;
+  border: 1px solid #f1f5f9;
+  border-radius: 14px;
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+  }
+
+  th {
+    position: sticky;
+    top: 0;
+    background: #f8fafc;
+    color: #475569;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid #e2e8f0;
+    z-index: 1;
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 9px 12px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #1e293b;
+    vertical-align: middle;
+  }
+
+  tr:hover td {
+    background: #f8fafc;
+  }
+`;
+
+const CategoryBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+  background: ${({ $cat }) =>
+    $cat === "chemo"
+      ? "#fdf4ff"
+      : $cat === "dialysis"
+        ? "#fff7ed"
+        : $cat === "daycare"
+          ? "#ecfeff"
+          : "#eef2ff"};
+  color: ${({ $cat }) =>
+    $cat === "chemo"
+      ? "#a21caf"
+      : $cat === "dialysis"
+        ? "#c2410c"
+        : $cat === "daycare"
+          ? "#0e7490"
+          : "#4338ca"};
+`;
+
 // ─── CHARTS ──────────────────────────────────────────────────────────────────
 const MainGrid = styled.div`
   display: grid;
@@ -536,6 +760,8 @@ const AdvancedDashboard = () => {
   const [fromDate, setFromDate] = useState(todayStr);
   const [toDate, setToDate] = useState(todayStr);
   const [showLifetime, setShowLifetime] = useState(false); // Disabled by default per user request
+  const [occCategory, setOccCategory] = useState("all");
+  const [occSearch, setOccSearch] = useState("");
 
   const [stats, setStats] = useState({
     kpis: {},
@@ -544,7 +770,12 @@ const AdvancedDashboard = () => {
     monthly_income_expense: [],
     todays_income_method: [],
     doctor_wise: [],
-    bed_occupancy: []
+    bed_occupancy: [],
+    occupancy_breakdown: {
+      total: 0,
+      counts: { normal_room: 0, chemo: 0, dialysis: 0, daycare: 0 },
+      patients: []
+    }
   });
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState({
@@ -622,7 +853,30 @@ const AdvancedDashboard = () => {
         ? "Yesterday's"
         : `${fromDate} to ${toDate}`;
 
-  const trafficEmpty = isEmptySeries(stats.monthly_op_ip, ["OP", "IP"]);
+  const occupancyBreakdown = stats.occupancy_breakdown || {
+    total: 0,
+    counts: { normal_room: 0, chemo: 0, dialysis: 0, daycare: 0 },
+    patients: []
+  };
+  const occCounts = occupancyBreakdown.counts || {};
+
+  const filteredOccPatients = useMemo(() => {
+    const list = occupancyBreakdown.patients || [];
+    const byCategory =
+      occCategory === "all" ? list : list.filter((p) => p.category === occCategory);
+    const q = occSearch.trim().toLowerCase();
+    if (!q) return byCategory;
+    return byCategory.filter(
+      (p) =>
+        (p.ipNumber || "").toLowerCase().includes(q) ||
+        (p.uhid || "").toLowerCase().includes(q) ||
+        (p.patientName || "").toLowerCase().includes(q) ||
+        (p.roomNo || "").toLowerCase().includes(q) ||
+        (p.doctor || "").toLowerCase().includes(q)
+    );
+  }, [occupancyBreakdown.patients, occCategory, occSearch]);
+
+  const trafficEmpty = isEmptySeries(stats.monthly_op_ip, ["OP", "IP", "Normal IP", "Day Care IP"]);
   const incomeExpenseEmpty = isEmptySeries(stats.monthly_income_expense, ["Income", "Expense"]);
   const doctorWiseEmpty = !stats.doctor_wise || stats.doctor_wise.length === 0;
   const incomeMixEmpty = !stats.todays_income_method || stats.todays_income_method.length === 0;
@@ -901,37 +1155,58 @@ const AdvancedDashboard = () => {
       </SectionHeader>
 
       <KpiRow>
-        <StatCard delay={0} $tint="#ecfeff" $accent="#0891b2">
+        <StatCard delay={0} $tint="#eff6ff" $accent="#2563eb">
           <div className="top">
-            <div className="label">IP / OP Volume</div>
+            <div className="label">Normal IP</div>
+            <div className="icon-chip">
+              <FiUserCheck />
+            </div>
+          </div>
+          <div>
+            <div className="value">
+              <AnimatedValue value={stats.kpis?.today_normal_ip || 0} />
+            </div>
+            <div className="suffix">
+              Inpatient admissions · Discharges: {stats.kpis?.today_normal_discharge || 0}
+            </div>
+          </div>
+        </StatCard>
+
+        <StatCard delay={0.05} $tint="#ecfeff" $accent="#0891b2">
+          <div className="top">
+            <div className="label">Day Care IP (SD)</div>
+            <div className="icon-chip">
+              <FiActivity />
+            </div>
+          </div>
+          <div>
+            <div className="value">
+              <AnimatedValue value={stats.kpis?.today_daycare_ip || 0} />
+            </div>
+            <div className="suffix">
+              SD prefix admissions · Discharges: {stats.kpis?.today_daycare_discharge || 0}
+            </div>
+          </div>
+        </StatCard>
+
+        <StatCard delay={0.1} $tint="#ecfdf5" $accent="#059669">
+          <div className="top">
+            <div className="label">OP Visits / Total Disch</div>
             <div className="icon-chip">
               <FiTrendingUp />
             </div>
           </div>
           <div>
             <div className="value">
-              {stats.kpis?.today_ip || 0} IP / {stats.kpis?.today_op || 0} OP
+              {stats.kpis?.today_op || 0} OP / {stats.kpis?.today_discharge || 0} Disch
             </div>
-            <div className="suffix">Admissions &amp; Outpatient visits in range</div>
+            <div className="suffix">
+              Total IP: {stats.kpis?.today_ip || 0} (Normal + Day Care)
+            </div>
           </div>
         </StatCard>
 
-        <StatCard delay={0.05} $tint="#fff1f2" $accent="#e11d48">
-          <div className="top">
-            <div className="label">Discharges</div>
-            <div className="icon-chip">
-              <FiExternalLink />
-            </div>
-          </div>
-          <div>
-            <div className="value">
-              <AnimatedValue value={stats.kpis?.today_discharge || 0} />
-            </div>
-            <div className="suffix">Patients discharged in range</div>
-          </div>
-        </StatCard>
-
-        <StatCard delay={0.1} $tint="#f5f3ff" $accent="#7c3aed">
+        <StatCard delay={0.15} $tint="#f5f3ff" $accent="#7c3aed">
           <div className="top">
             <div className="label">Current Occupancy</div>
             <div className="icon-chip">
@@ -942,29 +1217,200 @@ const AdvancedDashboard = () => {
             <div className="value">
               <AnimatedValue value={stats.kpis?.current_ip || 0} />
             </div>
-            <div className="suffix">Active inpatients currently admitted</div>
+            <div className="suffix">
+              Normal: {stats.kpis?.current_normal_ip || 0} · Day Care (SD): {stats.kpis?.current_daycare_ip || 0}
+            </div>
           </div>
         </StatCard>
 
         {showLifetime && lifetimeRev && (
-          <StatCard delay={0.15} $tint="#eff6ff" $accent="#2563eb">
+          <StatCard delay={0.2} $tint="#f8fafc" $accent="#334155">
             <div className="top">
-              <div className="label">Lifetime OP / IP</div>
+              <div className="label">Lifetime Normal vs Day Care IP</div>
               <div className="icon-chip">
                 <FiUsers />
               </div>
             </div>
             <div>
-              <div className="value" style={{ fontSize: "1.25rem" }}>
-                {(lifetimeRev.total_op_count || 0).toLocaleString()} / {(lifetimeRev.total_ip_count || 0).toLocaleString()}
+              <div className="value" style={{ fontSize: "1.2rem" }}>
+                {(lifetimeRev.total_normal_ip_count || 0).toLocaleString()} / {(lifetimeRev.total_daycare_ip_count || 0).toLocaleString()}
               </div>
               <div className="suffix">
-                Total discharges: {(lifetimeRev.total_discharge_count || 0).toLocaleString()}
+                OP: {(lifetimeRev.total_op_count || 0).toLocaleString()} · Disch: {(lifetimeRev.total_discharge_count || 0).toLocaleString()}
               </div>
             </div>
           </StatCard>
         )}
       </KpiRow>
+
+      {/* ─── SECTION 3B: CURRENT TOTAL ADMISSION BY ROOM / WARD CATEGORY ─────── */}
+      <SectionHeader $pillBg="#f0fdfa" $pillColor="#0f766e">
+        <h2>
+          <FiLayers style={{ color: "#0d9488" }} /> Current Admitted Breakdown (Normal Room · Chemo · Dialysis · Daycare)
+        </h2>
+        <div className="line" />
+        <span className="pill">Total Active: {occupancyBreakdown.total || 0}</span>
+      </SectionHeader>
+
+      <OccupancyCatGrid>
+        {[
+          {
+            key: "normal_room",
+            label: "Normal Room",
+            sub: "Wards, Private, Semi-Private & ICU",
+            tint: "#eef2ff",
+            accent: "#4f46e5",
+            count: occCounts.normal_room || 0
+          },
+          {
+            key: "chemo",
+            label: "Chemo",
+            sub: "CHEMO Ward admissions",
+            tint: "#fdf4ff",
+            accent: "#a21caf",
+            count: occCounts.chemo || 0
+          },
+          {
+            key: "dialysis",
+            label: "Dialysis",
+            sub: "DIALYSIS & DLS room admissions",
+            tint: "#fff7ed",
+            accent: "#ea580c",
+            count: occCounts.dialysis || 0
+          },
+          {
+            key: "daycare",
+            label: "Daycare",
+            sub: "DAYCARE room admissions",
+            tint: "#ecfeff",
+            accent: "#0891b2",
+            count: occCounts.daycare || 0
+          }
+        ].map((item) => {
+          const isActive = occCategory === item.key;
+          return (
+            <OccupancyCatCard
+              key={item.key}
+              type="button"
+              $active={isActive}
+              $tint={item.tint}
+              $accent={item.accent}
+              onClick={() => setOccCategory((prev) => (prev === item.key ? "all" : item.key))}
+            >
+              <div className="cat-top">
+                <span className="cat-name">{item.label}</span>
+                <span className="cat-pill">{isActive ? "Showing" : "Click to filter"}</span>
+              </div>
+              <div className="cat-val">
+                <AnimatedValue value={item.count} />
+              </div>
+              <div className="cat-sub">{item.sub}</div>
+            </OccupancyCatCard>
+          );
+        })}
+      </OccupancyCatGrid>
+
+      <DrilldownPanel>
+        <DrilldownToolbar>
+          <CatFilterTabs>
+            {[
+              { key: "all", label: `All Active (${occupancyBreakdown.total || 0})` },
+              { key: "normal_room", label: `Normal Room (${occCounts.normal_room || 0})` },
+              { key: "chemo", label: `Chemo (${occCounts.chemo || 0})` },
+              { key: "dialysis", label: `Dialysis (${occCounts.dialysis || 0})` },
+              { key: "daycare", label: `Daycare (${occCounts.daycare || 0})` }
+            ].map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                className={occCategory === t.key ? "active" : ""}
+                onClick={() => setOccCategory(t.key)}
+              >
+                {t.label}
+              </button>
+            ))}
+          </CatFilterTabs>
+
+          <SearchBox>
+            <FiSearch size={14} style={{ color: "#94a3b8", flexShrink: 0 }} />
+            <input
+              type="text"
+              placeholder="Search IP, UHID, patient, room, doctor..."
+              value={occSearch}
+              onChange={(e) => setOccSearch(e.target.value)}
+            />
+            {occSearch && (
+              <button type="button" onClick={() => setOccSearch("")} title="Clear search">
+                <FiX size={14} />
+              </button>
+            )}
+          </SearchBox>
+        </DrilldownToolbar>
+
+        {filteredOccPatients.length === 0 ? (
+          <ChartEmptyState $h={180}>
+            <FiInbox />
+            <div className="title">No matching active admissions</div>
+            <div className="sub">Try another room category tab or clear your search filter.</div>
+          </ChartEmptyState>
+        ) : (
+          <OccTableWrap>
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Category</th>
+                  <th>IP Number</th>
+                  <th>UHID</th>
+                  <th>Patient Name</th>
+                  <th>Room / Bed</th>
+                  <th>Doctor</th>
+                  <th>Admission Date (IST)</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredOccPatients.map((p, idx) => (
+                  <tr key={`${p.ipNumber}-${idx}`}>
+                    <td>{idx + 1}</td>
+                    <td>
+                      <CategoryBadge $cat={p.category}>{p.categoryLabel}</CategoryBadge>
+                    </td>
+                    <td style={{ fontWeight: 700, color: "#4338ca", whiteSpace: "nowrap" }}>
+                      {p.ipNumber}
+                    </td>
+                    <td style={{ fontWeight: 600, color: "#0f766e", whiteSpace: "nowrap" }}>
+                      {p.uhid}
+                    </td>
+                    <td style={{ fontWeight: 600 }}>{p.patientName}</td>
+                    <td style={{ whiteSpace: "nowrap" }}>
+                      <strong>{p.roomNo}</strong>
+                      {p.bedNo && p.bedNo !== "-" ? ` / Bed ${p.bedNo}` : ""}
+                    </td>
+                    <td>{p.doctor}</td>
+                    <td style={{ whiteSpace: "nowrap", color: "#475569" }}>{p.admissionDateTime}</td>
+                    <td>
+                      <span
+                        style={{
+                          fontSize: "0.72rem",
+                          fontWeight: 600,
+                          color: "#334155",
+                          background: "#f1f5f9",
+                          padding: "2px 8px",
+                          borderRadius: "6px",
+                          whiteSpace: "nowrap"
+                        }}
+                      >
+                        {p.wardStatus}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </OccTableWrap>
+        )}
+      </DrilldownPanel>
 
       {/* ─── SECTION 4: TRENDS & MIX ─────────────────────────────────────────── */}
       <SectionHeader $pillBg="#f1f5f9" $pillColor="#475569">
@@ -1007,7 +1453,8 @@ const AdvancedDashboard = () => {
                 />
                 <Legend />
                 <Line type="monotone" dataKey="OP" stroke="#10b981" strokeWidth={3} dot={false} />
-                <Line type="monotone" dataKey="IP" stroke="#3b82f6" strokeWidth={3} dot={false} />
+                <Line type="monotone" dataKey="Normal IP" stroke="#3b82f6" strokeWidth={3} dot={false} />
+                <Line type="monotone" dataKey="Day Care IP" stroke="#06b6d4" strokeWidth={3} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           )}
@@ -1156,6 +1603,7 @@ const AdvancedDashboard = () => {
                   nameKey="name"
                 >
                   <Cell fill="#4f46e5" />
+                  <Cell fill="#06b6d4" />
                   <Cell fill="#e2e8f0" />
                 </Pie>
                 <RechartsTooltip />
