@@ -342,7 +342,12 @@ const Pill = styled.span`
   color: ${({ $color }) => $color || "#334155"};
 `;
 
-const formatDateISO = (d) => d.toISOString().split("T")[0];
+const formatDateISO = (d) => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 
 export default function DoctorDashboard() {
   const todayStr = formatDateISO(new Date());

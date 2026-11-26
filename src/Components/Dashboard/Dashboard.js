@@ -45,7 +45,12 @@ const rotate = keyframes`
   to { transform: rotate(360deg); }
 `;
 
-const formatDateISO = (d) => d.toISOString().split("T")[0];
+const formatDateISO = (d) => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 
 // ─── STYLED COMPONENTS ───────────────────────────────────────────────────────
 const DashboardWrapper = styled.div`
@@ -404,6 +409,8 @@ const Dashboard = () => {
 
   const [stats, setStats] = useState({
     today_ip: 0,
+    today_normal_ip: 0,
+    today_daycare_ip: 0,
     today_op: 0,
     today_new_patients: 0,
     today_renewals: 0,
@@ -551,7 +558,7 @@ const Dashboard = () => {
               <AnimatedValue value={ipCount} />
             </div>
             <div className="footer-meta">
-              <span>Admitted Cases</span>
+              <span>Normal: {stats.today_normal_ip || 0} · Day Care: {stats.today_daycare_ip || 0}</span>
               <span className="tag">Inpatient</span>
             </div>
           </CleanKpiCard>

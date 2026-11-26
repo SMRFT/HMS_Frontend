@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import styled, { keyframes } from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
+import { createClientRequestId } from "./wardRequestSubmitHelper";
 import { Search, Plus, X, ChevronDown, Loader2 } from "lucide-react";
 
 const spinAnimation = keyframes`
@@ -973,6 +974,8 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
   const [editingRequest, setEditingRequest] = useState(null);
   const [editSaving, setEditSaving] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
+  const clientRequestIdRef = useRef(createClientRequestId());
   const [expandedRow, setExpandedRow] = useState(null);
   const toggleRow = (id) => setExpandedRow((prev) => (prev === id ? null : id));
 
@@ -1510,9 +1513,10 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
   };
 
   const handleConfirm = async () => {
-    if (isSubmitting) return;
+    if (isSubmittingRef.current || isSubmitting) return;
     if (selectedMedicines.length === 0) return alert("No medicines added.");
 
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
     const payload = {
       uhid: resolvedPatient.uhid,
@@ -1544,6 +1548,7 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
       billing_mode: "WARD REQUEST",
       outlet_code: pharmacyDept,
       is_discharge: isDischarge,
+      client_request_id: clientRequestIdRef.current,
     };
 
     try {
@@ -1557,6 +1562,7 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
         setIsDischarge(false);
         setShowForm(false);
         setEditingRequest(null);
+        clientRequestIdRef.current = createClientRequestId();
         fetchRequests();
         const goBack = window.confirm("Ward Request saved successfully!\n\nDo you want to return to the Actions Menu?");
         if (goBack && onBack) {
@@ -1569,12 +1575,14 @@ const MedicineWardRequest = ({ patient, onClose, onBack }) => {
       console.error("Save error", e);
       alert("An error occurred while saving the request.");
     } finally {
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
   };
 
   const removeSelectedMed = (index) => {
     setSelectedMedicines((prev) => prev.filter((_, i) => i !== index));
+    clientRequestIdRef.current = createClientRequestId();
   };
 
   // ─── Reset Edit ────────────────────────────────────────────────────────────

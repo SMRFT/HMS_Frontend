@@ -1105,7 +1105,7 @@ export const buildPrintBillHtml = (data) => {
   const dbTotal = Number(totalAmount || (data && (data.total_amount || data.totalAmount)) || 0);
   const grossTotal = dbTotal > 0 ? dbTotal : (computedGross > 0 ? computedGross : 0);
 
-  // Total CGST and SGST directly from DB values
+  // Total CGST and SGST directly from DB values (scaling unit to line amount if needed)
   const totalCgstAmt = activeMedicines.reduce((sum, m) => {
     const pricing = calculateMedicinePricing(m);
     const v = Number(m.CGST_Amt !== undefined ? m.CGST_Amt : (m.cgst_amount ?? pricing.cgstAmt));
@@ -1168,8 +1168,14 @@ export const buildPrintBillHtml = (data) => {
     const qty = Number(m.qty !== undefined ? m.qty : (m.quantity ?? pricing.qty));
     const cgstRate = Number(m.CGST_Percentage !== undefined ? m.CGST_Percentage : pricing.cgstRate);
     const sgstRate = Number(m.SGST_Percentage !== undefined ? m.SGST_Percentage : pricing.sgstRate);
-    const cgstAmt = Number(m.CGST_Amt !== undefined ? m.CGST_Amt : (m.cgst_amount ?? pricing.cgstAmt));
-    const sgstAmt = Number(m.SGST_Amt !== undefined ? m.SGST_Amt : (m.sgst_amount ?? pricing.sgstAmt));
+    const rawC = Number(m.CGST_Amt !== undefined ? m.CGST_Amt : (m.cgst_amount ?? pricing.cgstAmt));
+    const rawS = Number(m.SGST_Amt !== undefined ? m.SGST_Amt : (m.sgst_amount ?? pricing.sgstAmt));
+    const cgstAmt = (qty > 1 && rawC > 0 && Math.abs(rawC * qty - pricing.cgstAmt) < Math.abs(rawC - pricing.cgstAmt) - 0.05)
+      ? (rawC * qty)
+      : rawC;
+    const sgstAmt = (qty > 1 && rawS > 0 && Math.abs(rawS * qty - pricing.sgstAmt) < Math.abs(rawS - pricing.sgstAmt) - 0.05)
+      ? (rawS * qty)
+      : rawS;
     const lineTotal = Number(m.total !== undefined && Number(m.total) > 0 ? m.total : pricing.lineTotal);
     const itemDiscAmt = Number(m.discount_amount !== undefined ? m.discount_amount : (pricing.totalDiscountOnMrp > 0 ? pricing.totalDiscountOnMrp : 0));
 
@@ -7577,8 +7583,14 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
                                 const qty = Number(m.qty !== undefined ? m.qty : (m.quantity ?? pricing.qty));
                                 const cgstRate = Number(m.CGST_Percentage !== undefined ? m.CGST_Percentage : pricing.cgstRate);
                                 const sgstRate = Number(m.SGST_Percentage !== undefined ? m.SGST_Percentage : pricing.sgstRate);
-                                const cgstAmt = Number(m.CGST_Amt !== undefined ? m.CGST_Amt : (m.cgst_amount ?? pricing.cgstAmt));
-                                const sgstAmt = Number(m.SGST_Amt !== undefined ? m.SGST_Amt : (m.sgst_amount ?? pricing.sgstAmt));
+                                const rawC = Number(m.CGST_Amt !== undefined ? m.CGST_Amt : (m.cgst_amount ?? pricing.cgstAmt));
+                                const rawS = Number(m.SGST_Amt !== undefined ? m.SGST_Amt : (m.sgst_amount ?? pricing.sgstAmt));
+                                const cgstAmt = (qty > 1 && rawC > 0 && Math.abs(rawC * qty - pricing.cgstAmt) < Math.abs(rawC - pricing.cgstAmt) - 0.05)
+                                  ? (rawC * qty)
+                                  : rawC;
+                                const sgstAmt = (qty > 1 && rawS > 0 && Math.abs(rawS * qty - pricing.sgstAmt) < Math.abs(rawS - pricing.sgstAmt) - 0.05)
+                                  ? (rawS * qty)
+                                  : rawS;
                                 const lineTotal = Number(m.total !== undefined && Number(m.total) > 0 ? m.total : pricing.lineTotal);
                                 const itemDiscAmt = Number(m.discount_amount !== undefined ? m.discount_amount : (pricing.totalDiscountOnMrp > 0 ? pricing.totalDiscountOnMrp : 0));
                                 return (
