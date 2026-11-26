@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
+import { createClientRequestId } from "./wardRequestSubmitHelper";
 import {
   colors,
   Button as GlobalButton,
@@ -388,6 +389,9 @@ export default function ImplantWardRequest({ patient, onClose }) {
   const [requests, setRequests] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
+  const clientRequestIdRef = useRef(createClientRequestId());
 
   // Form State
   const [searchQuery, setSearchQuery] = useState("");
@@ -493,6 +497,7 @@ export default function ImplantWardRequest({ patient, onClose }) {
         quantity: qty,
       },
     ]);
+    clientRequestIdRef.current = createClientRequestId();
 
     // Reset Item Fields
     setSelectedItem(null);
@@ -503,6 +508,7 @@ export default function ImplantWardRequest({ patient, onClose }) {
 
   const handleRemoveItem = (idx) => {
     setSelectedItems((prev) => prev.filter((_, i) => i !== idx));
+    clientRequestIdRef.current = createClientRequestId();
   };
 
   const resetForm = () => {
@@ -513,6 +519,7 @@ export default function ImplantWardRequest({ patient, onClose }) {
     setSelectedItems([]);
     setEditMode(false);
     setEditingRequestId(null);
+    clientRequestIdRef.current = createClientRequestId();
     setShowForm(false);
   };
 
@@ -550,11 +557,14 @@ export default function ImplantWardRequest({ patient, onClose }) {
   };
 
   const handleSaveRequest = async () => {
+    if (isSubmittingRef.current || isSubmitting) return;
     if (!selectedItems.length) {
       alert("Please add at least one implant item.");
       return;
     }
 
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
     try {
       if (editMode) {
         const res = await apiRequest(
@@ -593,10 +603,11 @@ export default function ImplantWardRequest({ patient, onClose }) {
             surgeon_id: surgeonId,
             surgeryRef: "",
             items: selectedItems,
+            client_request_id: clientRequestIdRef.current,
           }
         );
         if (res.success) {
-          alert("Implant request saved successfully!");
+          alert(res.data?.message || "Implant request saved successfully!");
           resetForm();
           fetchRequests();
         } else {
@@ -606,6 +617,9 @@ export default function ImplantWardRequest({ patient, onClose }) {
     } catch (e) {
       console.error("Save Implant Request Error:", e);
       alert("An error occurred while saving.");
+    } finally {
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
     }
   };
 
@@ -816,11 +830,17 @@ export default function ImplantWardRequest({ patient, onClose }) {
 
           {/* Footer buttons */}
           <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", marginTop: "24px", paddingTop: "20px", borderTop: `1px solid ${colors.border}50` }}>
-            <GlobalButton secondary onClick={resetForm}>
+            <GlobalButton secondary onClick={resetForm} disabled={isSubmitting}>
               Cancel
             </GlobalButton>
-            <GlobalButton success onClick={handleSaveRequest}>
-              <FiCheckCircle /> {editMode ? "Update Request" : "Save Request"}
+            <GlobalButton
+              success
+              onClick={handleSaveRequest}
+              disabled={isSubmitting}
+              aria-busy={isSubmitting}
+              style={{ opacity: isSubmitting ? 0.65 : 1, cursor: isSubmitting ? "not-allowed" : "pointer" }}
+            >
+              <FiCheckCircle /> {isSubmitting ? "Saving..." : editMode ? "Update Request" : "Save Request"}
             </GlobalButton>
           </div>
         </FormContainer>
