@@ -1179,19 +1179,26 @@ const A4MultiPageViewer = ({
                                  "Category:"}
                             </span>
                             <select 
-                                value={tempBillType} 
+                                value={(tempBillType || "All").toLowerCase() === "all" ? "All" : tempBillType} 
                                 onChange={(e) => {
                                     const val = e.target.value;
                                     setTempBillType(val);
                                     if (setBillType) setBillType(val);
                                 }}
                             >
-                                <option value="All">All {selectedReport?.id === "admission_vs_discharge" ? "Patients" : selectedReport?.id === "discharge_bills" ? "Modes" : selectedReport?.id === "misc_payment" ? "Vouchers" : "Categories"}</option>
-                                {availableCategories && availableCategories.length > 0 && availableCategories.map((c, idx) => {
-                                    const label = typeof c === "string" ? c : (c.bill_name || c.name || c.category || c.title || String(c));
-                                    const val = typeof c === "string" ? c : (c.bill_name || c.billTypeNo || label);
-                                    return <option key={`${val}-${idx}`} value={val}>{label}</option>;
-                                })}
+                                <option value="All">All {selectedReport?.id === "sales_tax_register" || selectedReport?.id === "sales_tax_reg" || selectedReport?.id === "daywise_sales_tax_register" || selectedReport?.id === "daywise_sales_tax" ? "Patients (OP & IP)" : selectedReport?.id === "admission_vs_discharge" ? "Patients" : selectedReport?.id === "discharge_bills" ? "Modes" : selectedReport?.id === "misc_payment" ? "Vouchers" : "Categories"}</option>
+                                {["sales_tax_register", "sales_tax_reg", "daywise_sales_tax_register", "daywise_sales_tax"].includes(selectedReport?.id) ? (
+                                    <>
+                                        <option value="op">Out-Patient (OP)</option>
+                                        <option value="ip">In-Patient (IP)</option>
+                                    </>
+                                ) : (
+                                    availableCategories && availableCategories.length > 0 && availableCategories.map((c, idx) => {
+                                        const label = typeof c === "string" ? c : (c.bill_name || c.name || c.category || c.title || String(c));
+                                        const val = typeof c === "string" ? c : (c.bill_name || c.billTypeNo || label);
+                                        return <option key={`${val}-${idx}`} value={val}>{label}</option>;
+                                    })
+                                )}
                             </select>
                         </div>
                     )}

@@ -1527,58 +1527,14 @@ const ReportsDashboard = () => {
                                             <option value="cash">Cash Receipts</option>
                                             <option value="bank">Bank / Online Receipts</option>
                                         </>
-                                    ) : selectedReport?.id === "discount_bills" ? (
-                                        <>
-                                            <option value="All">All Categories</option>
-                                            <option value="PHARMACY OP BILL (SH)">Pharmacy OP Bill (SH)</option>
-                                            <option value="PHARMACY IP BILL (SH)">Pharmacy IP Bill (SH)</option>
-                                            <option value="DISCHARGE BILL">Discharge Bill</option>
-                                            <option value="LAB BILL (SH)">Lab Bill (SH)</option>
-                                            <option value="CT SCAN (SH)">CT Scan (SH)</option>
-                                            <option value="SCANNING (SH)">Scanning (SH)</option>
-                                            <option value="X - RAY (SH)">X-Ray (SH)</option>
-                                            <option value="ECG (SH)">ECG (SH)</option>
-                                            <option value="PET_CT(SH)">PET CT (SH)</option>
-                                            <option value="PROCEDURE BILL (SH)">Procedure Bill (SH)</option>
-                                        </>
-                                    ) : (selectedReport?.id === "credit_card" || selectedReport?.id === "cash_bills") ? (
-                                        <>
-                                            <option value="All">All Categories (All Bill Types)</option>
-                                            <option value="PHARMACY OP BILL (SH)">Pharmacy OP Bill (SH)</option>
-                                            <option value="PHARMACY IP BILL (SH)">Pharmacy IP Bill (SH)</option>
-                                            <option value="ADVANCE">Advance (IP)</option>
-                                            <option value="DISCHARGE">Discharge Bill</option>
-                                            <option value="REGISTRATION(SH)">Registration (OP)</option>
-                                            <option value="CT SCAN (SH)">CT Scan (SH)</option>
-                                            <option value="ECG (SH)">ECG (SH)</option>
-                                            <option value="LAB BILL (SH)">Lab Bill (SH)</option>
-                                            <option value="PET_CT(SH)">PET CT (SH)</option>
-                                            <option value="PROCEDURE BILL (SH)">Procedure Bill (SH)</option>
-                                            <option value="SCANNING (SH)">Scanning (SH)</option>
-                                            <option value="X - RAY (SH)">X-Ray (SH)</option>
-                                            <option value="XEROX (SH)">Xerox (SH)</option>
-                                        </>
                                     ) : (
                                         <>
-                                            <option value="All">All Types</option>
-                                            {billTypesList && billTypesList.length > 0 ? (
-                                                billTypesList.map((bt, idx) => (
-                                                    <option key={bt._id || bt.billTypeNo || idx} value={bt.bill_name || bt.bill_type}>
-                                                        {bt.bill_name} {bt.billTypeNo ? `(${bt.billTypeNo})` : ""}
-                                                    </option>
-                                                ))
-                                            ) : (
-                                                <>
-                                                    <option value="Registration">Registration</option>
-                                                    <option value="Investigation">Investigation</option>
-                                                    <option value="Pharmacy">Pharmacy</option>
-                                                    <option value="Discharge">Discharge</option>
-                                                    <option value="IP Advance">IP Advance</option>
-                                                    <option value="Admission">Admission</option>
-                                                    <option value="Sales Return">Sales Return</option>
-                                                    <option value="Miscellaneous">Miscellaneous Payment</option>
-                                                </>
-                                            )}
+                                            <option value="All">All Categories (All Bill Types)</option>
+                                            {billTypesList && billTypesList.length > 0 && billTypesList.map((bt, idx) => (
+                                                <option key={bt._id || bt.billTypeNo || idx} value={bt.bill_name || bt.bill_type}>
+                                                    {bt.bill_name} {bt.billTypeNo ? `(${bt.billTypeNo})` : ""}
+                                                </option>
+                                            ))}
                                         </>
                                     )}
                                 </Select>
@@ -1614,6 +1570,7 @@ const ReportsDashboard = () => {
                     outlets={outlets}
                     selectedOutlet={selectedOutlet}
                     setSelectedOutlet={setSelectedOutlet}
+                    availableCategories={(billTypesList || []).map(b => b.bill_name || b.bill_type).filter(Boolean)}
                     isMaximized={isMaximized}
                     setIsMaximized={setIsMaximized}
                     onClose={closeModal}

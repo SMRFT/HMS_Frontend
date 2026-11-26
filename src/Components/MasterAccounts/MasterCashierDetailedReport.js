@@ -21,7 +21,8 @@ import {
     KPICard,
     DataTableWrapper,
     ReportPrintHeader,
-    ReportPrintFooter
+    ReportPrintFooter,
+    matchCategoryOrBillType
 } from "./masterAccountsHelper";
 
 const { RangePicker } = DatePicker;
@@ -197,7 +198,8 @@ const MasterCashierDetailedReport = ({
     const [loading, setLoading] = useState(false);
     const [reportData, setReportData] = useState(null);
     const [searchTerm, setSearchTerm] = useState("");
-    const [selectedCashier, setSelectedCashier] = useState(billType || category || "all");
+    const [selectedCashier, setSelectedCashier] = useState("all");
+    const [selectedCategory, setSelectedCategory] = useState(category || billType || "all");
     const [selectedCardType, setSelectedCardType] = useState("all");
     const [selectedCardMachine, setSelectedCardMachine] = useState(cardMachine || propCardMachine || "all");
 
@@ -209,9 +211,9 @@ const MasterCashierDetailedReport = ({
     }, [cardMachine, propCardMachine]);
 
     useEffect(() => {
-        const c = billType || category;
-        if (c !== undefined && c !== selectedCashier) {
-            setSelectedCashier(c);
+        const c = category || billType;
+        if (c !== undefined && c !== selectedCategory) {
+            setSelectedCategory(c);
         }
     }, [billType, category]);
 
@@ -273,6 +275,14 @@ const MasterCashierDetailedReport = ({
         return Array.from(set);
     }, [allBills]);
 
+    const categoryList = useMemo(() => {
+        const set = new Set();
+        allBills.forEach(b => {
+            if (b.category) set.add(String(b.category).trim());
+        });
+        return Array.from(set).sort();
+    }, [allBills]);
+
     const cardTypeList = useMemo(() => {
         const set = new Set();
         allBills.forEach(b => {
@@ -294,14 +304,20 @@ const MasterCashierDetailedReport = ({
     useEffect(() => {
         if (onLoadOptions && reportData) {
             onLoadOptions({
-                categories: cashierList,
+                categories: categoryList.length > 0 ? categoryList : cashierList,
                 cardMachines: cardMachinesList
             });
         }
-    }, [onLoadOptions, cashierList, cardMachinesList, reportData]);
+    }, [onLoadOptions, categoryList, cashierList, cardMachinesList, reportData]);
 
     const filteredBills = useMemo(() => {
         let list = allBills;
+        if (selectedCategory && selectedCategory.toLowerCase() !== "all") {
+            list = list.filter(b => 
+                matchCategoryOrBillType(b.category, selectedCategory, b.module || b.bill_type_name) ||
+                (b.cashier_name && String(b.cashier_name).toLowerCase() === selectedCategory.toLowerCase())
+            );
+        }
         if (selectedCashier !== "all") {
             list = list.filter(b => b.cashier_name === selectedCashier);
         }

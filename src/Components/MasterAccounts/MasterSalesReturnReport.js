@@ -21,7 +21,8 @@ import {
     KPICard,
     DataTableWrapper,
     ReportPrintHeader,
-    ReportPrintFooter
+    ReportPrintFooter,
+    matchCategoryOrBillType
 } from "./masterAccountsHelper";
 
 const DateHeaderTr = styled.tr`
@@ -112,7 +113,11 @@ const MasterSalesReturnReport = ({
     startDate,
     endDate,
     outlet: propOutlet,
-    initialOutlet = "all"
+    initialOutlet = "all",
+    billType,
+    category,
+    initialBillType = "all",
+    onLoadOptions
 }) => {
     const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
     const [dateRange, setDateRange] = useState([
@@ -120,11 +125,18 @@ const MasterSalesReturnReport = ({
         endDate ? dayjs(endDate) : dayjs()
     ]);
     const [outlet, setOutlet] = useState(propOutlet || initialOutlet || "all");
-    const [billTypeFilter, setBillTypeFilter] = useState("all");
+    const [billTypeFilter, setBillTypeFilter] = useState(billType || category || initialBillType || "all");
     const [outletsList, setOutletsList] = useState([]);
     const [loading, setLoading] = useState(false);
     const [reportData, setReportData] = useState(null);
     const [searchTerm, setSearchTerm] = useState("");
+
+    useEffect(() => {
+        const c = billType || category || initialBillType;
+        if (c !== undefined && c !== billTypeFilter) {
+            setBillTypeFilter(c);
+        }
+    }, [billType, category, initialBillType, billTypeFilter]);
 
     useEffect(() => {
         if (propOutlet !== undefined && propOutlet !== outlet) {
@@ -178,17 +190,29 @@ const MasterSalesReturnReport = ({
     const records = getSafeArray(reportData?.data);
     const summary = reportData?.summary || {};
 
+    const categoriesList = useMemo(() => {
+        const set = new Set();
+        records.forEach(r => {
+            const bt = r.bill_type || r.category;
+            if (bt) set.add(String(bt).trim());
+        });
+        return Array.from(set).sort();
+    }, [records]);
+
+    useEffect(() => {
+        if (onLoadOptions && reportData) {
+            onLoadOptions({
+                categories: categoriesList.length > 0 ? categoriesList : ["Pharmacy", "Investigation"]
+            });
+        }
+    }, [onLoadOptions, categoriesList, reportData]);
+
     const filtered = useMemo(() => {
         // Display valid return records (Paid / Completed / Approved)
         let list = records.filter(r => !r.status || ["paid", "completed", "approved"].includes(String(r.status).toLowerCase()));
         
-        if (billTypeFilter !== "all") {
-            const btf = billTypeFilter.toLowerCase();
-            if (btf === "pharmacy") {
-                list = list.filter(r => String(r.bill_type || r.category || "").toLowerCase().includes("pharmacy"));
-            } else if (btf === "investigation") {
-                list = list.filter(r => String(r.bill_type || r.category || "").toLowerCase().includes("investigation"));
-            }
+        if (billTypeFilter && billTypeFilter.toLowerCase() !== "all") {
+            list = list.filter(r => matchCategoryOrBillType(r.bill_type || r.category, billTypeFilter));
         }
 
         if (!searchTerm.trim()) return list;
@@ -648,7 +672,7 @@ const MasterSalesReturnReport = ({
                                                     {/* Category / Bill Type Subtotal */}
                                                     <SubtotalTr className="SubtotalRow subtotal-row">
                                                         <td colSpan={11} className="text-right font-bold" style={{ color: "#475569" }}>
-                                                            Total ({sec.billType}) ->
+                                                            Total ({sec.billType}) -&gt;
                                                         </td>
                                                         <td className="text-right font-mono font-bold" style={{ color: "#dc2626", fontSize: "0.94rem" }}>
                                                             ₹{formatINR(sec.totalAmt)}
@@ -661,7 +685,7 @@ const MasterSalesReturnReport = ({
                                             {dg.sections.length > 1 && (
                                                 <SubtotalTr style={{ background: "#e2e8f0 !important", fontWeight: 800 }}>
                                                     <td colSpan={11} className="text-right font-bold" style={{ color: "#1e293b" }}>
-                                                        Date Total ({dg.date}) ->
+                                                        Date Total ({dg.date}) -&gt;
                                                     </td>
                                                     <td className="text-right font-mono font-bold" style={{ color: "#dc2626", fontSize: "0.96rem" }}>
                                                         ₹{formatINR(dg.dateTotalAmt)}

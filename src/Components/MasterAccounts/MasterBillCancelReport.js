@@ -19,7 +19,8 @@ import {
     KPICard,
     DataTableWrapper,
     ReportPrintHeader,
-    ReportPrintFooter
+    ReportPrintFooter,
+    matchCategoryOrBillType
 } from "./masterAccountsHelper";
 
 const DateHeaderTr = styled.tr`
@@ -104,7 +105,15 @@ const CancelTable = styled.table`
 
 const { RangePicker } = DatePicker;
 
-const MasterBillCancelReport = ({ isModalView = false, startDate, endDate }) => {
+const MasterBillCancelReport = ({ 
+    isModalView = false, 
+    startDate, 
+    endDate,
+    billType,
+    category,
+    initialBillType = "all",
+    onLoadOptions
+}) => {
     const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
     const [dateRange, setDateRange] = useState([
         startDate ? dayjs(startDate) : dayjs().startOf("month"),
@@ -113,6 +122,14 @@ const MasterBillCancelReport = ({ isModalView = false, startDate, endDate }) => 
     const [loading, setLoading] = useState(false);
     const [reportData, setReportData] = useState(null);
     const [searchTerm, setSearchTerm] = useState("");
+    const [activeCategory, setActiveCategory] = useState(billType || category || initialBillType || "all");
+
+    useEffect(() => {
+        const c = billType || category || initialBillType;
+        if (c !== undefined && c !== activeCategory) {
+            setActiveCategory(c);
+        }
+    }, [billType, category, initialBillType, activeCategory]);
 
     useEffect(() => {
         if (startDate && endDate) {
@@ -143,8 +160,28 @@ const MasterBillCancelReport = ({ isModalView = false, startDate, endDate }) => 
 
     const records = getSafeArray(reportData?.data || reportData?.records);
 
+    const categoriesList = useMemo(() => {
+        const set = new Set();
+        records.forEach(r => {
+            const cat = r.category || r.source || r.bill_type;
+            if (cat) set.add(String(cat).trim());
+        });
+        return Array.from(set).sort();
+    }, [records]);
+
+    useEffect(() => {
+        if (onLoadOptions && reportData) {
+            onLoadOptions({
+                categories: categoriesList
+            });
+        }
+    }, [onLoadOptions, categoriesList, reportData]);
+
     const filtered = useMemo(() => {
         let list = records;
+        if (activeCategory && activeCategory.toLowerCase() !== "all") {
+            list = list.filter(r => matchCategoryOrBillType(r.category || r.source || r.bill_type, activeCategory));
+        }
         if (searchTerm.trim()) {
             const q = searchTerm.toLowerCase();
             list = list.filter(r =>
@@ -161,7 +198,7 @@ const MasterBillCancelReport = ({ isModalView = false, startDate, endDate }) => 
             const s2 = String(b.bill_no || "").trim();
             return s1.localeCompare(s2, undefined, { numeric: true, sensitivity: 'base' });
         });
-    }, [records, searchTerm]);
+    }, [records, activeCategory, searchTerm]);
 
     const extractCancelDate = (dateVal) => {
         if (!dateVal) return "Unknown Date";
@@ -503,7 +540,7 @@ const MasterBillCancelReport = ({ isModalView = false, startDate, endDate }) => 
                                                     {/* Category Subtotal */}
                                                     <SubtotalTr className="SubtotalRow subtotal-row">
                                                         <td colSpan={7} className="text-right font-bold" style={{ color: "#475569" }}>
-                                                            Total ({sec.category}) ->
+                                                            Total ({sec.category}) -&gt;
                                                         </td>
                                                         <td className="text-right font-mono font-bold" style={{ color: "#dc2626", fontSize: "0.94rem" }}>
                                                             ₹{formatINR(sec.totalAmt)}
@@ -516,7 +553,7 @@ const MasterBillCancelReport = ({ isModalView = false, startDate, endDate }) => 
                                             {dg.sections.length > 1 && (
                                                 <SubtotalTr style={{ background: "#e2e8f0 !important", fontWeight: 800 }}>
                                                     <td colSpan={7} className="text-right font-bold" style={{ color: "#1e293b" }}>
-                                                        Date Total ({dg.date}) ->
+                                                        Date Total ({dg.date}) -&gt;
                                                     </td>
                                                     <td className="text-right font-mono font-bold" style={{ color: "#dc2626", fontSize: "0.96rem" }}>
                                                         ₹{formatINR(dg.dateTotalAmt)}

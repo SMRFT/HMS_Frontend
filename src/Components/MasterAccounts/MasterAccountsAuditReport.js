@@ -8,7 +8,7 @@ import { toast } from "react-toastify";
 import styled from "styled-components";
 import apiRequest from "../../Auth/apiRequest";
 import { printAccountsReport } from "../Accounts/printAccountsReport";
-import { cleanNum, formatINR } from "./masterAccountsHelper";
+import { cleanNum, formatINR, matchCategoryOrBillType } from "./masterAccountsHelper";
 import {
     PageWrapper,
     colors,
@@ -241,11 +241,16 @@ const MasterAccountsAuditReport = ({
     startDate, 
     endDate,
     initialOutlet,
-    outlet
+    outlet,
+    billType,
+    initialBillType,
+    category,
+    onLoadOptions
 }) => {
+    const effectiveCategory = billType || initialBillType || category || "all";
     const [fromDate, setFromDate] = useState(startDate || format(new Date(), "yyyy-MM-dd"));
     const [toDate, setToDate] = useState(endDate || format(new Date(), "yyyy-MM-dd"));
-    const [sourceFilter, setSourceFilter] = useState("all");
+    const [sourceFilter, setSourceFilter] = useState(effectiveCategory);
     const [reportData, setReportData] = useState([]);
     const [summary, setSummary] = useState({ count: 0, by_source: {} });
     const [loading, setLoading] = useState(false);
@@ -259,6 +264,13 @@ const MasterAccountsAuditReport = ({
         if (endDate) setToDate(endDate);
     }, [startDate, endDate]);
 
+    useEffect(() => {
+        const c = billType || initialBillType || category;
+        if (c !== undefined && c !== sourceFilter) {
+            setSourceFilter(c);
+        }
+    }, [billType, initialBillType, category, sourceFilter]);
+
     const fetchReport = useCallback(async () => {
         setLoading(true);
         try {
@@ -266,9 +278,6 @@ const MasterAccountsAuditReport = ({
             let url = `${HmsBaseUrl}master-accounts/accounts-audit/?from_date=${fromDate}&to_date=${toDate}`;
             if (selectedOutlet && selectedOutlet !== "all" && selectedOutlet !== "All") {
                 url += `&outlet_code=${encodeURIComponent(selectedOutlet)}`;
-            }
-            if (sourceFilter && sourceFilter !== "all") {
-                url += `&source=${encodeURIComponent(sourceFilter)}`;
             }
             const response = await apiRequest(url, "GET");
             if (response && response.success) {
@@ -284,17 +293,37 @@ const MasterAccountsAuditReport = ({
         } finally {
             setLoading(false);
         }
-    }, [fromDate, toDate, outlet, initialOutlet, sourceFilter, HmsBaseUrl]);
+    }, [fromDate, toDate, outlet, initialOutlet, HmsBaseUrl]);
 
     useEffect(() => {
         if (fromDate && toDate) fetchReport();
     }, [fromDate, toDate, outlet, initialOutlet, fetchReport]);
 
+    const categoriesList = useMemo(() => {
+        const set = new Set();
+        (reportData || []).forEach(r => {
+            if (r.source) set.add(r.source);
+            if (r.bill_type) set.add(r.bill_type);
+        });
+        return Array.from(set).sort();
+    }, [reportData]);
+
+    useEffect(() => {
+        if (onLoadOptions && reportData && reportData.length > 0) {
+            onLoadOptions({
+                categories: categoriesList
+            });
+        }
+    }, [onLoadOptions, categoriesList, reportData]);
+
     const handlePrint = () => printAccountsReport("printable-report-area", "landscape");
 
     const filteredData = useMemo(() => {
-        if (sourceFilter === "all") return reportData;
-        return reportData.filter(r => r.source === sourceFilter);
+        if (!sourceFilter || sourceFilter.toLowerCase() === "all") return reportData;
+        return (reportData || []).filter(r => 
+            matchCategoryOrBillType(r.source, sourceFilter) || 
+            matchCategoryOrBillType(r.bill_type, sourceFilter)
+        );
     }, [reportData, sourceFilter]);
 
     // 3-Level Grouping: Edited Date -> Source -> Bill Type

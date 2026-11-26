@@ -31,7 +31,8 @@ const MasterDepartmentWiseReport = ({
     department: propDept,
     initialDepartment = "All",
     billType: propBillType,
-    category: propCategory
+    category: propCategory,
+    onLoadOptions
 }) => {
     const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
 
@@ -96,6 +97,14 @@ const MasterDepartmentWiseReport = ({
     const departmentsList = reportData?.departments || ["All"];
     const breakdown = useMemo(() => reportData?.department_breakdown || [], [reportData]);
     const doctorPerf = useMemo(() => reportData?.doctor_performance || [], [reportData]);
+
+    useEffect(() => {
+        if (onLoadOptions && departmentsList && departmentsList.length > 0) {
+            onLoadOptions({
+                categories: departmentsList.filter(d => d && d !== "All")
+            });
+        }
+    }, [onLoadOptions, departmentsList]);
 
     // Client-side quick search filtering
     const filteredBreakdown = useMemo(() => {
