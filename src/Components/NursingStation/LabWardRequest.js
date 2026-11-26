@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import apiRequest from "../../Auth/apiRequest";
+import { createClientRequestId, getDuplicateWarningMessage } from "./wardRequestSubmitHelper";
 import styled, { keyframes } from "styled-components";
 import { Loader2 } from "lucide-react";
 import {
@@ -512,8 +513,12 @@ const SaveBtn = styled.button`
   display: flex;
   align-items: center;
   gap: 6px;
-  &:hover {
+  &:hover:not(:disabled) {
     background: ${colors.primaryDark};
+  }
+  &:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
   }
 `;
 
@@ -529,8 +534,12 @@ const CancelBtn = styled.button`
   display: flex;
   align-items: center;
   gap: 5px;
-  &:hover {
+  &:hover:not(:disabled) {
     background: ${colors.textMain};
+  }
+  &:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
   }
 `;
 
@@ -850,6 +859,9 @@ export default function LabWardRequest({ patient: patientProp, onClose, onBack }
   const [showUpTo, setShowUpTo] = useState("10");
   const [requests, setRequests] = useState([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
+  const clientRequestIdRef = useRef(createClientRequestId());
 
   // Request form state
   const [doctor, setDoctor] = useState("");
@@ -1088,6 +1100,7 @@ export default function LabWardRequest({ patient: patientProp, onClose, onBack }
     });
 
     setSelectedTests(newTests);
+    clientRequestIdRef.current = createClientRequestId();
     setIsPackageModalOpen(false);
   };
 
@@ -1176,6 +1189,7 @@ export default function LabWardRequest({ patient: patientProp, onClose, onBack }
         nabh_code: test.nabh_code || ""
       }
     ]);
+    clientRequestIdRef.current = createClientRequestId();
     setTestName("");
     setInvestigationItems([]);
     setRate(test.price || "0.00");
@@ -1183,12 +1197,14 @@ export default function LabWardRequest({ patient: patientProp, onClose, onBack }
 
   const removeTest = (index) => {
     setSelectedTests((prev) => prev.filter((_, i) => i !== index));
+    clientRequestIdRef.current = createClientRequestId();
     if (selectedTests.length === 1) {
       setRate("0.00");
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = async (forceDuplicate = false) => {
+    if (isSubmittingRef.current || isSubmitting) return;
     if (selectedTests.length === 0) {
       alert("Please add at least one test.");
       return;
@@ -1197,6 +1213,9 @@ export default function LabWardRequest({ patient: patientProp, onClose, onBack }
       alert("Please select a doctor.");
       return;
     }
+
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
 
     const mappedTests = selectedTests.map(t => ({
       test_id: t.test_id || "",
@@ -1209,6 +1228,7 @@ export default function LabWardRequest({ patient: patientProp, onClose, onBack }
     }));
 
     const resolvedRoom = (resolvedPatient.roomNo || patientProp?.roomNo || patientProp?.room_no || (resolvedPatient.roomBed ? resolvedPatient.roomBed.split("|")[0].trim() : "")).replace(/^-\s*$/, "").trim();
+    const requestKey = forceDuplicate ? createClientRequestId() : clientRequestIdRef.current;
     const payload = {
       uhid: resolvedPatient.uhid,
       ipNumber: resolvedPatient.ipNo,
@@ -1219,6 +1239,8 @@ export default function LabWardRequest({ patient: patientProp, onClose, onBack }
       billTypeNo: billTypeNo || "LAB01",
       item: mappedTests,
       total_amount: selectedTests.reduce((acc, t) => acc + (parseFloat(t.price) || 0), 0),
+      client_request_id: requestKey,
+      force_duplicate: Boolean(forceDuplicate),
     };
 
     try {
@@ -1226,17 +1248,33 @@ export default function LabWardRequest({ patient: patientProp, onClose, onBack }
       if (res.success) {
         setSelectedTests([]);
         setShowRequestForm(false);
+        clientRequestIdRef.current = createClientRequestId();
         fetchLabRequests();
-        const goBack = window.confirm("Lab Ward Request Saved Successfully!\n\nDo you want to return to the Actions Menu?");
+        const savedMsg = res.data?.duplicate_suppressed
+          ? `${res.data?.message || "Lab Ward Request already recorded."}\n\nDo you want to return to the Actions Menu?`
+          : "Lab Ward Request Saved Successfully!\n\nDo you want to return to the Actions Menu?";
+        const goBack = window.confirm(savedMsg);
         if (goBack && onBack) {
           onBack();
         }
       } else {
-        alert("Failed to save: " + (res.error || res.data?.message));
+        const warnMsg = getDuplicateWarningMessage(res);
+        if (warnMsg) {
+          isSubmittingRef.current = false;
+          setIsSubmitting(false);
+          if (window.confirm(warnMsg)) {
+            await handleSave(true);
+          }
+          return;
+        }
+        alert("Failed to save: " + (res.error || res.data?.message || "Unknown error"));
       }
     } catch (error) {
       console.error("Save Lab Request Error:", error);
       alert("An error occurred while saving.");
+    } finally {
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
     }
   };
   const handleCancelRequest = async (requestId) => {
@@ -1383,7 +1421,14 @@ export default function LabWardRequest({ patient: patientProp, onClose, onBack }
             🔒 Discharged (Read-Only)
           </span>
         ) : (
-          <Button onClick={() => setShowRequestForm((v) => !v)}>
+          <Button
+            onClick={() => {
+              if (!showRequestForm) {
+                clientRequestIdRef.current = createClientRequestId();
+              }
+              setShowRequestForm((v) => !v);
+            }}
+          >
             {showRequestForm ? "− Request" : "+ Request"}
           </Button>
         )}
@@ -1651,8 +1696,19 @@ export default function LabWardRequest({ patient: patientProp, onClose, onBack }
               ))}
               <div style={{ flex: 1 }} />
               <SidePanelActions>
-                <SaveBtn type="button" onClick={handleSave}>💾 Save</SaveBtn>
-                <CancelBtn type="button" onClick={() => setShowRequestForm(false)}>
+                <SaveBtn
+                  type="button"
+                  onClick={() => handleSave(false)}
+                  disabled={isSubmitting}
+                  aria-busy={isSubmitting}
+                >
+                  {isSubmitting ? <><SpinningLoader size={14} /> Saving...</> : "💾 Save"}
+                </SaveBtn>
+                <CancelBtn
+                  type="button"
+                  onClick={() => setShowRequestForm(false)}
+                  disabled={isSubmitting}
+                >
                   ✕ Cancel
                 </CancelBtn>
               </SidePanelActions>
