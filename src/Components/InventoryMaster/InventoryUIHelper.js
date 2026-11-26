@@ -456,7 +456,7 @@ export const InvPageBtn = styled.button`
 export const InvPagination = ({
   currentPage = 1,
   page,
-  totalPages = 1,
+  totalPages,
   pageSize = 10,
   totalRecords = 0,
   totalCount,
@@ -464,8 +464,9 @@ export const InvPagination = ({
 }) => {
   const activePage = page || currentPage || 1;
   const count = totalRecords !== undefined && totalRecords !== null && totalRecords !== 0 ? totalRecords : (totalCount || 0);
-  const pages = Math.max(1, totalPages || Math.ceil(count / (pageSize || 10)));
   const sz = pageSize || 10;
+  const computedPages = Math.ceil(count / sz);
+  const pages = Math.max(1, (totalPages !== undefined && totalPages !== null && totalPages > 0) ? totalPages : (computedPages || 1));
   const startIdx = count === 0 ? 0 : (activePage - 1) * sz + 1;
   const endIdx = count === 0 ? 0 : Math.min(activePage * sz, count);
 

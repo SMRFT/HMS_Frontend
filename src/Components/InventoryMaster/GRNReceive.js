@@ -867,6 +867,7 @@ const GRNReceive = () => {
   const [grnList, setGrnList] = useState([]);
   const [loading, setLoading] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -1035,23 +1036,22 @@ const GRNReceive = () => {
 
         const res = await apiRequest(`${baseUrl}grn/?${params.toString()}`, "GET");
         if (res && res.success) {
-          const payload = res.data;
-          const rows = Array.isArray(payload)
-            ? payload
-            : (Array.isArray(payload?.data)
-              ? payload.data
-              : (Array.isArray(payload?.results) ? payload.results : []));
-          const total = payload?.total_records ?? payload?.count ?? res?.total_count ?? rows.length;
+          const rows = res.data || [];
+          const count = res.total_count ?? res.total_records ?? res.count ?? rows.length;
           setGrnList(rows);
-          setTotalCount(total);
+          setTotalCount(count);
+          setTotalPages(res.total_pages ?? Math.max(1, Math.ceil(count / ps)));
         } else {
           setGrnList([]);
           setTotalCount(0);
+          setTotalPages(1);
         }
       } catch (err) {
         console.error("fetchGRNList error:", err);
         toast.error("Failed to fetch GRN records.");
         setGrnList([]);
+        setTotalCount(0);
+        setTotalPages(1);
       } finally {
         setLoading(false);
       }
@@ -1349,6 +1349,7 @@ const GRNReceive = () => {
           {totalCount > 0 && (
             <InvPagination
               totalCount={totalCount}
+              totalPages={totalPages}
               pageSize={pageSize}
               currentPage={page}
               onPageChange={setPage}
