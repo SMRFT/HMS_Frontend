@@ -892,16 +892,20 @@ const numberToWords = (num) => {
 // Product Value = (Qty * MRP) / (1 + GST% / 100)
 // Discount @ D% on Product Value = Product Value * (D / 100)
 // Taxable Value = Product Value - Discount
-// GST @ Rate% on Taxable Value = Taxable Value * (Rate / 100)
-// Line Total = Taxable Value + GST
+// GST values directly from hospital_pharmacystock
 export const calculateMedicinePricing = (item, customQty = null, customDiscVal = null) => {
   const qty = customQty !== null ? (parseFloat(customQty) || 0) : (parseFloat(item?.quantity ?? item?.qty ?? 0) || 0);
-  const mrp = parseFloat(item?.mrp || item?.price || item?.Selling_Price || item?.selling_price || 0);
+  const mrp = parseFloat(item?.mrp || item?.price || 0);
   const gross = parseFloat((qty * mrp).toFixed(2));
 
-  const cgstRate = parseFloat(item?.cgst_rate ?? item?.CGST_Percentage ?? item?.cgst_percentage ?? item?.cgst_pct ?? 2.5);
-  const sgstRate = parseFloat(item?.sgst_rate ?? item?.SGST_Percentage ?? item?.sgst_percentage ?? item?.sgst_pct ?? 2.5);
+  // Get CGST% and SGST% directly from stock DB value
+  const cgstRate = parseFloat(item?.CGST_Percentage ?? item?.cgst_rate ?? item?.cgst_percentage ?? item?.cgst_pct ?? 0);
+  const sgstRate = parseFloat(item?.SGST_Percentage ?? item?.sgst_rate ?? item?.sgst_percentage ?? item?.sgst_pct ?? 0);
   const totalGstRate = cgstRate + sgstRate;
+
+  // Get Unit CGST Amt and SGST Amt directly from hospital_pharmacystock DB value
+  const unitCgstAmt = parseFloat(item?.unit_cgst_amt ?? item?.CGST_Amt ?? item?.cgst_amount ?? 0);
+  const unitSgstAmt = parseFloat(item?.unit_sgst_amt ?? item?.SGST_Amt ?? item?.sgst_amount ?? 0);
 
   // Product Value = undiscounted base value without GST (Gross MRP / (1 + GST% / 100))
   const productValue = totalGstRate > 0 ? (gross / (1 + totalGstRate / 100)) : gross;
@@ -922,15 +926,21 @@ export const calculateMedicinePricing = (item, customQty = null, customDiscVal =
 
   const taxableValue = productValue - discAmtOnBase;
 
-  // GST calculated on discounted taxable value
-  const cgstAmt = (taxableValue * cgstRate) / 100;
-  const sgstAmt = (taxableValue * sgstRate) / 100;
-  const totalGstAmt = cgstAmt + sgstAmt;
+  // Get CGST & SGST Amt directly from DB value without calculation
+  const cgstAmt = unitCgstAmt > 0 && discAmtOnBase === 0
+    ? parseFloat((qty * unitCgstAmt).toFixed(2))
+    : parseFloat(((taxableValue * cgstRate) / 100).toFixed(2));
 
-  // Total bill value = Taxable Value + GST Amount
-  const lineTotal = parseFloat((taxableValue + totalGstAmt).toFixed(2));
+  const sgstAmt = unitSgstAmt > 0 && discAmtOnBase === 0
+    ? parseFloat((qty * unitSgstAmt).toFixed(2))
+    : parseFloat(((taxableValue * sgstRate) / 100).toFixed(2));
 
-  // Total discount on MRP (including GST savings)
+  const totalGstAmt = parseFloat((cgstAmt + sgstAmt).toFixed(2));
+
+  // Total bill value
+  const lineTotal = gross;
+
+  // Total discount on MRP
   const totalDiscountOnMrp = parseFloat(Math.max(0, gross - lineTotal).toFixed(2));
 
   return {
@@ -939,6 +949,8 @@ export const calculateMedicinePricing = (item, customQty = null, customDiscVal =
     gross,
     cgstRate,
     sgstRate,
+    unitCgstAmt,
+    unitSgstAmt,
     totalGstRate,
     productValue: parseFloat(productValue.toFixed(4)),
     discVal,
@@ -1070,7 +1082,7 @@ export const buildPrintBillHtml = (data) => {
   // Calculate Gross Total: strictly honor stored DB total_amount if available, fallback to computed
   const computedGross = activeMedicines.reduce((sum, m) => {
     const q = Number(m.quantity || m.qty || 0);
-    const p = Number(m.mrp || m.price || m.Selling_Price || m.selling_price || 0);
+    const p = Number(m.mrp || m.price || 0);
     return sum + (q * p);
   }, 0);
   const dbTotal = Number(totalAmount || (data && (data.total_amount || data.totalAmount)) || 0);
@@ -2664,22 +2676,9 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
       if (response.success) {
         const formattedMedicines = medicineArray.map((item) => {
-          const mrpVal = (() => {
-            const m = item.mrp !== undefined ? item.mrp : item.MRP;
-            if (m !== undefined && m !== null && m !== "" && !isNaN(Number(m)) && Number(m) > 0) return Number(m);
-            const sp = item.Selling_Price !== undefined ? item.Selling_Price : item.selling_price;
-            if (sp !== undefined && sp !== null && sp !== "" && !isNaN(Number(sp)) && Number(sp) > 0) return Number(sp);
-            if (item.price !== undefined && item.price !== null && item.price !== "" && !isNaN(Number(item.price)) && Number(item.price) > 0) return Number(item.price);
-            return 0;
-          })();
-
-          const priceVal = (() => {
-            const sp = item.Selling_Price !== undefined ? item.Selling_Price : item.selling_price;
-            if (sp !== undefined && sp !== null && sp !== "" && !isNaN(Number(sp)) && Number(sp) > 0) return Number(sp);
-            if (item.price !== undefined && item.price !== null && item.price !== "" && !isNaN(Number(item.price)) && Number(item.price) > 0) return Number(item.price);
-            if (item.mrp !== undefined && item.mrp !== null && item.mrp !== "" && !isNaN(Number(item.mrp)) && Number(item.mrp) > 0) return Number(item.mrp);
-            return 0;
-          })();
+          // Get MRP directly from hospital_pharmacystock without calculation
+          const mrpVal = Number(item.mrp !== undefined ? item.mrp : (item.MRP ?? 0)) || 0;
+          const priceVal = mrpVal;
 
           const expStatus = getExpiryStatus(item.expiry_date);
 
@@ -2698,10 +2697,16 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             Selling_Price: priceVal,
             selling_price: priceVal,
             hsn_code: item.hsn_code || "—",
-            cgst_rate: item.CGST_Percentage || 0,
-            cgst_amount: item.CGST_Amt || 0,
-            sgst_rate: item.SGST_Percentage || 0,
-            sgst_amount: item.SGST_Amt || 0,
+            cgst_rate: Number(item.CGST_Percentage || 0),
+            cgst_amount: Number(item.CGST_Amt || 0),
+            sgst_rate: Number(item.SGST_Percentage || 0),
+            sgst_amount: Number(item.SGST_Amt || 0),
+            CGST_Percentage: Number(item.CGST_Percentage || 0),
+            SGST_Percentage: Number(item.SGST_Percentage || 0),
+            CGST_Amt: Number(item.CGST_Amt || 0),
+            SGST_Amt: Number(item.SGST_Amt || 0),
+            unit_cgst_amt: Number(item.CGST_Amt || 0),
+            unit_sgst_amt: Number(item.SGST_Amt || 0),
             category: item.category || "",
             reorder_level: item.reorder_level || 0,
             total_stock: Number(item.total_stock ?? 0),
@@ -2837,10 +2842,8 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     }
 
     const medicinesWithQuantity = medicinesToAdd.map((medicine) => {
-      const mrp = parseFloat(medicine.mrp || 0);
-      const price = parseFloat(medicine.price || medicine.Selling_Price || medicine.selling_price || mrp || 0);
-      const finalMrp = mrp > 0 ? mrp : price;
-      const finalPrice = price > 0 ? price : finalMrp;
+      const finalMrp = parseFloat(medicine.mrp || 0);
+      const finalPrice = finalMrp;
       const qty = 1;
       const pricing = calculateMedicinePricing({ ...medicine, mrp: finalMrp, price: finalPrice }, qty, 0);
       return {
@@ -2856,6 +2859,12 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         cgst_amount: pricing.cgstAmt,
         sgst_rate: pricing.sgstRate,
         sgst_amount: pricing.sgstAmt,
+        CGST_Percentage: pricing.cgstRate,
+        SGST_Percentage: pricing.sgstRate,
+        CGST_Amt: pricing.cgstAmt,
+        SGST_Amt: pricing.sgstAmt,
+        unit_cgst_amt: pricing.unitCgstAmt,
+        unit_sgst_amt: pricing.unitSgstAmt,
         discount_type: "percent",
         discount_value: "",
         discount_percent: "%",
@@ -3549,7 +3558,6 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             item_name: m.name || m.item_name || "",
             batch_number: String(m.batch_number || ""),
             qty: pricing.qty,
-            price: m.price ?? pricing.mrp,
             mrp: pricing.mrp,
             calculated_price: pricing.gross,
             product_value: pricing.productValue,
@@ -3593,7 +3601,6 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             qty: reqQty,
             last_billed_qty: 0,
             billed_qty: 0,
-            price: m.price ?? pricing.mrp,
             mrp: pricing.mrp,
             calculated_price: 0,
             product_value: 0,
@@ -3632,7 +3639,6 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
           item_name: m.name || m.item_name || "",
           batch_number: String(m.batch_number || ""),
           qty: 0,
-          price: m.price ?? m.mrp ?? 0,
           mrp: m.mrp ?? m.price ?? 0,
           calculated_price: 0,
           product_value: 0,
@@ -3653,17 +3659,17 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         // ── Case: All items were Save Later / Out of Stock (0 billable medicines) ──
         if (billableMeds.length === 0) {
           const finalizeRes = await apiRequest(`${HmsBaseUrl}finalize_bill/`, "POST", {
-            _id:                  recordMongoId,
-            record_id:            recordMongoId,
-            Bill_id:              parseInt(recordId),
-            uhid:                 formData.uhid,
-            is_ward_request:      true,
-            save_later_only:      true,
+            _id: recordMongoId,
+            record_id: recordMongoId,
+            Bill_id: parseInt(recordId),
+            uhid: formData.uhid,
+            is_ward_request: true,
+            save_later_only: true,
             medicine_particulars: finalMedicines,
-            total_amount:         0,
-            net_amount:           0,
-            inpatient_number:     formData.inpatientNo || formData.inpatient_number || "",
-            room_no:              formData.roomNo || admissionRoomNo || "",
+            total_amount: 0,
+            net_amount: 0,
+            inpatient_number: formData.inpatientNo || formData.inpatient_number || "",
+            room_no: formData.roomNo || admissionRoomNo || "",
           });
 
           setSaving(false);
@@ -3729,12 +3735,12 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             : "WARD REQUEST";
 
         const finalizeRes = await apiRequest(`${HmsBaseUrl}finalize_bill/`, "POST", {
-          _id:                  recordMongoId,
-          record_id:            recordMongoId,
+          _id: recordMongoId,
+          record_id: recordMongoId,
           Bill_id: parseInt(recordId),
-          uhid:                 formData.uhid,
-          is_ward_request:      true,
-          billing_mode:         finalizeBillingMode,
+          uhid: formData.uhid,
+          is_ward_request: true,
+          billing_mode: finalizeBillingMode,
 
           // ── Send updated medicine list & amounts so backend uses them ──
           medicine_particulars: finalMedicines,
@@ -3895,29 +3901,26 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
       // On new bills, items removed before saving should never be sent to the database.
       const mappedDeletedNormal = (isEditMode && formData.billNo)
         ? deletedMedicines.map((m) => ({
-            item_id: Number(m.item_id),
-            item_name: m.name || m.item_name || "",
-            batch_number: String(m.batch_number || ""),
-            expiry_date: m.expiry_date || m.expiry || "",
-            hsn_code: m.hsn_code || m.hsn || "",
-            qty: 0,
-            price: m.price ?? m.mrp ?? 0,
-            mrp: m.mrp ?? m.price ?? 0,
-            Selling_Price: m.price ?? m.mrp ?? 0,
-            selling_price: m.price ?? m.mrp ?? 0,
-            calculated_price: 0,
-            product_value: 0,
-            taxable_value: 0,
-            CGST_Percentage: 0,
-            SGST_Percentage: 0,
-            CGST_Amt: 0,
-            SGST_Amt: 0,
-            total: 0,
-            deleted_is: true,
-            is_deleted: true,
-            dispatched_qty: 0,
-            edit_history: m.edit_history || [],
-          }))
+          item_id: Number(m.item_id),
+          item_name: m.name || m.item_name || "",
+          batch_number: String(m.batch_number || ""),
+          expiry_date: m.expiry_date || m.expiry || "",
+          hsn_code: m.hsn_code || m.hsn || "",
+          qty: 0,
+          mrp: m.mrp ?? m.price ?? 0,
+          calculated_price: 0,
+          product_value: 0,
+          taxable_value: 0,
+          CGST_Percentage: 0,
+          SGST_Percentage: 0,
+          CGST_Amt: 0,
+          SGST_Amt: 0,
+          total: 0,
+          deleted_is: true,
+          is_deleted: true,
+          dispatched_qty: 0,
+          edit_history: m.edit_history || [],
+        }))
         : [];
 
       const finalItems = [
@@ -3930,10 +3933,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             expiry_date: m.expiry_date || m.expiry || "",
             hsn_code: m.hsn_code || m.hsn || "",
             qty: pricing.qty,
-            price: m.price ?? pricing.mrp,
             mrp: pricing.mrp,
-            Selling_Price: m.Selling_Price ?? m.price ?? pricing.mrp,
-            selling_price: m.selling_price ?? m.price ?? pricing.mrp,
             calculated_price: pricing.gross,
             item_name: m.name || m.item_name || "",
             dosage: m.dosage || "",
@@ -4415,33 +4415,9 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
       }
       const qty = billingQty;
 
-      // Resolve unit MRP:
-      // In MongoDB medicine_particulars, calculated_price represents gross line MRP (qty * unit MRP).
-      // Therefore (item.calculated_price / rawQty) gives the exact unit MRP that was billed/estimated!
-      const resolveUnitMrp = () => {
-        if (item.mrp != null && !isNaN(parseFloat(item.mrp)) && parseFloat(item.mrp) > 0) {
-          return parseFloat(item.mrp);
-        }
-        if (item.Selling_Price != null && !isNaN(parseFloat(item.Selling_Price)) && parseFloat(item.Selling_Price) > 0) {
-          return parseFloat(item.Selling_Price);
-        }
-        if (item.selling_price != null && !isNaN(parseFloat(item.selling_price)) && parseFloat(item.selling_price) > 0) {
-          return parseFloat(item.selling_price);
-        }
-        if (item.calculated_price != null && !isNaN(parseFloat(item.calculated_price)) && parseFloat(item.calculated_price) > 0 && rawQty > 0) {
-          return parseFloat((parseFloat(item.calculated_price) / rawQty).toFixed(2));
-        }
-        if (item.total != null && !isNaN(parseFloat(item.total)) && parseFloat(item.total) > 0 && rawQty > 0) {
-          return parseFloat((parseFloat(item.total) / rawQty).toFixed(2));
-        }
-        if (stockMatch?.mrp != null && !isNaN(parseFloat(stockMatch.mrp)) && parseFloat(stockMatch.mrp) > 0) {
-          return parseFloat(stockMatch.mrp);
-        }
-        return parseFloat(item.price || stockMatch?.price || 0);
-      };
-
-      const mrp = resolveUnitMrp();
-      const price = parseFloat(item.price || stockMatch?.price || mrp);
+      // Get MRP directly from hospital_pharmacystock without calculation
+      const mrp = parseFloat(stockMatch?.mrp || item.mrp || 0);
+      const price = mrp;
 
       const discVal = parseFloat(item.discount_value ?? item.discount_percent ?? item.discount ?? 0);
       const discType = item.discount_type || "percent";
@@ -4670,29 +4646,10 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         item.name ||
         (item.item_id ? `Item #${item.item_id}` : "");
 
-      // Resolve unit price / rate:
-      // Prioritize item's explicit selling price/price/mrp sent from MedicineChart/Ward Request, then stockMatch
-      const resolveRate = () => {
-        const candidates = [
-          item?.Selling_Price,
-          item?.selling_price,
-          item?.price,
-          item?.mrp,
-          stockMatch?.Selling_Price,
-          stockMatch?.selling_price,
-          stockMatch?.price,
-          stockMatch?.mrp,
-        ];
-        for (const c of candidates) {
-          if (c !== undefined && c !== null && c !== "") {
-            const num = parseFloat(c);
-            if (!isNaN(num) && num > 0) return num;
-          }
-        }
-        return 0;
-      };
+      // Get MRP directly from hospital_pharmacystock without calculation
+      const resolvedMrp = parseFloat(stockMatch?.mrp || item?.mrp || 0);
+      const resolvedPrice = resolvedMrp;
 
-      const resolvedRate = resolveRate();
       const origReq = Number(item.requested_qty ?? item.qty ?? item.quantity ?? 0);
       const dispQ = Number(item.dispatched_qty ?? 0);
       const pendingQ = item.pending_qty != null ? Number(item.pending_qty) : Math.max(0, origReq - dispQ);
@@ -4700,8 +4657,8 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
       const rawAvail = item.available_stock != null
         ? Number(item.available_stock)
         : (stockMatch?.available_stock != null
-            ? Number(stockMatch.available_stock)
-            : (stockMatch?.total_stock != null ? Number(stockMatch.total_stock) : null));
+          ? Number(stockMatch.available_stock)
+          : (stockMatch?.total_stock != null ? Number(stockMatch.total_stock) : null));
       const availStock = rawAvail != null && !isNaN(rawAvail) ? rawAvail : 9999;
 
       // Auto-cap to available stock if requested/pending exceeds available stock (e.g., stock 5, req 6 -> allow 5)
@@ -4712,24 +4669,20 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         isCapped = true;
       }
       const qty = billingQty;
-      const gross = parseFloat((qty * resolvedRate).toFixed(2));
 
       // Resolve GST rates
       const cgstRate = parseFloat(item.CGST_Percentage ?? stockMatch?.cgst_rate ?? 0);
       const sgstRate = parseFloat(item.SGST_Percentage ?? stockMatch?.sgst_rate ?? 0);
 
-      // Resolve GST amounts: compute from gross or scale per-unit amount by qty
-      const cgstAmt = (cgstRate > 0 && gross > 0)
-        ? parseFloat(((gross * cgstRate) / 100).toFixed(2))
-        : (item.CGST_Amt != null && !isNaN(parseFloat(item.CGST_Amt)) && parseFloat(item.CGST_Amt) > 0)
-          ? parseFloat((parseFloat(item.CGST_Amt) * (parseFloat(item.CGST_Amt) > gross ? 1 : qty)).toFixed(2))
-          : parseFloat(stockMatch?.cgst_amount || 0);
-
-      const sgstAmt = (sgstRate > 0 && gross > 0)
-        ? parseFloat(((gross * sgstRate) / 100).toFixed(2))
-        : (item.SGST_Amt != null && !isNaN(parseFloat(item.SGST_Amt)) && parseFloat(item.SGST_Amt) > 0)
-          ? parseFloat((parseFloat(item.SGST_Amt) * (parseFloat(item.SGST_Amt) > gross ? 1 : qty)).toFixed(2))
-          : parseFloat(stockMatch?.sgst_amount || 0);
+      // Reverse calculate pricing accurately from stock MRP using standard formula
+      const pricing = calculateMedicinePricing({
+        ...stockMatch,
+        ...item,
+        mrp: resolvedMrp,
+        price: resolvedPrice,
+        cgst_rate: cgstRate,
+        sgst_rate: sgstRate,
+      }, qty, 0);
 
       return {
         item_id: item.item_id,
@@ -4741,15 +4694,24 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         dispatched_qty: dispQ,
         pending_qty: pendingQ,
         stock_capped: isCapped,
-        price: resolvedRate,
-        mrp: resolvedRate,
-        selling_price: resolvedRate,
-        Selling_Price: resolvedRate,
+        price: resolvedPrice,
+        mrp: resolvedMrp,
+        selling_price: resolvedPrice,
+        Selling_Price: resolvedPrice,
+        calculated_price: pricing.gross,
+        product_value: pricing.productValue,
+        taxable_value: pricing.taxableValue,
         hsn_code: stockMatch?.hsn_code || item.hsn_code || "—",
-        cgst_rate: cgstRate,
-        cgst_amount: cgstAmt,
-        sgst_rate: sgstRate,
-        sgst_amount: sgstAmt,
+        cgst_rate: pricing.cgstRate,
+        cgst_amount: pricing.cgstAmt,
+        sgst_rate: pricing.sgstRate,
+        sgst_amount: pricing.sgstAmt,
+        CGST_Percentage: pricing.cgstRate,
+        SGST_Percentage: pricing.sgstRate,
+        CGST_Amt: pricing.cgstAmt,
+        SGST_Amt: pricing.sgstAmt,
+        unit_cgst_amt: pricing.unitCgstAmt,
+        unit_sgst_amt: pricing.unitSgstAmt,
         expiry_date: stockMatch?.expiry_date || item.expiry_date || "—",
         available_stock: availStock,
         dosage: item.dosage || rawPartMatch?.dosage || stockMatch?.dosage || "",
@@ -4758,7 +4720,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         doseunit: item.doseunit || item.doseUnit || rawPartMatch?.doseunit || rawPartMatch?.doseUnit || "",
         instruction: item.instruction || rawPartMatch?.instruction || "",
         route: item.route || rawPartMatch?.route || "",
-        total: gross,
+        total: pricing.lineTotal,
         discount_type: item.discount_type || "percent",
         discount_value: item.discount_value || 0,
         is_consumable_items: Boolean(item.is_consumable_items),
@@ -5128,22 +5090,9 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         m.name ||
         (m.item_id ? `Item #${m.item_id}` : "");
 
-      const resolveUnitMrp = () => {
-        if (m.mrp != null && !isNaN(parseFloat(m.mrp)) && parseFloat(m.mrp) > 0) return parseFloat(m.mrp);
-        if (m.Selling_Price != null && !isNaN(parseFloat(m.Selling_Price)) && parseFloat(m.Selling_Price) > 0) return parseFloat(m.Selling_Price);
-        if (m.selling_price != null && !isNaN(parseFloat(m.selling_price)) && parseFloat(m.selling_price) > 0) return parseFloat(m.selling_price);
-        if (m.calculated_price != null && !isNaN(parseFloat(m.calculated_price)) && parseFloat(m.calculated_price) > 0 && rawQty > 0) {
-          return parseFloat((parseFloat(m.calculated_price) / rawQty).toFixed(2));
-        }
-        if (m.total != null && !isNaN(parseFloat(m.total)) && parseFloat(m.total) > 0 && rawQty > 0) {
-          return parseFloat((parseFloat(m.total) / rawQty).toFixed(2));
-        }
-        if (stockMatch?.mrp != null && !isNaN(parseFloat(stockMatch.mrp)) && parseFloat(stockMatch.mrp) > 0) return parseFloat(stockMatch.mrp);
-        return parseFloat(m.price || stockMatch?.price || 0);
-      };
-
-      const mrp = resolveUnitMrp();
-      const price = parseFloat(m.price || m.Price || stockMatch?.price || mrp);
+      // Get MRP directly from hospital_pharmacystock without calculation
+      const mrp = parseFloat(stockMatch?.mrp || m.mrp || 0);
+      const price = mrp;
       const discVal = parseFloat(m.discount_value ?? m.discount_percent ?? m.discount ?? 0);
       const discType = m.discount_type || "percent";
 
@@ -5172,6 +5121,12 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         cgst_amount: pricing.cgstAmt,
         sgst_rate: pricing.sgstRate,
         sgst_amount: pricing.sgstAmt,
+        CGST_Percentage: pricing.cgstRate,
+        SGST_Percentage: pricing.sgstRate,
+        CGST_Amt: pricing.cgstAmt,
+        SGST_Amt: pricing.sgstAmt,
+        unit_cgst_amt: pricing.unitCgstAmt,
+        unit_sgst_amt: pricing.unitSgstAmt,
         expiry_date: stockMatch?.expiry_date || "—",
         discount_type: discType,
         discount_value: discVal > 0 ? discVal : (m.discount_value === 0 || m.discount_value === "0" ? "" : (m.discount_value || "")),
@@ -5275,7 +5230,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
   // Gross Total: actual undiscounted amount (quantity * price/mrp)
   const grossTotalAmount = addedMedicines.reduce((sum, m) => {
     const qty = Number(m.quantity || m.qty || 0);
-    const price = Number(m.mrp || m.price || m.Selling_Price || m.selling_price || 0);
+    const price = Number(m.mrp || m.price || 0);
     return sum + (qty * price);
   }, 0);
 
@@ -5325,7 +5280,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
                 onClick={() => {
                   setLoadedEstimateNo(null);
                   setAddedMedicines([]);
-    setDeletedMedicines([]);
+                  setDeletedMedicines([]);
                 }}
               >
                 ×
@@ -5713,7 +5668,6 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
                   <Th>Batch</Th>
                   <Th>Qty</Th>
                   <Th>MRP</Th>
-                  <Th>Price</Th>
                   <Th>Disc Type</Th>
                   <Th>Disc %</Th>
                   <Th>Disc Amt</Th>
@@ -5880,76 +5834,80 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
                           ) : (
                             <QtyInput
                               ref={(el) => (qtyInputRefs.current[index] = el)}
-                            type="number"
-                            min="0"
-                            value={medicine.quantity || ""}
-                            style={
-                              qtyErrors[index]
-                                ? { borderColor: "#ef4444", boxShadow: "0 0 0 3px rgba(239,68,68,0.18)", background: "#fff5f5" }
-                                : medicine.stock_capped && Number(medicine.available_stock) > 0
-                                  ? { borderColor: "#ea580c", boxShadow: "0 0 0 2px rgba(234,88,12,0.25)", background: "#fff7ed" }
-                                  : {}
-                            }
-                            onChange={(e) => {
-                              const enteredQty = parseFloat(e.target.value) || 0;
-                              const availStock = Number(medicine.available_stock);
-                              const hasLimitedStock = medicine.available_stock !== 9999 && medicine.available_stock != null && !isNaN(availStock);
-
-                              let finalQty = enteredQty;
-                              let isCapped = false;
-                              let reqQty = medicine.requested_qty ?? enteredQty;
-
-                              if (hasLimitedStock && availStock > 0 && enteredQty > availStock) {
-                                finalQty = availStock;
-                                isCapped = true;
-                                reqQty = enteredQty;
-                                toast.warning(
-                                  `"${medicine.name}" has only ${availStock} available. Allowed billing quantity is ${availStock}.`,
-                                  { toastId: `stock-cap-${index}`, autoClose: 2500 }
-                                );
-                              } else if (hasLimitedStock && availStock <= 0 && enteredQty > 0) {
-                                toast.error(
-                                  `"${medicine.name}" has 0 stock available (NIL).`,
-                                  { toastId: `stock-nil-${index}`, autoClose: 2000 }
-                                );
-                              } else if (enteredQty <= availStock) {
-                                isCapped = false;
+                              type="number"
+                              min="0"
+                              value={medicine.quantity || ""}
+                              style={
+                                qtyErrors[index]
+                                  ? { borderColor: "#ef4444", boxShadow: "0 0 0 3px rgba(239,68,68,0.18)", background: "#fff5f5" }
+                                  : medicine.stock_capped && Number(medicine.available_stock) > 0
+                                    ? { borderColor: "#ea580c", boxShadow: "0 0 0 2px rgba(234,88,12,0.25)", background: "#fff7ed" }
+                                    : {}
                               }
+                              onChange={(e) => {
+                                const enteredQty = parseFloat(e.target.value) || 0;
+                                const availStock = Number(medicine.available_stock);
+                                const hasLimitedStock = medicine.available_stock !== 9999 && medicine.available_stock != null && !isNaN(availStock);
 
-                              const dVal = parseFloat(medicine.discount_value ?? medicine.discount_percent ?? medicine.discount ?? 0);
-                              const pricing = calculateMedicinePricing(medicine, finalQty, dVal);
-                              setAddedMedicines((prev) =>
-                                prev.map((m, i) =>
-                                  i === index ? {
-                                    ...m,
-                                    quantity: finalQty,
-                                    requested_qty: reqQty,
-                                    stock_capped: isCapped,
-                                    total: pricing.lineTotal,
-                                    product_value: pricing.productValue,
-                                    taxable_value: pricing.taxableValue,
-                                    discount_type: m.discount_type || "percent",
-                                    discount_value: dVal,
-                                    discount_percent: (m.discount_type || "percent") === "percent" ? dVal : 0,
-                                    discount_amount: pricing.discAmtOnBase,
-                                    discount: dVal,
-                                    cgst_rate: pricing.cgstRate,
-                                    cgst_amount: pricing.cgstAmt,
-                                    sgst_rate: pricing.sgstRate,
-                                    sgst_amount: pricing.sgstAmt,
-                                  } : m
-                                )
-                              );
-                              if (finalQty > 0) setQtyErrors(prev => { const n = { ...prev }; delete n[index]; return n; });
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" || (e.key === "Tab" && !e.shiftKey)) {
-                                e.preventDefault();
-                                focusMedicineSearch();
-                              }
-                            }}
-                          />
-                        )}
+                                let finalQty = enteredQty;
+                                let isCapped = false;
+                                let reqQty = medicine.requested_qty ?? enteredQty;
+
+                                if (hasLimitedStock && availStock > 0 && enteredQty > availStock) {
+                                  finalQty = availStock;
+                                  isCapped = true;
+                                  reqQty = enteredQty;
+                                  toast.warning(
+                                    `"${medicine.name}" has only ${availStock} available. Allowed billing quantity is ${availStock}.`,
+                                    { toastId: `stock-cap-${index}`, autoClose: 2500 }
+                                  );
+                                } else if (hasLimitedStock && availStock <= 0 && enteredQty > 0) {
+                                  toast.error(
+                                    `"${medicine.name}" has 0 stock available (NIL).`,
+                                    { toastId: `stock-nil-${index}`, autoClose: 2000 }
+                                  );
+                                } else if (enteredQty <= availStock) {
+                                  isCapped = false;
+                                }
+
+                                const dVal = parseFloat(medicine.discount_value ?? medicine.discount_percent ?? medicine.discount ?? 0);
+                                const pricing = calculateMedicinePricing(medicine, finalQty, dVal);
+                                setAddedMedicines((prev) =>
+                                  prev.map((m, i) =>
+                                    i === index ? {
+                                      ...m,
+                                      quantity: finalQty,
+                                      requested_qty: reqQty,
+                                      stock_capped: isCapped,
+                                      total: pricing.lineTotal,
+                                      product_value: pricing.productValue,
+                                      taxable_value: pricing.taxableValue,
+                                      discount_type: m.discount_type || "percent",
+                                      discount_value: dVal,
+                                      discount_percent: (m.discount_type || "percent") === "percent" ? dVal : 0,
+                                      discount_amount: pricing.discAmtOnBase,
+                                      discount: dVal,
+                                      cgst_rate: pricing.cgstRate,
+                                      cgst_amount: pricing.cgstAmt,
+                                      sgst_rate: pricing.sgstRate,
+                                      sgst_amount: pricing.sgstAmt,
+                                      CGST_Percentage: pricing.cgstRate,
+                                      SGST_Percentage: pricing.sgstRate,
+                                      CGST_Amt: pricing.cgstAmt,
+                                      SGST_Amt: pricing.sgstAmt,
+                                    } : m
+                                  )
+                                );
+                                if (finalQty > 0) setQtyErrors(prev => { const n = { ...prev }; delete n[index]; return n; });
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || (e.key === "Tab" && !e.shiftKey)) {
+                                  e.preventDefault();
+                                  focusMedicineSearch();
+                                }
+                              }}
+                            />
+                          )}
                           {Boolean(medicine.stock_capped && Number(medicine.available_stock) > 0) && (
                             <BlinkBadge style={{ fontSize: "0.68rem", padding: "1px 5px" }}>
                               <BlinkDot style={{ width: 6, height: 6, background: "#ea580c" }} /> Allow {medicine.available_stock}
@@ -5958,14 +5916,6 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
                         </div>
                       </Td>
                       <Td>₹{(parseFloat(medicine.mrp) || 0).toFixed(2)}</Td>
-                      <Td>
-                        <div>₹{(parseFloat(medicine.price ?? medicine.mrp ?? 0)).toFixed(2)}</div>
-                        {medicine.discount_value > 0 && medicine.product_value ? (
-                          <div style={{ fontSize: "0.68rem", color: "#64748b" }}>
-                            Base: ₹{(parseFloat(medicine.product_value) || 0).toFixed(2)}
-                          </div>
-                        ) : null}
-                      </Td>
                       <Td>
                         <Select
                           style={{ width: 68, padding: "4px 6px", fontSize: "0.82rem" }}
@@ -6004,6 +5954,10 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
                                   cgst_amount: pricing.cgstAmt,
                                   sgst_rate: pricing.sgstRate,
                                   sgst_amount: pricing.sgstAmt,
+                                  CGST_Percentage: pricing.cgstRate,
+                                  SGST_Percentage: pricing.sgstRate,
+                                  CGST_Amt: pricing.cgstAmt,
+                                  SGST_Amt: pricing.sgstAmt,
                                   total: pricing.lineTotal
                                 } : m
                               )
@@ -6020,10 +5974,10 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
                       <Td style={{ fontWeight: 600, color: (parseFloat(medicine.discount_amount) || 0) > 0 ? "#059669" : "#64748b", whiteSpace: "nowrap" }}>
                         ₹{(parseFloat(medicine.discount_amount) || 0).toFixed(2)}
                       </Td>
-                      <Td>{(parseFloat(medicine.cgst_rate) || 0).toFixed(2)}</Td>
-                      <Td>{(parseFloat(medicine.cgst_amount) || 0).toFixed(2)}</Td>
-                      <Td>{(parseFloat(medicine.sgst_rate) || 0).toFixed(2)}</Td>
-                      <Td>{(parseFloat(medicine.sgst_amount) || 0).toFixed(2)}</Td>
+                      <Td>{(parseFloat(medicine.CGST_Percentage ?? medicine.cgst_rate) || 0).toFixed(2)}</Td>
+                      <Td>{(parseFloat(medicine.CGST_Amt ?? medicine.cgst_amount) || 0).toFixed(2)}</Td>
+                      <Td>{(parseFloat(medicine.SGST_Percentage ?? medicine.sgst_rate) || 0).toFixed(2)}</Td>
+                      <Td>{(parseFloat(medicine.SGST_Amt ?? medicine.sgst_amount) || 0).toFixed(2)}</Td>
                       <Td style={{ fontWeight: 600 }}>₹{(parseFloat(medicine.total) || 0).toFixed(2)}</Td>
                       <Td style={{ whiteSpace: "nowrap" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}>
@@ -6066,7 +6020,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
               </tbody>
               <tfoot>
                 <NetAmountRow>
-                  <Td colSpan="13" style={{ textAlign: "right", color: "#64748b", fontSize: "0.85rem" }}>
+                  <Td colSpan="12" style={{ textAlign: "right", color: "#64748b", fontSize: "0.85rem" }}>
                     {addedMedicines.length === 0 ? "No medicines added yet." : `${addedMedicines.length} item(s)`}
                   </Td>
                   <Td />
@@ -6697,15 +6651,14 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
                       </Th>
                       <Th style={{ minWidth: 120, padding: "10px 12px", whiteSpace: "nowrap" }}>Batch</Th>
                       <Th style={{ minWidth: 100, padding: "10px 12px", whiteSpace: "nowrap" }}>Expiry</Th>
-                      <Th style={{ minWidth: 95, padding: "10px 12px", whiteSpace: "nowrap" }}>Mrp</Th>
-                      <Th style={{ minWidth: 95, padding: "10px 12px", whiteSpace: "nowrap" }}>Rate</Th>
+                      <Th style={{ minWidth: 95, padding: "10px 12px", whiteSpace: "nowrap" }}>MRP</Th>
                       <Th style={{ minWidth: 75, textAlign: "center", padding: "10px 12px", whiteSpace: "nowrap" }}>Stock</Th>
                     </tr>
                   </thead>
                   <tbody>
                     {visibleBatchesForModal.length === 0 ? (
                       <tr>
-                        <td colSpan={6} style={{ textAlign: "center", padding: "32px 16px", color: "#64748b" }}>
+                        <td colSpan={5} style={{ textAlign: "center", padding: "32px 16px", color: "#64748b" }}>
                           {batchShowNilStock ? (
                             "No nil-stock batches found for this medicine."
                           ) : nilBatchesCount > 0 ? (
@@ -6788,11 +6741,8 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
                             <Td style={{ verticalAlign: "middle", padding: "10px 12px", color: "#475569", fontWeight: 500, whiteSpace: "nowrap" }}>
                               {formatExpiryDate(batch.expiry_date)}
                             </Td>
-                            <Td style={{ verticalAlign: "middle", padding: "10px 12px", whiteSpace: "nowrap", fontWeight: 500 }}>
-                              ₹ {Number(batch.mrp || 0).toFixed(2)}
-                            </Td>
                             <Td style={{ verticalAlign: "middle", padding: "10px 12px", whiteSpace: "nowrap", fontWeight: 600, color: "#0f766e" }}>
-                              ₹ {Number(batch.price || batch.Selling_Price || batch.selling_price || batch.mrp || 0).toFixed(2)}
+                              ₹ {Number(batch.mrp || 0).toFixed(2)}
                             </Td>
                             <Td style={{ textAlign: "center", verticalAlign: "middle", padding: "10px 12px", whiteSpace: "nowrap", fontWeight: 700, color: isNil ? "#dc2626" : "#0f766e" }}>
                               {stockVal}
@@ -7594,7 +7544,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
                                 const dbGross = Number(printBillData.totalAmount || 0);
                                 const computedGross = (activePreviewMeds || []).reduce((sum, m) => {
                                   const qty = Number(m.quantity || m.qty || 0);
-                                  const price = Number(m.mrp || m.price || m.Selling_Price || m.selling_price || 0);
+                                  const price = Number(m.mrp || m.price || 0);
                                   return sum + (qty * price);
                                 }, 0);
                                 const previewGross = dbGross > 0 ? dbGross : (computedGross > 0 ? computedGross : 0);

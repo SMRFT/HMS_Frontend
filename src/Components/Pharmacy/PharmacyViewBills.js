@@ -2309,17 +2309,20 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                         <tbody style={{ borderBottom: isLastPage ? "1px solid #111" : "none" }}>
                           {pageMeds && pageMeds.length > 0 ? (
                             pageMeds.map((med, i) => {
-                              const pricing  = calculateMedicinePricing(med);
-                              const qty      = pricing.qty;
-                              const price    = pricing.mrp;
-                              const amt      = pricing.lineTotal;
-                              const cgstPct  = pricing.cgstRate;
-                              const sgstPct  = pricing.sgstRate;
-                              const cgstAmt  = pricing.cgstAmt;
-                              const sgstAmt  = pricing.sgstAmt;
-                              const itemDiscAmt = pricing.totalDiscountOnMrp > 0
-                                ? pricing.totalDiscountOnMrp.toFixed(2)
-                                : (Number(med.discount_amount || 0) > 0 ? Number(med.discount_amount).toFixed(2) : "0.00");
+                              const qty      = Number(med.qty !== undefined ? med.qty : (med.quantity ?? 0));
+                              const price    = Number(med.mrp !== undefined && Number(med.mrp) > 0 ? med.mrp : (med.price ?? 0));
+                              const amt      = Number(
+                                med.total !== undefined && Number(med.total) > 0
+                                  ? med.total
+                                  : (med.calculated_price !== undefined && Number(med.calculated_price) > 0
+                                      ? med.calculated_price
+                                      : (qty * price))
+                              );
+                              const cgstPct  = Number(med.CGST_Percentage !== undefined ? med.CGST_Percentage : (med.cgst_rate ?? 0));
+                              const sgstPct  = Number(med.SGST_Percentage !== undefined ? med.SGST_Percentage : (med.sgst_rate ?? 0));
+                              const cgstAmt  = Number(med.CGST_Amt !== undefined ? med.CGST_Amt : (med.cgst_amount ?? 0));
+                              const sgstAmt  = Number(med.SGST_Amt !== undefined ? med.SGST_Amt : (med.sgst_amount ?? 0));
+                              const itemDiscAmt = Number(med.discount_amount !== undefined ? med.discount_amount : (med.discount ?? 0)).toFixed(2);
                               return (
                                 <tr key={i}>
                                   <td style={{ padding: "2px 4px", fontWeight: 500, maxWidth: 170, wordBreak: "break-word", lineHeight: 1.2 }}>
@@ -2363,15 +2366,14 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                           {/* Totals & Payment */}
                           {(() => {
                             const computedGross = (allMeds || []).reduce((sum, m) => {
-                              const pricing = calculateMedicinePricing(m);
-                              return sum + pricing.gross;
+                              const lineAmt = Number(m.total ?? m.calculated_price ?? ((m.qty || m.quantity || 0) * (m.mrp || m.price || 0)));
+                              return sum + lineAmt;
                             }, 0);
                             const explicitTotal = Number(printBill.total_amount || 0);
                             const previewGross = explicitTotal > 0 ? explicitTotal : (computedGross > 0 ? computedGross : 0);
 
                             const computedItemDisc = (allMeds || []).reduce((sum, m) => {
-                              const pricing = calculateMedicinePricing(m);
-                              return sum + pricing.totalDiscountOnMrp;
+                              return sum + Number(m.discount_amount || 0);
                             }, 0);
 
                             const explicitNet = Number(printBill.net_amount || 0);
@@ -2402,13 +2404,13 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                               : "";
 
                             const totalCgst = (allMeds || []).reduce((sum, m) => {
-                              const pricing = calculateMedicinePricing(m);
-                              return sum + (isNaN(pricing.cgstAmt) ? 0 : pricing.cgstAmt);
+                              const v = Number(m.CGST_Amt ?? m.cgst_amount ?? 0);
+                              return sum + (isNaN(v) ? 0 : v);
                             }, 0);
 
                             const totalSgst = (allMeds || []).reduce((sum, m) => {
-                              const pricing = calculateMedicinePricing(m);
-                              return sum + (isNaN(pricing.sgstAmt) ? 0 : pricing.sgstAmt);
+                              const v = Number(m.SGST_Amt ?? m.sgst_amount ?? 0);
+                              return sum + (isNaN(v) ? 0 : v);
                             }, 0);
 
                             const totalTax = totalCgst + totalSgst;
