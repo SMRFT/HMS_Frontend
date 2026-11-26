@@ -1402,26 +1402,33 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
 
   const [printBill, setPrintBill] = useState(null);
 
+  const isPaid = (bill) => {
+    if (!bill) return false;
+    const s = (bill.billing_status || "").trim().toLowerCase();
+    if (s === "paid") return true;
+    if (s === "billed" || s === "estimate" || s === "cancelled" || s === "deleted") return false;
+    if (bill.payment_details) {
+      if (typeof bill.payment_details === "object" && Number(bill.payment_details.Paid_amount || 0) > 0) return true;
+      if (Array.isArray(bill.payment_details) && bill.payment_details.length > 0) return true;
+    }
+    return false;
+  };
+
   // ── Print Permission Rule ──────────────────────────────────────────────────
-  // If selected outlet in localStorage is OLET002:
-  // - Credit bills: allow print
-  // - Cash bills: view only (print hidden)
-  // Other outlets: allow print
+  // For payment_mode: "Cash" bills alone, until billing_status: "Paid", do not display print option.
+  // Once the paid status is reached, display the print option in view bills.
+  // Credit bills always allow print option.
   const allowBillPrint = (b) => {
     if (!b) return false;
-    const selectedOutlet = (
-      localStorage.getItem("selected_outlet") ||
-      localStorage.getItem("outlet_code") ||
-      ""
-    ).trim();
+    const pm = String(b.payment_mode || b.payment_method || b.paymentMode || "").trim().toLowerCase();
+    const bm = String(b.billing_mode || b.billingMode || "").trim().toLowerCase();
+    const isCredit = pm === "credit" || bm.includes("credit");
 
-    if (selectedOutlet === "OLET002") {
-      const pm = String(b.payment_mode || b.payment_method || b.paymentMode || "").trim().toLowerCase();
-      const bm = String(b.billing_mode || b.billingMode || "").trim().toLowerCase();
-      return pm === "credit" || bm.includes("credit");
-    }
+    // Credit bills: always display print
+    if (isCredit) return true;
 
-    return true;
+    // Cash bills: until billing_status is "Paid", do not display print option
+    return isPaid(b);
   };
 
   // ── Print ─────────────────────────────────────────────────────────────────
@@ -1756,17 +1763,6 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
     return true;
   });
 
-  const isPaid = (bill) => {
-    if (!bill) return false;
-    const s = (bill.billing_status || "").trim().toLowerCase();
-    if (s === "paid") return true;
-    if (s === "billed" || s === "estimate" || s === "cancelled" || s === "deleted") return false;
-    if (bill.payment_details) {
-      if (typeof bill.payment_details === "object" && Number(bill.payment_details.Paid_amount || 0) > 0) return true;
-      if (Array.isArray(bill.payment_details) && bill.payment_details.length > 0) return true;
-    }
-    return false;
-  };
   const isDeleted = (bill) => (bill?.billing_status || "").toLowerCase() === "deleted" || bill?.is_deleted === true;
   const isPartiallyBilled = (bill) => !isDeleted(bill) && (String(bill?.billing_status || "").toLowerCase().includes("processing") || String(bill?.billing_status || "").toLowerCase().includes("partially"));
 
@@ -1989,13 +1985,11 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                                 {false && !isDeleted(bill) && (
                                   <IconBtn variant="delete" title="Delete" onClick={() => openDeleteModal(bill)}>🗑️</IconBtn>
                                 )}
-                                <IconBtn
-                                  variant={allowBillPrint(bill) ? "print" : "view"}
-                                  title={allowBillPrint(bill) ? "Print" : "View Bill"}
-                                  onClick={() => handlePrint(bill)}
-                                >
-                                  {allowBillPrint(bill) ? "🖨️" : "👁️"}
-                                </IconBtn>
+                                {allowBillPrint(bill) ? (
+                                  <IconBtn variant="print" title="Print" onClick={() => handlePrint(bill)}>🖨️</IconBtn>
+                                ) : (
+                                  <IconBtn variant="view" title="View Bill" onClick={() => handlePrint(bill)}>👁️</IconBtn>
+                                )}
                               </ActionGroup>
                             </Td>
                           </Tr>
