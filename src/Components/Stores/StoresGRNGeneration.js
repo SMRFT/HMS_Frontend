@@ -1105,8 +1105,8 @@ const StoresGRNGeneration = () => {
         let val = type === 'checkbox' ? checked : value;
 
         const newCurrentItem = { ...currentItem, [name]: val };
-        // Prevent leading zeros when typing (e.g. typing 100 doesn't become 0100)
-        if (name !== 'expiry' && typeof val === 'string' && val.length > 1 && val.startsWith('0') && !val.startsWith('0.')) {
+        // Prevent leading zeros when typing numeric inputs (e.g. typing 100 doesn't become 0100), but preserve text fields like batch, hsn, expiry
+        if (name !== 'expiry' && name !== 'batch' && name !== 'hsn' && typeof val === 'string' && val.length > 1 && val.startsWith('0') && !val.startsWith('0.')) {
             val = val.replace(/^0+/, '');
             newCurrentItem[name] = val;
         }

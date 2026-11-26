@@ -316,7 +316,7 @@ export const generateSupplierPurchaseHTML = (reportData, options = {}) => {
     let rowsHtml = '';
     suppliers.forEach((s) => {
         const vendorName = (s.vendor_name || 'UNKNOWN SUPPLIER').toUpperCase();
-        const grns = Array.isArray(s.grns) && s.grns.length > 0 ? s.grns : [
+        const rawGrns = Array.isArray(s.grns) && s.grns.length > 0 ? s.grns : [
             {
                 grn_number: s.last_grn_number || '-',
                 invoice_no: s.invoice_no || '-',
@@ -324,6 +324,12 @@ export const generateSupplierPurchaseHTML = (reportData, options = {}) => {
                 total_amount: s.total_amount || 0
             }
         ];
+        const grns = [...rawGrns].sort((a, b) => {
+            const invDiff = dayjs(a.invoice_date || a.date).valueOf() - dayjs(b.invoice_date || b.date).valueOf();
+            if (invDiff !== 0) return invDiff;
+            return dayjs(a.date).valueOf() - dayjs(b.date).valueOf();
+        });
+        const returns = Array.isArray(s.returns) ? [...s.returns].sort((a, b) => dayjs(a.date).valueOf() - dayjs(b.date).valueOf()) : [];
 
         // Supplier Header Row in Maroon
         rowsHtml += `
@@ -351,8 +357,8 @@ export const generateSupplierPurchaseHTML = (reportData, options = {}) => {
         });
 
         // Purchase Return Rows if any
-        if (Array.isArray(s.returns) && s.returns.length > 0) {
-            s.returns.forEach((r, rIdx) => {
+        if (returns.length > 0) {
+            returns.forEach((r, rIdx) => {
                 const returnNo = r.debit_note_no || r.return_id || '-';
                 const refGrn = r.grn_number ? `Debit Note (Against ${r.grn_number})` : (r.reason || 'Purchase Return');
                 const returnDate = formatDate(r.date);
@@ -454,7 +460,8 @@ export const generateDatePurchaseHTML = (reportData, options = {}) => {
     const toDateStr = formatDate(options.toDate || dayjs().format('YYYY-MM-DD'));
     const departmentName = (options.department || getSelectedStoreDepartment() || "GENERAL PURCHASE").toUpperCase();
 
-    const dates = Array.isArray(reportData) ? reportData : [];
+    const rawDates = Array.isArray(reportData) ? reportData : [];
+    const dates = [...rawDates].sort((a, b) => dayjs(a.date).valueOf() - dayjs(b.date).valueOf());
     
     let calculatedGrandTotal = 0;
     if (options.summary && typeof options.summary.grand_total_amount === 'number') {
@@ -467,9 +474,13 @@ export const generateDatePurchaseHTML = (reportData, options = {}) => {
 
     let rowsHtml = '';
     dates.forEach((d) => {
-        const dateTitle = `${formatDate(d.date)} ${d.day_of_week ? `(${d.day_of_week})` : ''} - ${d.total_grns || 0} GRN(s)`.toUpperCase();
-        const grns = Array.isArray(d.grns) ? d.grns : [];
-        const returns = Array.isArray(d.returns) ? d.returns : [];
+        const dateTitle = `INVOICE DATE: ${formatDate(d.date)} ${d.day_of_week ? `(${d.day_of_week})` : ''} - ${d.total_grns || 0} INVOICE(S)`.toUpperCase();
+        const grns = Array.isArray(d.grns) ? [...d.grns].sort((a, b) => {
+            const invDiff = dayjs(a.invoice_date || a.date).valueOf() - dayjs(b.invoice_date || b.date).valueOf();
+            if (invDiff !== 0) return invDiff;
+            return dayjs(a.date).valueOf() - dayjs(b.date).valueOf();
+        }) : [];
+        const returns = Array.isArray(d.returns) ? [...d.returns].sort((a, b) => dayjs(a.date).valueOf() - dayjs(b.date).valueOf()) : [];
 
         // Date Header Row in Maroon
         rowsHtml += `

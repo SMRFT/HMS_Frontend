@@ -77,6 +77,18 @@ const DrugSupplierGrnReport = () => {
             if (res && res.success) {
                 const payload = res.data?.data ? res.data : (res.data ? res : {});
                 const list = Array.isArray(payload.data) ? payload.data : [];
+                list.forEach(s => {
+                    if (Array.isArray(s.grns)) {
+                        s.grns.sort((a, b) => {
+                            const invDiff = dayjs(a.invoice_date || a.date).valueOf() - dayjs(b.invoice_date || b.date).valueOf();
+                            if (invDiff !== 0) return invDiff;
+                            return dayjs(a.date).valueOf() - dayjs(b.date).valueOf();
+                        });
+                    }
+                    if (Array.isArray(s.returns)) {
+                        s.returns.sort((a, b) => dayjs(a.date).valueOf() - dayjs(b.date).valueOf());
+                    }
+                });
                 setReportData(list);
                 if (payload.summary) setSummary(payload.summary);
                 if (payload.vendors && payload.vendors.length > 0) setVendors(payload.vendors);

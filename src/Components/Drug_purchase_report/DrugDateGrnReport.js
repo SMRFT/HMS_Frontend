@@ -76,7 +76,20 @@ const DrugDateGrnReport = () => {
             if (res && res.success) {
                 const payload = res.data?.data ? res.data : (res.data ? res : {});
                 const list = Array.isArray(payload.data) ? payload.data : [];
-                setReportData(list);
+                const sortedList = [...list].sort((a, b) => dayjs(a.date).valueOf() - dayjs(b.date).valueOf());
+                sortedList.forEach(d => {
+                    if (Array.isArray(d.grns)) {
+                        d.grns.sort((a, b) => {
+                            const invDiff = dayjs(a.invoice_date || a.date).valueOf() - dayjs(b.invoice_date || b.date).valueOf();
+                            if (invDiff !== 0) return invDiff;
+                            return dayjs(a.date).valueOf() - dayjs(b.date).valueOf();
+                        });
+                    }
+                    if (Array.isArray(d.returns)) {
+                        d.returns.sort((a, b) => dayjs(a.date).valueOf() - dayjs(b.date).valueOf());
+                    }
+                });
+                setReportData(sortedList);
                 if (payload.summary) setSummary(payload.summary);
                 if (payload.vendors) setVendors(payload.vendors);
             } else {
@@ -364,7 +377,7 @@ const DrugDateGrnReport = () => {
                                 <thead>
                                     <Tr>
                                         <Th style={{ width: '40px' }}></Th>
-                                        <Th>Date & Day</Th>
+                                        <Th>Invoice Date & Day</Th>
                                         <Th style={{ textAlign: 'center' }}>Total GRNs</Th>
                                         <Th style={{ textAlign: 'center' }}>Suppliers</Th>
                                         <Th style={{ textAlign: 'right' }}>Total Purchases</Th>
@@ -434,7 +447,7 @@ const DrugDateGrnReport = () => {
                                                             <Td colSpan={9} style={{ background: '#f8fafc', padding: '16px 24px' }}>
                                                                 {/* GRN Invoices Sub-table */}
                                                                 <div style={{ marginBottom: '10px', fontWeight: '700', color: '#059669', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                    <FileText size={16} /> GRNs Received on {dayjs(d.date).isValid() ? dayjs(d.date).format('DD-MMM-YYYY') : d.date} ({d.grns?.length || 0} Invoices)
+                                                                    <FileText size={16} /> Invoices Dated {dayjs(d.date).isValid() ? dayjs(d.date).format('DD-MMM-YYYY') : d.date} ({d.grns?.length || 0} Invoices)
                                                                 </div>
                                                                 <div style={{ background: '#ffffff', borderRadius: '8px', border: `1px solid ${colors.border}`, overflow: 'hidden', marginBottom: returnCount > 0 ? '16px' : '0' }}>
                                                                     <Table>
@@ -442,7 +455,7 @@ const DrugDateGrnReport = () => {
                                                                             <Tr style={{ background: '#f1f5f9' }}>
                                                                                 <Th style={{ fontSize: '0.8rem', padding: '8px 12px' }}>#</Th>
                                                                                 <Th style={{ fontSize: '0.8rem', padding: '8px 12px' }}>GRN Number</Th>
-                                                                                <Th style={{ fontSize: '0.8rem', padding: '8px 12px' }}>Invoice No</Th>
+                                                                                <Th style={{ fontSize: '0.8rem', padding: '8px 12px' }}>Invoice No & Date</Th>
                                                                                 <Th style={{ fontSize: '0.8rem', padding: '8px 12px' }}>Supplier / Vendor</Th>
                                                                                 <Th style={{ fontSize: '0.8rem', padding: '8px 12px', textAlign: 'center' }}>Items</Th>
                                                                                 <Th style={{ fontSize: '0.8rem', padding: '8px 12px', textAlign: 'right' }}>Tax Amount</Th>
@@ -456,7 +469,14 @@ const DrugDateGrnReport = () => {
                                                                                     <Tr key={g.grn_number || gIdx}>
                                                                                         <Td style={{ fontSize: '0.8rem', padding: '8px 12px' }}>{gIdx + 1}</Td>
                                                                                         <Td style={{ fontSize: '0.8rem', padding: '8px 12px', fontWeight: '600', color: '#059669' }}>{g.grn_number}</Td>
-                                                                                        <Td style={{ fontSize: '0.8rem', padding: '8px 12px' }}>{g.invoice_no || '-'}</Td>
+                                                                                        <Td style={{ fontSize: '0.8rem', padding: '8px 12px' }}>
+                                                                                            <div style={{ fontWeight: '600' }}>{g.invoice_no || '-'}</div>
+                                                                                            {g.invoice_date && (
+                                                                                                <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                                                                                                    {dayjs(g.invoice_date).isValid() ? dayjs(g.invoice_date).format('DD/MM/YYYY') : g.invoice_date}
+                                                                                                </div>
+                                                                                            )}
+                                                                                        </Td>
                                                                                         <Td style={{ fontSize: '0.8rem', padding: '8px 12px', fontWeight: '600' }}>{g.vendor_name || g.vendor_id || '-'}</Td>
                                                                                         <Td style={{ fontSize: '0.8rem', padding: '8px 12px', textAlign: 'center' }}>{g.items_count || (g.items ? g.items.length : 0)}</Td>
                                                                                         <Td style={{ fontSize: '0.8rem', padding: '8px 12px', textAlign: 'right' }}>₹{Number(g.tax_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Td>
