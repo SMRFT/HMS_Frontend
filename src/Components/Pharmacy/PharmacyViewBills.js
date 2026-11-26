@@ -1403,40 +1403,25 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
   const [printBill, setPrintBill] = useState(null);
 
   // ── Print Permission Rule ──────────────────────────────────────────────────
-  // In OLET002 (OP Pharmacy), Cash bills can only be viewed (Print button hidden).
-  // Credit bills in OLET002, and all bills in other outlets (e.g. OLET001), allow printing.
+  // If selected outlet in localStorage is OLET002:
+  // - Credit bills: allow print
+  // - Cash bills: view only (print hidden)
+  // Other outlets: allow print
   const allowBillPrint = (b) => {
     if (!b) return false;
-    const currentOutlet = String(
-      selectedOutlet ||
+    const selectedOutlet = (
       localStorage.getItem("selected_outlet") ||
       localStorage.getItem("outlet_code") ||
       ""
-    ).trim().toUpperCase();
+    ).trim();
 
-    const billOutlet = String(
-      b.outlet_code ||
-      b.outletCode ||
-      b.outlet ||
-      ""
-    ).trim().toUpperCase();
+    if (selectedOutlet === "OLET002") {
+      const pm = String(b.payment_mode || b.payment_method || b.paymentMode || "").trim().toLowerCase();
+      const bm = String(b.billing_mode || b.billingMode || "").trim().toLowerCase();
+      return pm === "credit" || bm.includes("credit");
+    }
 
-    const isOlet002 = (
-      currentOutlet === "OLET002" ||
-      currentOutlet === "2" ||
-      currentOutlet.includes("OLET002") ||
-      currentOutlet.includes("OP PHARMACY") ||
-      billOutlet === "OLET002" ||
-      billOutlet === "2" ||
-      billOutlet.includes("OLET002")
-    );
-
-    if (!isOlet002) return true; // Other outlets: print allowed
-
-    const pm = String(b.payment_mode || b.payment_method || b.paymentMode || "").trim().toLowerCase();
-    const bm = String(b.billing_mode || b.billingMode || "").trim().toLowerCase();
-    const isCredit = pm === "credit" || bm.includes("credit");
-    return isCredit; // In OLET002: print allowed ONLY if Credit
+    return true;
   };
 
   // ── Print ─────────────────────────────────────────────────────────────────
