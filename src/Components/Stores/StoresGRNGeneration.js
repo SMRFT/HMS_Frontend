@@ -419,7 +419,8 @@ const taxOptions = [
     { value: 5, label: 'RATE OF 5%' },
     { value: 12, label: 'RATE OF 12%' },
     { value: 18, label: 'RATE OF 18%' },
-    { value: 28, label: 'RATE OF 28%' }
+    { value: 28, label: 'RATE OF 28%' },
+    { value: 40, label: 'RATE OF 40%' }
 ];
 
 const ItemTableWrapper = styled.div`
