@@ -904,8 +904,8 @@ export const calculateMedicinePricing = (item, customQty = null, customDiscVal =
   const totalGstRate = cgstRate + sgstRate;
 
   // Get Unit CGST Amt and SGST Amt directly from hospital_pharmacystock DB value
-  const unitCgstAmt = parseFloat(item?.unit_cgst_amt ?? item?.CGST_Amt ?? item?.cgst_amount ?? 0);
-  const unitSgstAmt = parseFloat(item?.unit_sgst_amt ?? item?.SGST_Amt ?? item?.sgst_amount ?? 0);
+  const unitCgstAmt = parseFloat(item?.unit_cgst_amt ?? item?.unit_cgst ?? (item?.is_saved_bill ? 0 : item?.CGST_Amt) ?? item?.cgst_amount ?? 0);
+  const unitSgstAmt = parseFloat(item?.unit_sgst_amt ?? item?.unit_sgst ?? (item?.is_saved_bill ? 0 : item?.SGST_Amt) ?? item?.sgst_amount ?? 0);
 
   // Product Value = undiscounted base value without GST (Gross MRP / (1 + GST% / 100))
   const productValue = totalGstRate > 0 ? (gross / (1 + totalGstRate / 100)) : gross;
@@ -926,25 +926,26 @@ export const calculateMedicinePricing = (item, customQty = null, customDiscVal =
 
   const taxableValue = productValue - discAmtOnBase;
 
-  // When an item already has stored line CGST_Amt / SGST_Amt from DB, use it directly!
-  // If unit_cgst_amt is explicitly provided (from stock selection before save), scale by qty.
-  // Otherwise calculate line GST on taxableValue: (taxableValue * rate) / 100
+  // Calculate line GST on taxableValue: (taxableValue * rate) / 100
   const calcCgstAmt = totalGstRate > 0 ? (taxableValue * cgstRate) / 100 : 0;
   const calcSgstAmt = totalGstRate > 0 ? (taxableValue * sgstRate) / 100 : 0;
 
   let cgstAmt = parseFloat(calcCgstAmt.toFixed(2));
   let sgstAmt = parseFloat(calcSgstAmt.toFixed(2));
 
-  if (item?.unit_cgst_amt !== undefined && item?.unit_cgst_amt !== null && discAmtOnBase === 0) {
-    cgstAmt = parseFloat((Number(item.unit_cgst_amt) * qty).toFixed(2));
-  } else if (item?.CGST_Amt !== undefined && item?.CGST_Amt !== null && discAmtOnBase === 0) {
+  // If item is from an already saved bill, preserve its stored line amounts
+  if (item?.is_saved_bill && item?.CGST_Amt !== undefined && item?.CGST_Amt !== null) {
     cgstAmt = parseFloat(Number(item.CGST_Amt).toFixed(2));
+  } else if (unitCgstAmt > 0 && discAmtOnBase === 0) {
+    // When undiscounted, scale stock unit CGST amount by quantity
+    cgstAmt = parseFloat((unitCgstAmt * qty).toFixed(2));
   }
 
-  if (item?.unit_sgst_amt !== undefined && item?.unit_sgst_amt !== null && discAmtOnBase === 0) {
-    sgstAmt = parseFloat((Number(item.unit_sgst_amt) * qty).toFixed(2));
-  } else if (item?.SGST_Amt !== undefined && item?.SGST_Amt !== null && discAmtOnBase === 0) {
+  if (item?.is_saved_bill && item?.SGST_Amt !== undefined && item?.SGST_Amt !== null) {
     sgstAmt = parseFloat(Number(item.SGST_Amt).toFixed(2));
+  } else if (unitSgstAmt > 0 && discAmtOnBase === 0) {
+    // When undiscounted, scale stock unit SGST amount by quantity
+    sgstAmt = parseFloat((unitSgstAmt * qty).toFixed(2));
   }
 
   const totalGstAmt = parseFloat((cgstAmt + sgstAmt).toFixed(2));
@@ -3747,6 +3748,16 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
           Math.max(0, updatedTotalAmount - overallDiscAmtFinal)
         );
 
+        const updatedTaxableValue = parseFloat(
+          mappedBillable.reduce((s, m) => s + (Number(m.taxable_value) || 0), 0).toFixed(2)
+        );
+        const updatedCgstAmount = parseFloat(
+          mappedBillable.reduce((s, m) => s + (Number(m.CGST_Amt) || 0), 0).toFixed(2)
+        );
+        const updatedSgstAmount = parseFloat(
+          mappedBillable.reduce((s, m) => s + (Number(m.SGST_Amt) || 0), 0).toFixed(2)
+        );
+
         console.log(
           "🏥 Ward request → calling finalize_bill | Bill_id:", recordId,
           "| updatedTotalAmount:", updatedTotalAmount,
@@ -3776,6 +3787,10 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
           // ── Send updated medicine list & amounts so backend uses them ──
           medicine_particulars: finalMedicines,
+          taxable_value: updatedTaxableValue,
+          total_taxable_value: updatedTaxableValue,
+          total_cgst_amount: updatedCgstAmount,
+          total_sgst_amount: updatedSgstAmount,
           total_amount: updatedTotalAmount,
           net_amount: updatedNetAmount,
           overall_discount_type: overallDiscountValue && parseFloat(overallDiscountValue) > 0
@@ -4085,6 +4100,16 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
       const activeOutletCode = localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "";
 
+      const totalTaxableVal = parseFloat(
+        finalItems.reduce((sum, m) => sum + (Number(m.taxable_value) || 0), 0).toFixed(2)
+      );
+      const totalCgstVal = parseFloat(
+        finalItems.reduce((sum, m) => sum + (Number(m.CGST_Amt !== undefined ? m.CGST_Amt : (m.cgst_amount || 0)) || 0), 0).toFixed(2)
+      );
+      const totalSgstVal = parseFloat(
+        finalItems.reduce((sum, m) => sum + (Number(m.SGST_Amt !== undefined ? m.SGST_Amt : (m.sgst_amount || 0)) || 0), 0).toFixed(2)
+      );
+
       const basePayload = {
         is_active: true,
         outlet_code: activeOutletCode || undefined,
@@ -4101,6 +4126,10 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         customer_type: patientType || formData.customer_type || "",
         is_insurance: Boolean(formData.is_insurance || String(patientType || "").toLowerCase() === "insurance"),
         medicine_particulars: finalItems,
+        taxable_value: totalTaxableVal,
+        total_taxable_value: totalTaxableVal,
+        total_cgst_amount: totalCgstVal,
+        total_sgst_amount: totalSgstVal,
         total_amount: parseFloat(totalAmount.toFixed(2)),
         total_item_discount: parseFloat(totalItemDiscount.toFixed(2)),
         discount_amount: parseFloat(totalDiscAmtFinal.toFixed(2)),
@@ -4505,6 +4534,8 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
       const pricing = calculateMedicinePricing({
         ...stockMatch,
         ...item,
+        unit_cgst_amt: stockMatch?.CGST_Amt ?? stockMatch?.cgst_amount ?? item.unit_cgst_amt ?? item.CGST_Amt,
+        unit_sgst_amt: stockMatch?.SGST_Amt ?? stockMatch?.sgst_amount ?? item.unit_sgst_amt ?? item.SGST_Amt,
         mrp: mrp,
         price: price,
         discount_type: discType,
@@ -4531,6 +4562,12 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         cgst_amount: cgstAmt,
         sgst_rate: sgstRatePerUnit,
         sgst_amount: sgstAmt,
+        CGST_Percentage: cgstRatePerUnit,
+        SGST_Percentage: sgstRatePerUnit,
+        CGST_Amt: cgstAmt,
+        SGST_Amt: sgstAmt,
+        unit_cgst_amt: pricing.unitCgstAmt,
+        unit_sgst_amt: pricing.unitSgstAmt,
         expiry_date: stockMatch?.expiry_date || "—",
         available_stock: availStock,
         dosage: item.dosage || "",
@@ -4747,13 +4784,15 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
       const qty = billingQty;
 
       // Resolve GST rates
-      const cgstRate = parseFloat(item.CGST_Percentage ?? stockMatch?.cgst_rate ?? 0);
-      const sgstRate = parseFloat(item.SGST_Percentage ?? stockMatch?.sgst_rate ?? 0);
+      const cgstRate = parseFloat(item.CGST_Percentage ?? stockMatch?.CGST_Percentage ?? stockMatch?.cgst_rate ?? 0);
+      const sgstRate = parseFloat(item.SGST_Percentage ?? stockMatch?.SGST_Percentage ?? stockMatch?.sgst_rate ?? 0);
 
       // Reverse calculate pricing accurately from stock MRP using standard formula
       const pricing = calculateMedicinePricing({
         ...stockMatch,
         ...item,
+        unit_cgst_amt: stockMatch?.CGST_Amt ?? stockMatch?.cgst_amount ?? item.unit_cgst_amt ?? item.CGST_Amt,
+        unit_sgst_amt: stockMatch?.SGST_Amt ?? stockMatch?.sgst_amount ?? item.unit_sgst_amt ?? item.SGST_Amt,
         mrp: resolvedMrp,
         price: resolvedPrice,
         cgst_rate: cgstRate,

@@ -1882,9 +1882,28 @@ const calculateMedicinePricing = (item, customQty = null, customDiscVal = null) 
   const taxableValue = productValue - discAmtOnBase;
 
   // GST calculated on discounted taxable value
-  const cgstAmt = (taxableValue * cgstRate) / 100;
-  const sgstAmt = (taxableValue * sgstRate) / 100;
-  const totalGstAmt = cgstAmt + sgstAmt;
+  const calcCgstAmt = (taxableValue * cgstRate) / 100;
+  const calcSgstAmt = (taxableValue * sgstRate) / 100;
+
+  const unitCgstAmt = parseFloat(item?.unit_cgst_amt ?? item?.unit_cgst ?? (item?.is_saved_bill ? 0 : item?.CGST_Amt) ?? item?.cgst_amount ?? 0);
+  const unitSgstAmt = parseFloat(item?.unit_sgst_amt ?? item?.unit_sgst ?? (item?.is_saved_bill ? 0 : item?.SGST_Amt) ?? item?.sgst_amount ?? 0);
+
+  let cgstAmt = parseFloat(calcCgstAmt.toFixed(2));
+  let sgstAmt = parseFloat(calcSgstAmt.toFixed(2));
+
+  if (item?.is_saved_bill && item?.CGST_Amt !== undefined && item?.CGST_Amt !== null) {
+    cgstAmt = parseFloat(Number(item.CGST_Amt).toFixed(2));
+  } else if (unitCgstAmt > 0 && discAmtOnBase === 0) {
+    cgstAmt = parseFloat((unitCgstAmt * qty).toFixed(2));
+  }
+
+  if (item?.is_saved_bill && item?.SGST_Amt !== undefined && item?.SGST_Amt !== null) {
+    sgstAmt = parseFloat(Number(item.SGST_Amt).toFixed(2));
+  } else if (unitSgstAmt > 0 && discAmtOnBase === 0) {
+    sgstAmt = parseFloat((unitSgstAmt * qty).toFixed(2));
+  }
+
+  const totalGstAmt = parseFloat((cgstAmt + sgstAmt).toFixed(2));
 
   // Total bill value = Taxable Value + GST Amount
   const lineTotal = parseFloat((taxableValue + totalGstAmt).toFixed(2));
