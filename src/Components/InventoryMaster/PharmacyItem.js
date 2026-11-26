@@ -1118,20 +1118,20 @@ const PharmacyItem = () => {
             onClick={(e) => e.stopPropagation()}
             style={{
               background: "#ffffff",
-              borderRadius: 6,
-              width: "95vw",
-              maxWidth: "1400px",
-              maxHeight: "92vh",
+              borderRadius: 8,
+              width: "92vw",
+              maxWidth: "1100px",
+              maxHeight: "90vh",
               display: "flex",
               flexDirection: "column",
-              boxShadow: "0 12px 30px rgba(0,0,0,0.25)",
+              boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
               overflow: "hidden",
             }}
           >
             {/* Header */}
             <div
               style={{
-                background: "#0e6b6e",
+                background: "linear-gradient(135deg, #0e6b6e 0%, #115e59 100%)",
                 color: "#ffffff",
                 padding: "12px 20px",
                 display: "flex",
@@ -1139,20 +1139,33 @@ const PharmacyItem = () => {
                 alignItems: "center",
               }}
             >
-              <div style={{ fontSize: "1.08rem", fontWeight: 700, letterSpacing: "0.2px" }}>
-                Purchase History
+              <div>
+                <div style={{ fontSize: "1.05rem", fontWeight: 700, letterSpacing: "0.2px" }}>
+                  Purchase History
+                </div>
+                {historyItem && (
+                  <div style={{ fontSize: "0.78rem", color: "#ccfbf1", marginTop: 2, fontWeight: 500 }}>
+                    {historyItem.item_name} {historyItem.item_id ? `(#${historyItem.item_id})` : ""}
+                  </div>
+                )}
               </div>
               <button
                 type="button"
                 onClick={() => setHistoryModalOpen(false)}
                 style={{
-                  background: "none",
+                  background: "rgba(255,255,255,0.15)",
                   border: "none",
                   color: "#ffffff",
-                  fontSize: "1.35rem",
+                  fontSize: "1.2rem",
                   cursor: "pointer",
+                  borderRadius: "50%",
+                  width: 30,
+                  height: 30,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                   lineHeight: 1,
-                  padding: "0 4px",
+                  padding: 0,
                 }}
               >
                 ✕
@@ -1169,78 +1182,119 @@ const PharmacyItem = () => {
                 flexDirection: "column",
               }}
             >
-              {/* Supplier Dropdown */}
-              <div style={{ marginBottom: 12 }}>
-                <label
-                  style={{
-                    display: "block",
-                    fontSize: "0.82rem",
-                    fontWeight: 600,
-                    color: "#475569",
-                    marginBottom: 5,
-                  }}
-                >
-                  Supplier
-                </label>
-                <div style={{ width: "320px", maxWidth: "100%" }}>
+              {/* Controls bar: Supplier filter, Search & Show entries */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "flex-end",
+                  justifyContent: "space-between",
+                  flexWrap: "wrap",
+                  gap: 12,
+                  marginBottom: 14,
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "flex-end", gap: 14, flexWrap: "wrap" }}>
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: "0.78rem",
+                        fontWeight: 600,
+                        color: "#475569",
+                        marginBottom: 4,
+                      }}
+                    >
+                      Supplier
+                    </label>
+                    <select
+                      value={selectedSupplier}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSelectedSupplier(val);
+                        setHistoryCurrentPage(1);
+                        fetchPurchaseHistory(historyItem?.item_id ?? historyItem?.id, val, 1, historyPageSize);
+                      }}
+                      style={{
+                        minWidth: 220,
+                        height: 34,
+                        padding: "0 10px",
+                        borderRadius: 6,
+                        border: "1px solid #cbd5e1",
+                        fontSize: "0.82rem",
+                        color: "#1e293b",
+                        background: "#ffffff",
+                        cursor: "pointer",
+                        outline: "none",
+                      }}
+                    >
+                      <option value="ALL">All Suppliers</option>
+                      {historySuppliers.map((s) => (
+                        <option key={s.vendor_id} value={String(s.vendor_id)}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        fontSize: "0.78rem",
+                        fontWeight: 600,
+                        color: "#475569",
+                        marginBottom: 4,
+                      }}
+                    >
+                      Quick Search
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Search batch, GRN..."
+                      value={historySearch}
+                      onChange={(e) => setHistorySearch(e.target.value)}
+                      style={{
+                        width: 180,
+                        height: 34,
+                        padding: "0 10px",
+                        borderRadius: 6,
+                        border: "1px solid #cbd5e1",
+                        fontSize: "0.82rem",
+                        color: "#1e293b",
+                        outline: "none",
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: "0.8rem", color: "#64748b" }}>Show</span>
                   <select
-                    value={selectedSupplier}
+                    value={historyPageSize}
                     onChange={(e) => {
-                      const val = e.target.value;
-                      setSelectedSupplier(val);
+                      const sz = Number(e.target.value);
+                      setHistoryPageSize(sz);
                       setHistoryCurrentPage(1);
-                      fetchPurchaseHistory(historyItem?.item_id ?? historyItem?.id, val, 1, historyPageSize);
+                      fetchPurchaseHistory(historyItem?.item_id ?? historyItem?.id, selectedSupplier, 1, sz);
                     }}
                     style={{
-                      width: "100%",
-                      height: 34,
-                      padding: "0 10px",
-                      borderRadius: 4,
+                      height: 32,
+                      padding: "0 8px",
+                      borderRadius: 6,
                       border: "1px solid #cbd5e1",
                       fontSize: "0.82rem",
-                      color: "#1e293b",
                       background: "#ffffff",
                       cursor: "pointer",
                       outline: "none",
+                      color: "#1e293b",
                     }}
                   >
-                    <option value="ALL">All Suppliers</option>
-                    {historySuppliers.map((s) => (
-                      <option key={s.vendor_id} value={String(s.vendor_id)}>
-                        {s.name}
-                      </option>
+                    {[10, 25, 50, 100].map((sz) => (
+                      <option key={sz} value={sz}>{sz}</option>
                     ))}
                   </select>
+                  <span style={{ fontSize: "0.8rem", color: "#64748b" }}>entries</span>
                 </div>
-              </div>
-
-              {/* Show up to */}
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                <span style={{ fontSize: "0.82rem", color: "#475569" }}>Show up to</span>
-                <select
-                  value={historyPageSize}
-                  onChange={(e) => {
-                    const sz = Number(e.target.value);
-                    setHistoryPageSize(sz);
-                    setHistoryCurrentPage(1);
-                    fetchPurchaseHistory(historyItem?.item_id ?? historyItem?.id, selectedSupplier, 1, sz);
-                  }}
-                  style={{
-                    height: 30,
-                    padding: "0 8px",
-                    borderRadius: 4,
-                    border: "1px solid #cbd5e1",
-                    fontSize: "0.82rem",
-                    background: "#ffffff",
-                    cursor: "pointer",
-                    outline: "none",
-                    color: "#1e293b",
-                  }}
-                >
-                  {[10, 25, 50, 100].map((sz) => (
-                    <option key={sz} value={sz}>{sz}</option>
-                  ))}
-                </select>
               </div>
 
               {/* Data Table */}
@@ -1248,7 +1302,7 @@ const PharmacyItem = () => {
                 style={{
                   overflowX: "auto",
                   border: "1px solid #e2e8f0",
-                  borderRadius: 4,
+                  borderRadius: 6,
                   background: "#ffffff",
                   flex: 1,
                 }}
@@ -1257,7 +1311,7 @@ const PharmacyItem = () => {
                   style={{
                     width: "100%",
                     borderCollapse: "collapse",
-                    minWidth: "1750px",
+                    minWidth: "900px",
                     fontSize: "0.8rem",
                   }}
                 >
@@ -1278,6 +1332,7 @@ const PharmacyItem = () => {
                           cursor: "pointer",
                           userSelect: "none",
                           whiteSpace: "nowrap",
+                          width: "14%",
                         }}
                       >
                         Ref <span style={{ color: "#94a3b8", fontSize: "0.75rem", marginLeft: 4 }}>⇅</span>
@@ -1291,6 +1346,7 @@ const PharmacyItem = () => {
                           cursor: "pointer",
                           userSelect: "none",
                           whiteSpace: "nowrap",
+                          width: "10%",
                         }}
                       >
                         P.Date <span style={{ color: "#94a3b8", fontSize: "0.75rem", marginLeft: 4 }}>⇅</span>
@@ -1304,170 +1360,232 @@ const PharmacyItem = () => {
                           cursor: "pointer",
                           userSelect: "none",
                           whiteSpace: "nowrap",
+                          width: "20%",
                         }}
                       >
                         Supplier <span style={{ color: "#94a3b8", fontSize: "0.75rem", marginLeft: 4 }}>⇅</span>
                       </th>
-                      <th style={{ padding: "10px 12px", fontWeight: 600, color: "#1e293b", whiteSpace: "nowrap" }}>
-                        Unit
+                      <th
+                        onClick={() => handleHistorySort("batch")}
+                        style={{
+                          padding: "10px 12px",
+                          fontWeight: 600,
+                          color: "#1e293b",
+                          cursor: "pointer",
+                          userSelect: "none",
+                          whiteSpace: "nowrap",
+                          width: "12%",
+                        }}
+                      >
+                        Batch <span style={{ color: "#94a3b8", fontSize: "0.75rem", marginLeft: 4 }}>⇅</span>
                       </th>
-                      <th style={{ padding: "10px 12px", fontWeight: 600, color: "#1e293b", whiteSpace: "nowrap" }}>
-                        Quantity
+                      <th
+                        onClick={() => handleHistorySort("expiry")}
+                        style={{
+                          padding: "10px 12px",
+                          fontWeight: 600,
+                          color: "#1e293b",
+                          cursor: "pointer",
+                          userSelect: "none",
+                          whiteSpace: "nowrap",
+                          width: "9%",
+                        }}
+                      >
+                        Expiry <span style={{ color: "#94a3b8", fontSize: "0.75rem", marginLeft: 4 }}>⇅</span>
                       </th>
-                      <th style={{ padding: "10px 12px", fontWeight: 600, color: "#1e293b", whiteSpace: "nowrap" }}>
-                        Batch
+                      <th
+                        onClick={() => handleHistorySort("quantity")}
+                        style={{
+                          padding: "10px 12px",
+                          fontWeight: 600,
+                          color: "#1e293b",
+                          cursor: "pointer",
+                          userSelect: "none",
+                          whiteSpace: "nowrap",
+                          width: "7%",
+                          textAlign: "center",
+                        }}
+                      >
+                        Qty <span style={{ color: "#94a3b8", fontSize: "0.75rem", marginLeft: 4 }}>⇅</span>
                       </th>
-                      <th style={{ padding: "10px 12px", fontWeight: 600, color: "#1e293b", textAlign: "right", whiteSpace: "nowrap" }}>
-                        P.Rate
+                      <th
+                        onClick={() => handleHistorySort("p_rate")}
+                        style={{
+                          padding: "10px 12px",
+                          fontWeight: 600,
+                          color: "#1e293b",
+                          cursor: "pointer",
+                          userSelect: "none",
+                          textAlign: "right",
+                          whiteSpace: "nowrap",
+                          width: "9%",
+                        }}
+                      >
+                        P.Rate <span style={{ color: "#94a3b8", fontSize: "0.75rem", marginLeft: 4 }}>⇅</span>
                       </th>
-                      <th style={{ padding: "10px 12px", fontWeight: 600, color: "#1e293b", textAlign: "right", whiteSpace: "nowrap" }}>
-                        Mrp
+                      <th
+                        onClick={() => handleHistorySort("mrp")}
+                        style={{
+                          padding: "10px 12px",
+                          fontWeight: 600,
+                          color: "#1e293b",
+                          cursor: "pointer",
+                          userSelect: "none",
+                          textAlign: "right",
+                          whiteSpace: "nowrap",
+                          width: "9%",
+                        }}
+                      >
+                        MRP <span style={{ color: "#94a3b8", fontSize: "0.75rem", marginLeft: 4 }}>⇅</span>
                       </th>
-                      <th style={{ padding: "10px 12px", fontWeight: 600, color: "#1e293b", whiteSpace: "nowrap" }}>
-                        Inv Date
+                      <th
+                        style={{
+                          padding: "10px 12px",
+                          fontWeight: 600,
+                          color: "#1e293b",
+                          whiteSpace: "nowrap",
+                          textAlign: "center",
+                          width: "7%",
+                        }}
+                      >
+                        GST%
                       </th>
-                      <th style={{ padding: "10px 12px", fontWeight: 600, color: "#1e293b", whiteSpace: "nowrap" }}>
-                        Order Number
-                      </th>
-                      <th style={{ padding: "10px 12px", fontWeight: 600, color: "#1e293b", whiteSpace: "nowrap" }}>
-                        Type
-                      </th>
-                      <th style={{ padding: "10px 12px", fontWeight: 600, color: "#1e293b", whiteSpace: "nowrap" }}>
-                        Expiry
-                      </th>
-                      <th style={{ padding: "10px 12px", fontWeight: 600, color: "#1e293b", whiteSpace: "nowrap" }}>
-                        Packing
-                      </th>
-                      <th style={{ padding: "10px 12px", fontWeight: 600, color: "#1e293b", whiteSpace: "nowrap" }}>
-                        Free
-                      </th>
-                      <th style={{ padding: "10px 12px", fontWeight: 600, color: "#1e293b", whiteSpace: "nowrap" }}>
-                        P.Cst
-                      </th>
-                      <th style={{ padding: "10px 12px", fontWeight: 600, color: "#1e293b", whiteSpace: "nowrap" }}>
-                        P.Tps
-                      </th>
-                      <th style={{ padding: "10px 12px", fontWeight: 600, color: "#1e293b", textAlign: "right", whiteSpace: "nowrap" }}>
-                        P.Cost
-                      </th>
-                      <th style={{ padding: "10px 12px", fontWeight: 600, color: "#1e293b", textAlign: "right", whiteSpace: "nowrap" }}>
-                        Cst
-                      </th>
-                      <th style={{ padding: "10px 12px", fontWeight: 600, color: "#1e293b", textAlign: "right", whiteSpace: "nowrap" }}>
-                        Tps
-                      </th>
-                      <th style={{ padding: "10px 12px", fontWeight: 600, color: "#1e293b", whiteSpace: "nowrap" }}>
-                        SELLINGRATRCAL
-                      </th>
-                      <th style={{ padding: "10px 12px", fontWeight: 600, color: "#1e293b", whiteSpace: "nowrap" }}>
-                        Margin
+                      <th
+                        onClick={() => handleHistorySort("type")}
+                        style={{
+                          padding: "10px 12px",
+                          fontWeight: 600,
+                          color: "#1e293b",
+                          cursor: "pointer",
+                          userSelect: "none",
+                          whiteSpace: "nowrap",
+                          width: "12%",
+                        }}
+                      >
+                        Type <span style={{ color: "#94a3b8", fontSize: "0.75rem", marginLeft: 4 }}>⇅</span>
                       </th>
                     </tr>
                   </thead>
                   <tbody>
                     {historyLoading ? (
                       <tr>
-                        <td colSpan={21} style={{ textAlign: "center", padding: 30, color: "#64748b" }}>
+                        <td colSpan={10} style={{ textAlign: "center", padding: 30, color: "#64748b" }}>
                           Loading purchase history...
                         </td>
                       </tr>
                     ) : displayHistoryData.length === 0 ? (
                       <tr>
-                        <td colSpan={21} style={{ textAlign: "center", padding: 30, color: "#94a3b8" }}>
+                        <td colSpan={10} style={{ textAlign: "center", padding: 30, color: "#94a3b8" }}>
                           No purchase history found for this item.
                         </td>
                       </tr>
                     ) : (
                       displayHistoryData.map((row, idx) => (
                         <tr
-                          key={idx}
+                          key={`${row.ref}-${row.batch}-${idx}`}
                           style={{
-                            borderBottom: "1px solid #e2e8f0",
-                            background: idx % 2 === 0 ? "#ffffff" : "#fbfdfd",
-                            transition: "background 0.1s",
+                            borderBottom: "1px solid #f1f5f9",
+                            background: idx % 2 === 0 ? "#ffffff" : "#fbfcfd",
                           }}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = "#f0fdfa")}
-                          onMouseLeave={(e) =>
-                            (e.currentTarget.style.background = idx % 2 === 0 ? "#ffffff" : "#fbfdfd")
-                          }
                         >
-                          <td style={{ padding: "10px 12px", color: "#334155", whiteSpace: "nowrap" }}>
+                          <td style={{ padding: "10px 12px", color: "#0e6b6e", fontWeight: 600, whiteSpace: "nowrap" }}>
                             {row.ref}
+                            {row.order_number && (
+                              <div style={{ fontSize: "0.7rem", color: "#64748b", fontWeight: 400 }}>
+                                PO: {row.order_number}
+                              </div>
+                            )}
                           </td>
-                          <td style={{ padding: "10px 12px", color: "#334155", whiteSpace: "nowrap" }}>
+                          <td style={{ padding: "10px 12px", color: "#475569", whiteSpace: "nowrap" }}>
                             {row.p_date}
                           </td>
-                          <td style={{ padding: "10px 12px", color: "#334155", whiteSpace: "nowrap" }}>
-                            {row.supplier}
+                          <td style={{ padding: "10px 12px", color: "#1e293b", fontWeight: 600, whiteSpace: "nowrap" }}>
+                            {row.supplier && row.supplier !== "—" ? (
+                              row.supplier
+                            ) : (
+                              <span style={{ color: "#94a3b8" }}>—</span>
+                            )}
                           </td>
-                          <td style={{ padding: "10px 12px", color: "#334155", whiteSpace: "nowrap" }}>
-                            {row.unit}
+                          <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>
+                            <span
+                              style={{
+                                background: "#f1f5f9",
+                                padding: "2px 7px",
+                                borderRadius: 4,
+                                fontFamily: "monospace",
+                                fontSize: "0.78rem",
+                                fontWeight: 600,
+                                color: "#334155",
+                                border: "1px solid #e2e8f0",
+                              }}
+                            >
+                              {row.batch}
+                            </span>
                           </td>
-                          <td style={{ padding: "10px 12px", color: "#334155", whiteSpace: "nowrap" }}>
+                          <td style={{ padding: "10px 12px", color: "#475569", whiteSpace: "nowrap" }}>
+                            {row.expiry || "—"}
+                          </td>
+                          <td style={{ padding: "10px 12px", color: "#1e293b", fontWeight: 600, textAlign: "center", whiteSpace: "nowrap" }}>
                             {row.quantity}
+                            {row.free && Number(row.free) > 0 ? (
+                              <span style={{ marginLeft: 4, fontSize: "0.7rem", color: "#16a34a", fontWeight: 500 }}>
+                                +{row.free} free
+                              </span>
+                            ) : null}
                           </td>
-                          <td style={{ padding: "10px 12px", color: "#334155", whiteSpace: "nowrap" }}>
-                            {row.batch}
+                          <td style={{ padding: "10px 12px", textAlign: "right", whiteSpace: "nowrap" }}>
+                            <span style={{ fontSize: "0.75rem", color: "#64748b", marginRight: 2 }}>₹</span>
+                            <span style={{ fontWeight: 600, color: "#1e293b" }}>{row.p_rate}</span>
                           </td>
-                          <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>
-                            <div style={{ textAlign: "right", lineHeight: "1.25" }}>
-                              <div style={{ fontSize: "0.74rem", color: "#475569" }}>₹</div>
-                              <div style={{ fontWeight: 500, color: "#1e293b" }}>{row.p_rate}</div>
-                            </div>
+                          <td style={{ padding: "10px 12px", textAlign: "right", whiteSpace: "nowrap" }}>
+                            <span style={{ fontSize: "0.75rem", color: "#64748b", marginRight: 2 }}>₹</span>
+                            <span style={{ fontWeight: 600, color: "#1e293b" }}>{row.mrp}</span>
                           </td>
-                          <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>
-                            <div style={{ textAlign: "right", lineHeight: "1.25" }}>
-                              <div style={{ fontSize: "0.74rem", color: "#475569" }}>₹</div>
-                              <div style={{ fontWeight: 500, color: "#1e293b" }}>{row.mrp}</div>
-                            </div>
-                          </td>
-                          <td style={{ padding: "10px 12px", color: "#334155", whiteSpace: "nowrap" }}>
-                            {row.inv_date || ""}
-                          </td>
-                          <td style={{ padding: "10px 12px", color: "#334155", whiteSpace: "nowrap" }}>
-                            {row.order_number || ""}
-                          </td>
-                          <td style={{ padding: "10px 12px", color: "#334155", whiteSpace: "nowrap" }}>
-                            {row.type || ""}
-                          </td>
-                          <td style={{ padding: "10px 12px", color: "#334155", whiteSpace: "nowrap" }}>
-                            {row.expiry || ""}
-                          </td>
-                          <td style={{ padding: "10px 12px", color: "#334155", whiteSpace: "nowrap" }}>
-                            {row.packing || ""}
-                          </td>
-                          <td style={{ padding: "10px 12px", color: "#334155", whiteSpace: "nowrap" }}>
-                            {row.free || "0"}
-                          </td>
-                          <td style={{ padding: "10px 12px", color: "#334155", whiteSpace: "nowrap" }}>
-                            {row.p_cst || "0"}
-                          </td>
-                          <td style={{ padding: "10px 12px", color: "#334155", whiteSpace: "nowrap" }}>
-                            {row.p_tps || "0"}
+                          <td style={{ padding: "10px 12px", textAlign: "center", whiteSpace: "nowrap" }}>
+                            <span
+                              style={{
+                                background: "#ecfdf5",
+                                color: "#065f46",
+                                padding: "2px 8px",
+                                borderRadius: 12,
+                                fontWeight: 600,
+                                fontSize: "0.75rem",
+                                border: "1px solid #a7f3d0",
+                              }}
+                            >
+                              {row.tax_percent || (row.p_cst ? `${Number(row.p_cst) + Number(row.p_tps)}%` : "0%")}
+                            </span>
                           </td>
                           <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>
-                            <div style={{ textAlign: "right", lineHeight: "1.25" }}>
-                              <div style={{ fontSize: "0.74rem", color: "#475569" }}>₹</div>
-                              <div style={{ fontWeight: 500, color: "#1e293b" }}>{row.p_cost}</div>
-                            </div>
-                          </td>
-                          <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>
-                            <div style={{ textAlign: "right", lineHeight: "1.25" }}>
-                              <div style={{ fontSize: "0.74rem", color: "#475569" }}>₹</div>
-                              <div style={{ fontWeight: 500, color: "#1e293b" }}>{row.cst}</div>
-                            </div>
-                          </td>
-                          <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>
-                            <div style={{ textAlign: "right", lineHeight: "1.25" }}>
-                              <div style={{ fontSize: "0.74rem", color: "#475569" }}>₹</div>
-                              <div style={{ fontWeight: 500, color: "#1e293b" }}>{row.tps}</div>
-                            </div>
-                          </td>
-                          <td style={{ padding: "10px 12px", color: "#334155", whiteSpace: "nowrap" }}>
-                            {row.sellingratrcal || ""}
-                          </td>
-                          <td style={{ padding: "10px 12px", color: "#334155", whiteSpace: "nowrap" }}>
-                            {row.margin || ""}
+                            <span
+                              style={{
+                                background:
+                                  String(row.type).toUpperCase().includes("OP")
+                                    ? "#eff6ff"
+                                    : String(row.type).toUpperCase().includes("IP")
+                                    ? "#f5f3ff"
+                                    : "#f0fdf4",
+                                color:
+                                  String(row.type).toUpperCase().includes("OP")
+                                    ? "#1d4ed8"
+                                    : String(row.type).toUpperCase().includes("IP")
+                                    ? "#6d28d9"
+                                    : "#15803d",
+                                border: `1px solid ${
+                                  String(row.type).toUpperCase().includes("OP")
+                                    ? "#bfdbfe"
+                                    : String(row.type).toUpperCase().includes("IP")
+                                    ? "#ddd6fe"
+                                    : "#bbf7d0"
+                                }`,
+                                padding: "2px 8px",
+                                borderRadius: 12,
+                                fontSize: "0.72rem",
+                                fontWeight: 600,
+                              }}
+                            >
+                              {row.type || "MEDICINE PURCHASE"}
+                            </span>
                           </td>
                         </tr>
                       ))
