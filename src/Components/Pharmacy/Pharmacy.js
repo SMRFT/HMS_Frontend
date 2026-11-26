@@ -926,15 +926,15 @@ export const calculateMedicinePricing = (item, customQty = null, customDiscVal =
 
   const taxableValue = productValue - discAmtOnBase;
 
-  // When NO discount: preserve unit CGST/SGST directly from stock DB
-  // When WITH discount: calculate discounted CGST/SGST on taxableValue!
+  // When NO discount: line CGST/SGST = unit * qty (from stock DB or calculated)
+  // When WITH discount: line CGST/SGST = (taxableValue * cgstRate) / 100
   const cgstAmt = unitCgstAmt > 0 && discAmtOnBase === 0
-    ? parseFloat(unitCgstAmt.toFixed(2))
-    : parseFloat(((taxableValue * cgstRate) / (100 * (qty || 1))).toFixed(2));
+    ? parseFloat((unitCgstAmt * qty).toFixed(2))
+    : parseFloat(((taxableValue * cgstRate) / 100).toFixed(2));
 
   const sgstAmt = unitSgstAmt > 0 && discAmtOnBase === 0
-    ? parseFloat(unitSgstAmt.toFixed(2))
-    : parseFloat(((taxableValue * sgstRate) / (100 * (qty || 1))).toFixed(2));
+    ? parseFloat((unitSgstAmt * qty).toFixed(2))
+    : parseFloat(((taxableValue * sgstRate) / 100).toFixed(2));
 
   const totalGstAmt = parseFloat((cgstAmt + sgstAmt).toFixed(2));
 
@@ -1094,15 +1094,25 @@ export const buildPrintBillHtml = (data) => {
   const dbTotal = Number(totalAmount || (data && (data.total_amount || data.totalAmount)) || 0);
   const grossTotal = dbTotal > 0 ? dbTotal : (computedGross > 0 ? computedGross : 0);
 
-  // Total CGST and SGST directly from DB values
+  // Total CGST and SGST directly from DB values (scaling unit to line amount if needed)
   const totalCgstAmt = activeMedicines.reduce((sum, m) => {
-    const v = Number(m.CGST_Amt ?? m.cgst_amount ?? 0);
-    return sum + (isNaN(v) ? 0 : v);
+    const pricing = calculateMedicinePricing(m);
+    const qty = Number(m.qty !== undefined ? m.qty : (m.quantity ?? pricing.qty));
+    const rawC = Number(m.CGST_Amt !== undefined ? m.CGST_Amt : (m.cgst_amount ?? pricing.cgstAmt));
+    const cgstAmt = (qty > 1 && rawC > 0 && Math.abs(rawC * qty - pricing.cgstAmt) < Math.abs(rawC - pricing.cgstAmt) - 0.05)
+      ? (rawC * qty)
+      : rawC;
+    return sum + (isNaN(cgstAmt) ? 0 : cgstAmt);
   }, 0);
 
   const totalSgstAmt = activeMedicines.reduce((sum, m) => {
-    const v = Number(m.SGST_Amt ?? m.sgst_amount ?? 0);
-    return sum + (isNaN(v) ? 0 : v);
+    const pricing = calculateMedicinePricing(m);
+    const qty = Number(m.qty !== undefined ? m.qty : (m.quantity ?? pricing.qty));
+    const rawS = Number(m.SGST_Amt !== undefined ? m.SGST_Amt : (m.sgst_amount ?? pricing.sgstAmt));
+    const sgstAmt = (qty > 1 && rawS > 0 && Math.abs(rawS * qty - pricing.sgstAmt) < Math.abs(rawS - pricing.sgstAmt) - 0.05)
+      ? (rawS * qty)
+      : rawS;
+    return sum + (isNaN(sgstAmt) ? 0 : sgstAmt);
   }, 0);
 
   const totalTaxAmt = totalCgstAmt + totalSgstAmt;
@@ -1155,8 +1165,14 @@ export const buildPrintBillHtml = (data) => {
     const qty = Number(m.qty !== undefined ? m.qty : (m.quantity ?? pricing.qty));
     const cgstRate = Number(m.CGST_Percentage !== undefined ? m.CGST_Percentage : pricing.cgstRate);
     const sgstRate = Number(m.SGST_Percentage !== undefined ? m.SGST_Percentage : pricing.sgstRate);
-    const cgstAmt = Number(m.CGST_Amt !== undefined ? m.CGST_Amt : (m.cgst_amount ?? pricing.cgstAmt));
-    const sgstAmt = Number(m.SGST_Amt !== undefined ? m.SGST_Amt : (m.sgst_amount ?? pricing.sgstAmt));
+    const rawC = Number(m.CGST_Amt !== undefined ? m.CGST_Amt : (m.cgst_amount ?? pricing.cgstAmt));
+    const rawS = Number(m.SGST_Amt !== undefined ? m.SGST_Amt : (m.sgst_amount ?? pricing.sgstAmt));
+    const cgstAmt = (qty > 1 && rawC > 0 && Math.abs(rawC * qty - pricing.cgstAmt) < Math.abs(rawC - pricing.cgstAmt) - 0.05)
+      ? (rawC * qty)
+      : rawC;
+    const sgstAmt = (qty > 1 && rawS > 0 && Math.abs(rawS * qty - pricing.sgstAmt) < Math.abs(rawS - pricing.sgstAmt) - 0.05)
+      ? (rawS * qty)
+      : rawS;
     const lineTotal = Number(m.total !== undefined && Number(m.total) > 0 ? m.total : pricing.lineTotal);
     const itemDiscAmt = Number(m.discount_amount !== undefined ? m.discount_amount : (pricing.totalDiscountOnMrp > 0 ? pricing.totalDiscountOnMrp : 0));
 
@@ -7538,8 +7554,14 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
                                 const qty = Number(m.qty !== undefined ? m.qty : (m.quantity ?? pricing.qty));
                                 const cgstRate = Number(m.CGST_Percentage !== undefined ? m.CGST_Percentage : pricing.cgstRate);
                                 const sgstRate = Number(m.SGST_Percentage !== undefined ? m.SGST_Percentage : pricing.sgstRate);
-                                const cgstAmt = Number(m.CGST_Amt !== undefined ? m.CGST_Amt : (m.cgst_amount ?? pricing.cgstAmt));
-                                const sgstAmt = Number(m.SGST_Amt !== undefined ? m.SGST_Amt : (m.sgst_amount ?? pricing.sgstAmt));
+                                const rawC = Number(m.CGST_Amt !== undefined ? m.CGST_Amt : (m.cgst_amount ?? pricing.cgstAmt));
+                                const rawS = Number(m.SGST_Amt !== undefined ? m.SGST_Amt : (m.sgst_amount ?? pricing.sgstAmt));
+                                const cgstAmt = (qty > 1 && rawC > 0 && Math.abs(rawC * qty - pricing.cgstAmt) < Math.abs(rawC - pricing.cgstAmt) - 0.05)
+                                  ? (rawC * qty)
+                                  : rawC;
+                                const sgstAmt = (qty > 1 && rawS > 0 && Math.abs(rawS * qty - pricing.sgstAmt) < Math.abs(rawS - pricing.sgstAmt) - 0.05)
+                                  ? (rawS * qty)
+                                  : rawS;
                                 const lineTotal = Number(m.total !== undefined && Number(m.total) > 0 ? m.total : pricing.lineTotal);
                                 const itemDiscAmt = Number(m.discount_amount !== undefined ? m.discount_amount : (pricing.totalDiscountOnMrp > 0 ? pricing.totalDiscountOnMrp : 0));
                                 return (
@@ -7612,13 +7634,23 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
                                   : "";
 
                                 const previewCgst = (activePreviewMeds || []).reduce((sum, m) => {
-                                  const v = Number(m.CGST_Amt ?? m.cgst_amount ?? 0);
-                                  return sum + (isNaN(v) ? 0 : v);
+                                  const pricing = calculateMedicinePricing(m);
+                                  const qty = Number(m.qty !== undefined ? m.qty : (m.quantity ?? pricing.qty));
+                                  const rawC = Number(m.CGST_Amt !== undefined ? m.CGST_Amt : (m.cgst_amount ?? pricing.cgstAmt));
+                                  const cgstAmt = (qty > 1 && rawC > 0 && Math.abs(rawC * qty - pricing.cgstAmt) < Math.abs(rawC - pricing.cgstAmt) - 0.05)
+                                    ? (rawC * qty)
+                                    : rawC;
+                                  return sum + (isNaN(cgstAmt) ? 0 : cgstAmt);
                                 }, 0);
 
                                 const previewSgst = (activePreviewMeds || []).reduce((sum, m) => {
-                                  const v = Number(m.SGST_Amt ?? m.sgst_amount ?? 0);
-                                  return sum + (isNaN(v) ? 0 : v);
+                                  const pricing = calculateMedicinePricing(m);
+                                  const qty = Number(m.qty !== undefined ? m.qty : (m.quantity ?? pricing.qty));
+                                  const rawS = Number(m.SGST_Amt !== undefined ? m.SGST_Amt : (m.sgst_amount ?? pricing.sgstAmt));
+                                  const sgstAmt = (qty > 1 && rawS > 0 && Math.abs(rawS * qty - pricing.sgstAmt) < Math.abs(rawS - pricing.sgstAmt) - 0.05)
+                                    ? (rawS * qty)
+                                    : rawS;
+                                  return sum + (isNaN(sgstAmt) ? 0 : sgstAmt);
                                 }, 0);
 
                                 const previewTax = previewCgst + previewSgst;
