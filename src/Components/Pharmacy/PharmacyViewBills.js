@@ -2329,12 +2329,8 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                               const taxVal = Math.max(0, baseVal - (totalGst > 0 ? (discAmt / (1 + totalGst / 100)) : discAmt));
                               const expLineCgst = cgstPct > 0 && taxVal > 0 ? (taxVal * cgstPct / 100) : 0;
                               const expLineSgst = sgstPct > 0 && taxVal > 0 ? (taxVal * sgstPct / 100) : 0;
-                              const cgstAmt  = (qty > 1 && rawCgst > 0 && expLineCgst > 0 && Math.abs(rawCgst * qty - expLineCgst) < Math.abs(rawCgst - expLineCgst) - 0.05)
-                                ? (rawCgst * qty)
-                                : rawCgst;
-                              const sgstAmt  = (qty > 1 && rawSgst > 0 && expLineSgst > 0 && Math.abs(rawSgst * qty - expLineSgst) < Math.abs(rawSgst - expLineSgst) - 0.05)
-                                ? (rawSgst * qty)
-                                : rawSgst;
+                              const cgstAmt = rawCgst;
+                              const sgstAmt = rawSgst;
                               const itemDiscAmt = Number(med.discount_amount !== undefined ? med.discount_amount : (med.discount ?? 0)).toFixed(2);
                               return (
                                 <tr key={i}>
@@ -2417,36 +2413,12 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                               : "";
 
                             const totalCgst = (allMeds || []).reduce((sum, m) => {
-                              const q = Number(m.qty ?? m.quantity ?? 1);
-                              const p = Number(m.mrp ?? m.price ?? 0);
-                              const pct = Number(m.CGST_Percentage ?? m.cgst_rate ?? 0);
-                              const sPct = Number(m.SGST_Percentage ?? m.sgst_rate ?? 0);
-                              const rawV = Number(m.CGST_Amt ?? m.cgst_amount ?? 0);
-                              const tGst = pct + sPct;
-                              const bVal = tGst > 0 ? ((q * p) / (1 + tGst / 100)) : (q * p);
-                              const dVal = Number(m.discount_amount ?? m.discount ?? 0);
-                              const tVal = Math.max(0, bVal - (tGst > 0 ? (dVal / (1 + tGst / 100)) : dVal));
-                              const expL = pct > 0 && tVal > 0 ? (tVal * pct / 100) : 0;
-                              const v = (q > 1 && rawV > 0 && expL > 0 && Math.abs(rawV * q - expL) < Math.abs(rawV - expL) - 0.05)
-                                ? (rawV * q)
-                                : rawV;
+                              const v = Number(m.CGST_Amt !== undefined ? m.CGST_Amt : (m.cgst_amount ?? 0));
                               return sum + (isNaN(v) ? 0 : v);
                             }, 0);
 
                             const totalSgst = (allMeds || []).reduce((sum, m) => {
-                              const q = Number(m.qty ?? m.quantity ?? 1);
-                              const p = Number(m.mrp ?? m.price ?? 0);
-                              const pct = Number(m.SGST_Percentage ?? m.sgst_rate ?? 0);
-                              const cPct = Number(m.CGST_Percentage ?? m.cgst_rate ?? 0);
-                              const rawV = Number(m.SGST_Amt ?? m.sgst_amount ?? 0);
-                              const tGst = pct + cPct;
-                              const bVal = tGst > 0 ? ((q * p) / (1 + tGst / 100)) : (q * p);
-                              const dVal = Number(m.discount_amount ?? m.discount ?? 0);
-                              const tVal = Math.max(0, bVal - (tGst > 0 ? (dVal / (1 + tGst / 100)) : dVal));
-                              const expL = pct > 0 && tVal > 0 ? (tVal * pct / 100) : 0;
-                              const v = (q > 1 && rawV > 0 && expL > 0 && Math.abs(rawV * q - expL) < Math.abs(rawV - expL) - 0.05)
-                                ? (rawV * q)
-                                : rawV;
+                              const v = Number(m.SGST_Amt !== undefined ? m.SGST_Amt : (m.sgst_amount ?? 0));
                               return sum + (isNaN(v) ? 0 : v);
                             }, 0);
 

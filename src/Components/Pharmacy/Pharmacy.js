@@ -926,15 +926,26 @@ export const calculateMedicinePricing = (item, customQty = null, customDiscVal =
 
   const taxableValue = productValue - discAmtOnBase;
 
-  // When NO discount: line CGST/SGST = unit * qty (from stock DB or calculated)
-  // When WITH discount: line CGST/SGST = (taxableValue * cgstRate) / 100
-  const cgstAmt = unitCgstAmt > 0 && discAmtOnBase === 0
-    ? parseFloat((unitCgstAmt * qty).toFixed(2))
-    : parseFloat(((taxableValue * cgstRate) / 100).toFixed(2));
+  // When an item already has stored line CGST_Amt / SGST_Amt from DB, use it directly!
+  // If unit_cgst_amt is explicitly provided (from stock selection before save), scale by qty.
+  // Otherwise calculate line GST on taxableValue: (taxableValue * rate) / 100
+  const calcCgstAmt = totalGstRate > 0 ? (taxableValue * cgstRate) / 100 : 0;
+  const calcSgstAmt = totalGstRate > 0 ? (taxableValue * sgstRate) / 100 : 0;
 
-  const sgstAmt = unitSgstAmt > 0 && discAmtOnBase === 0
-    ? parseFloat((unitSgstAmt * qty).toFixed(2))
-    : parseFloat(((taxableValue * sgstRate) / 100).toFixed(2));
+  let cgstAmt = parseFloat(calcCgstAmt.toFixed(2));
+  let sgstAmt = parseFloat(calcSgstAmt.toFixed(2));
+
+  if (item?.unit_cgst_amt !== undefined && item?.unit_cgst_amt !== null && discAmtOnBase === 0) {
+    cgstAmt = parseFloat((Number(item.unit_cgst_amt) * qty).toFixed(2));
+  } else if (item?.CGST_Amt !== undefined && item?.CGST_Amt !== null && discAmtOnBase === 0) {
+    cgstAmt = parseFloat(Number(item.CGST_Amt).toFixed(2));
+  }
+
+  if (item?.unit_sgst_amt !== undefined && item?.unit_sgst_amt !== null && discAmtOnBase === 0) {
+    sgstAmt = parseFloat((Number(item.unit_sgst_amt) * qty).toFixed(2));
+  } else if (item?.SGST_Amt !== undefined && item?.SGST_Amt !== null && discAmtOnBase === 0) {
+    sgstAmt = parseFloat(Number(item.SGST_Amt).toFixed(2));
+  }
 
   const totalGstAmt = parseFloat((cgstAmt + sgstAmt).toFixed(2));
 
@@ -1097,22 +1108,14 @@ export const buildPrintBillHtml = (data) => {
   // Total CGST and SGST directly from DB values (scaling unit to line amount if needed)
   const totalCgstAmt = activeMedicines.reduce((sum, m) => {
     const pricing = calculateMedicinePricing(m);
-    const qty = Number(m.qty !== undefined ? m.qty : (m.quantity ?? pricing.qty));
-    const rawC = Number(m.CGST_Amt !== undefined ? m.CGST_Amt : (m.cgst_amount ?? pricing.cgstAmt));
-    const cgstAmt = (qty > 1 && rawC > 0 && Math.abs(rawC * qty - pricing.cgstAmt) < Math.abs(rawC - pricing.cgstAmt) - 0.05)
-      ? (rawC * qty)
-      : rawC;
-    return sum + (isNaN(cgstAmt) ? 0 : cgstAmt);
+    const v = Number(m.CGST_Amt !== undefined ? m.CGST_Amt : (m.cgst_amount ?? pricing.cgstAmt));
+    return sum + (isNaN(v) ? 0 : v);
   }, 0);
 
   const totalSgstAmt = activeMedicines.reduce((sum, m) => {
     const pricing = calculateMedicinePricing(m);
-    const qty = Number(m.qty !== undefined ? m.qty : (m.quantity ?? pricing.qty));
-    const rawS = Number(m.SGST_Amt !== undefined ? m.SGST_Amt : (m.sgst_amount ?? pricing.sgstAmt));
-    const sgstAmt = (qty > 1 && rawS > 0 && Math.abs(rawS * qty - pricing.sgstAmt) < Math.abs(rawS - pricing.sgstAmt) - 0.05)
-      ? (rawS * qty)
-      : rawS;
-    return sum + (isNaN(sgstAmt) ? 0 : sgstAmt);
+    const v = Number(m.SGST_Amt !== undefined ? m.SGST_Amt : (m.sgst_amount ?? pricing.sgstAmt));
+    return sum + (isNaN(v) ? 0 : v);
   }, 0);
 
   const totalTaxAmt = totalCgstAmt + totalSgstAmt;
@@ -1178,8 +1181,8 @@ export const buildPrintBillHtml = (data) => {
 
     return `
       <tr>
-        <td style="font-weight: 500; text-align: left; padding: 2px 4px; max-width: 170px; word-break: break-word; line-height: 1.2;">${m.name || m.item_name || "—"}</td>
-        <td style="text-align: center; padding: 2px 3px; white-space: nowrap;">${m.hsn_code || "—"}</td>
+        <td style="font-weight: 500; text-align: left; padding: 2px 4px; max-width: 170px; word-break: break-word; line-height: 1.2;">${m.name || m.item_name || m.medicine_name || "—"}</td>
+        <td style="text-align: center; padding: 2px 3px; white-space: nowrap;">${m.hsn_code || m.hsn || "—"}</td>
         <td style="text-align: center; padding: 2px 3px; white-space: nowrap;">${m.batch_number || m.batch || "—"}</td>
         <td style="text-align: center; padding: 2px 3px; white-space: nowrap;">${formatExpiryDate(m.expiry_date || m.expiry)}</td>
         <td style="text-align: center; font-weight: 700; padding: 2px 3px;">${qty}</td>
@@ -3558,6 +3561,8 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
           return;
         }
 
+        const currentOutletCode = localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || outlet_code || "";
+
         // ── Build updated medicine list from live state, FILTERING OUT save_later items ──
         // ── 1. Distinguish billable in-stock items vs out-of-stock items vs deleted items ──
         const isItemBillable = (m) => {
@@ -3823,7 +3828,19 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
           const savedBillDoc = finalizeRes.data?.saved_bill || finalizeRes.saved_bill || null;
           const dbMeds = (savedBillDoc?.medicine_particulars && savedBillDoc.medicine_particulars.length > 0)
-            ? savedBillDoc.medicine_particulars
+            ? savedBillDoc.medicine_particulars.map((m, idx) => {
+                const orig = (mappedBillable || [])[idx] || (mappedBillable || []).find(o => String(o.item_id) === String(m.item_id)) || {};
+                const stockMatch = (medicines || []).find(s => String(s.item_id) === String(m.item_id) && (!m.batch_number || String(s.batch_number) === String(m.batch_number))) || {};
+                const resolvedName = m.item_name || m.name || m.medicine_name || orig.item_name || orig.name || orig.medicine_name || stockMatch.item_name || stockMatch.name || "";
+                const resolvedHsn = (m.hsn_code && m.hsn_code !== "—") ? m.hsn_code : (orig.hsn_code || orig.hsn || stockMatch.hsn_code || stockMatch.hsn || "—");
+                return {
+                  ...orig,
+                  ...m,
+                  item_name: resolvedName,
+                  name: resolvedName,
+                  hsn_code: resolvedHsn,
+                };
+              })
             : mappedBillable;
           const dbTotal = savedBillDoc?.total_amount != null ? Number(savedBillDoc.total_amount) : updatedTotalAmount;
           const dbItemDisc = savedBillDoc?.total_item_discount != null ? Number(savedBillDoc.total_item_discount) : updatedItemDiscount;
@@ -4209,7 +4226,19 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
           const savedBillDoc = response.data?.saved_bill || response.saved_bill || null;
           const dbMeds = (savedBillDoc?.medicine_particulars && savedBillDoc.medicine_particulars.length > 0)
-            ? savedBillDoc.medicine_particulars
+            ? savedBillDoc.medicine_particulars.map((m, idx) => {
+                const orig = (addedMedicines || [])[idx] || (addedMedicines || []).find(o => String(o.item_id) === String(m.item_id)) || {};
+                const stockMatch = (medicines || []).find(s => String(s.item_id) === String(m.item_id) && (!m.batch_number || String(s.batch_number) === String(m.batch_number))) || {};
+                const resolvedName = m.item_name || m.name || m.medicine_name || orig.item_name || orig.name || orig.medicine_name || stockMatch.item_name || stockMatch.name || "";
+                const resolvedHsn = (m.hsn_code && m.hsn_code !== "—") ? m.hsn_code : (orig.hsn_code || orig.hsn || stockMatch.hsn_code || stockMatch.hsn || "—");
+                return {
+                  ...orig,
+                  ...m,
+                  item_name: resolvedName,
+                  name: resolvedName,
+                  hsn_code: resolvedHsn,
+                };
+              })
             : addedMedicines;
           const dbTotal = savedBillDoc?.total_amount != null ? Number(savedBillDoc.total_amount) : grossTotalAmount;
           const dbItemDisc = savedBillDoc?.total_item_discount != null ? Number(savedBillDoc.total_item_discount) : totalItemDiscount;
@@ -7566,8 +7595,8 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
                                 const itemDiscAmt = Number(m.discount_amount !== undefined ? m.discount_amount : (pricing.totalDiscountOnMrp > 0 ? pricing.totalDiscountOnMrp : 0));
                                 return (
                                   <tr key={i}>
-                                    <td style={{ padding: "2px 4px", fontWeight: 500, maxWidth: 170, wordBreak: "break-word", lineHeight: 1.2 }}>{m.name || m.item_name || "—"}</td>
-                                    <td style={{ padding: "2px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{m.hsn_code || "—"}</td>
+                                    <td style={{ padding: "2px 4px", fontWeight: 500, maxWidth: 170, wordBreak: "break-word", lineHeight: 1.2 }}>{m.name || m.item_name || m.medicine_name || "—"}</td>
+                                    <td style={{ padding: "2px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{m.hsn_code || m.hsn || "—"}</td>
                                     <td style={{ padding: "2px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{m.batch_number || m.batch || "—"}</td>
                                     <td style={{ padding: "2px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{formatExpiryDate(m.expiry_date || m.expiry)}</td>
                                     <td style={{ padding: "2px 3px", textAlign: "center", fontWeight: 700 }}>{qty}</td>
@@ -7635,22 +7664,14 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
                                 const previewCgst = (activePreviewMeds || []).reduce((sum, m) => {
                                   const pricing = calculateMedicinePricing(m);
-                                  const qty = Number(m.qty !== undefined ? m.qty : (m.quantity ?? pricing.qty));
-                                  const rawC = Number(m.CGST_Amt !== undefined ? m.CGST_Amt : (m.cgst_amount ?? pricing.cgstAmt));
-                                  const cgstAmt = (qty > 1 && rawC > 0 && Math.abs(rawC * qty - pricing.cgstAmt) < Math.abs(rawC - pricing.cgstAmt) - 0.05)
-                                    ? (rawC * qty)
-                                    : rawC;
-                                  return sum + (isNaN(cgstAmt) ? 0 : cgstAmt);
+                                  const v = Number(m.CGST_Amt !== undefined ? m.CGST_Amt : (m.cgst_amount ?? pricing.cgstAmt));
+                                  return sum + (isNaN(v) ? 0 : v);
                                 }, 0);
 
                                 const previewSgst = (activePreviewMeds || []).reduce((sum, m) => {
                                   const pricing = calculateMedicinePricing(m);
-                                  const qty = Number(m.qty !== undefined ? m.qty : (m.quantity ?? pricing.qty));
-                                  const rawS = Number(m.SGST_Amt !== undefined ? m.SGST_Amt : (m.sgst_amount ?? pricing.sgstAmt));
-                                  const sgstAmt = (qty > 1 && rawS > 0 && Math.abs(rawS * qty - pricing.sgstAmt) < Math.abs(rawS - pricing.sgstAmt) - 0.05)
-                                    ? (rawS * qty)
-                                    : rawS;
-                                  return sum + (isNaN(sgstAmt) ? 0 : sgstAmt);
+                                  const v = Number(m.SGST_Amt !== undefined ? m.SGST_Amt : (m.sgst_amount ?? pricing.sgstAmt));
+                                  return sum + (isNaN(v) ? 0 : v);
                                 }, 0);
 
                                 const previewTax = previewCgst + previewSgst;

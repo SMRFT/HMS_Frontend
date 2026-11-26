@@ -4205,8 +4205,8 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
             ? (rawS * q)
             : rawS;
           calcTotal += lineAmt;
-          totalCgstAmt += cgst;
-          totalSgstAmt += sgst;
+          totalCgstAmt += (isNaN(cgst) ? 0 : cgst);
+          totalSgstAmt += (isNaN(sgst) ? 0 : sgst);
         });
 
         const totalTaxAmt = totalCgstAmt + totalSgstAmt;
