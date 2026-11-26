@@ -774,6 +774,7 @@ const TAX_RATES = [
   { label: "RATE OF 12%",  rate: 12 },
   { label: "RATE OF 18%",  rate: 18 },
   { label: "RATE OF 28%",  rate: 28 },
+  { label: "RATE OF 40%",  rate: 40 },
 ]
 const MONTHS = [
   { value: "01", label: "01 - Jan" }, { value: "02", label: "02 - Feb" },
