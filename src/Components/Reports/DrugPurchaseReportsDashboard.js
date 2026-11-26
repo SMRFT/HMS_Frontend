@@ -825,6 +825,34 @@ const DrugPurchaseReportsDashboard = () => {
             if (res && res.success) {
                 const payload = res.data || res;
                 const results = payload.data || payload.results || (Array.isArray(payload) ? payload : []);
+                
+                // Ensure ascending date sorting for date_grn and supplier_grn
+                if (repKey.includes('date_grn') || repKey.includes('stores_date_grn')) {
+                    results.sort((a, b) => dayjs(a.date).valueOf() - dayjs(b.date).valueOf());
+                    results.forEach(d => {
+                        if (Array.isArray(d.grns)) {
+                            d.grns.sort((a, b) => {
+                                const invDiff = dayjs(a.invoice_date || a.date).valueOf() - dayjs(b.invoice_date || b.date).valueOf();
+                                if (invDiff !== 0) return invDiff;
+                                return dayjs(a.date).valueOf() - dayjs(b.date).valueOf();
+                            });
+                        }
+                    });
+                } else if (repKey.includes('supplier_grn') || repKey.includes('stores_supplier_grn')) {
+                    results.forEach(s => {
+                        if (Array.isArray(s.grns)) {
+                            s.grns.sort((a, b) => {
+                                const invDiff = dayjs(a.invoice_date || a.date).valueOf() - dayjs(b.invoice_date || b.date).valueOf();
+                                if (invDiff !== 0) return invDiff;
+                                return dayjs(a.date).valueOf() - dayjs(b.date).valueOf();
+                            });
+                        }
+                        if (Array.isArray(s.returns)) {
+                            s.returns.sort((a, b) => dayjs(a.date).valueOf() - dayjs(b.date).valueOf());
+                        }
+                    });
+                }
+
                 setReportData({
                     columns: payload.columns || [],
                     data: results,
@@ -1677,7 +1705,7 @@ const DrugPurchaseReportsDashboard = () => {
                                         <thead>
                                             <tr>
                                                 <th style={{ width: '40px' }}></th>
-                                                <th>Date & Day</th>
+                                                <th>Invoice Date & Day</th>
                                                 <th style={{ textAlign: 'center' }}>Total GRNs</th>
                                                 <th style={{ textAlign: 'center' }}>Suppliers</th>
                                                 <th style={{ textAlign: 'right' }}>Total Purchases</th>
@@ -1746,7 +1774,7 @@ const DrugPurchaseReportsDashboard = () => {
                                                                 <tr>
                                                                     <td colSpan={9} style={{ background: '#f8fafc', padding: '16px 20px' }}>
                                                                         <div style={{ marginBottom: '10px', fontWeight: '700', color: '#059669', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                            <FileText size={16} /> GRNs Received on {dayjs(d.date).isValid() ? dayjs(d.date).format('DD-MMM-YYYY') : d.date} ({d.grns?.length || 0} Invoices)
+                                                                            <FileText size={16} /> Invoices Dated {dayjs(d.date).isValid() ? dayjs(d.date).format('DD-MMM-YYYY') : d.date} ({d.grns?.length || 0} Invoices)
                                                                         </div>
 
                                                                         <table style={{ width: '100%', background: '#ffffff', borderRadius: '8px', border: '1px solid #cbd5e1', borderCollapse: 'collapse', overflow: 'hidden', marginBottom: (returnCount > 0) ? '16px' : '0' }}>

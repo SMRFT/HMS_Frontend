@@ -96,6 +96,18 @@ const StoresSupplierGrnReport = ({ department: propDepartment = '', departmentNa
             if (response && response.success && response.data) {
                 const resPayload = response.data;
                 const reportList = Array.isArray(resPayload.data) ? resPayload.data : (Array.isArray(resPayload) ? resPayload : []);
+                reportList.forEach(s => {
+                    if (Array.isArray(s.grns)) {
+                        s.grns.sort((a, b) => {
+                            const invDiff = dayjs(a.invoice_date || a.date).valueOf() - dayjs(b.invoice_date || b.date).valueOf();
+                            if (invDiff !== 0) return invDiff;
+                            return dayjs(a.date).valueOf() - dayjs(b.date).valueOf();
+                        });
+                    }
+                    if (Array.isArray(s.returns)) {
+                        s.returns.sort((a, b) => dayjs(a.date).valueOf() - dayjs(b.date).valueOf());
+                    }
+                });
                 const sortedList = [...reportList].sort((a, b) => String(a.vendor_name || '').localeCompare(String(b.vendor_name || ''), undefined, { sensitivity: 'base' }));
                 setReportData(sortedList);
                 setTimeout(() => {

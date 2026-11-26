@@ -416,8 +416,8 @@ const CathLabIndent = () => {
             department_name: 'Cath lab',
             ipnumber: intent.ipnumber || '',
             patient: intent.ipnumber ? {
-                displayName: `IP: ${intent.ipnumber}`,
-                displayUhid: '—',
+                displayName: intent.patient_name || `IP: ${intent.ipnumber}`,
+                displayUhid: intent.uhid || '—',
                 displayRoom: '—',
                 ip_number: intent.ipnumber
             } : null,
@@ -506,7 +506,10 @@ const CathLabIndent = () => {
                 date: intentForm.date,
                 department: intentForm.department || 'DEPT027',
                 ipnumber: intentForm.ipnumber || '',
+                patient_name: intentForm.patient?.displayName || '',
+                uhid: intentForm.patient?.displayUhid || intentForm.patient?.uhid || '',
                 created_by: currentEmployeeId || undefined,
+                is_approved: true,
                 items: intentForm.items.map(it => ({
                     item_id: it.item_id,
                     name: it.name,
@@ -653,6 +656,8 @@ const CathLabIndent = () => {
                     'Intent ID': intent.intent_id,
                     'Date': intent.date ? dayjs(intent.date).format('DD/MM/YYYY') : '',
                     'Department': intent.department || 'DEPT027',
+                    'Patient Name': intent.patient_name || '-',
+                    'UHID': intent.uhid || '-',
                     'IP Number': intent.ipnumber || '-',
                     'Item ID': '-',
                     'Item Name': '-',
@@ -671,6 +676,8 @@ const CathLabIndent = () => {
                         'Intent ID': intent.intent_id,
                         'Date': intent.date ? dayjs(intent.date).format('DD/MM/YYYY') : '',
                         'Department': intent.department || 'DEPT027',
+                        'Patient Name': intent.patient_name || '-',
+                        'UHID': intent.uhid || '-',
                         'IP Number': intent.ipnumber || '-',
                         'Item ID': it.item_id,
                         'Item Name': it.name,
@@ -1236,7 +1243,7 @@ const CathLabIndent = () => {
                             </div>
                             <div style={{ flex: '1 1 240px' }}>
                                 <S.Input
-                                    placeholder="Filter by Intent ID, IP Number, Item..."
+                                    placeholder="Filter by Intent ID, Patient Name, UHID, IP Number, Item..."
                                     value={reportFilter.search}
                                     onChange={e => setReportFilter({ ...reportFilter, search: e.target.value })}
                                     style={{ height: '36px' }}
@@ -1274,14 +1281,16 @@ const CathLabIndent = () => {
                                 <ItemsTable>
                                     <thead>
                                         <tr>
-                                            <th style={{ width: '60px', textAlign: 'center' }}>#</th>
-                                            <th>DATE</th>
-                                            <th>INTENT ID</th>
-                                            <th>IP NUMBER</th>
+                                            <th style={{ width: '50px', textAlign: 'center' }}>#</th>
+                                            <th style={{ minWidth: '105px' }}>DATE</th>
+                                            <th style={{ minWidth: '125px' }}>INTENT ID</th>
+                                            <th style={{ minWidth: '150px' }}>PATIENT NAME</th>
+                                            <th style={{ minWidth: '110px' }}>UHID</th>
+                                            <th style={{ minWidth: '115px' }}>IP NUMBER</th>
                                             <th>ITEMS</th>
-                                            <th style={{ textAlign: 'center', width: '110px' }}>FOR BILL</th>
-                                            <th style={{ textAlign: 'right', width: '140px' }}>TOTAL AMOUNT</th>
-                                            <th style={{ textAlign: 'center', minWidth: '190px' }}>ACTION</th>
+                                            <th style={{ textAlign: 'center', width: '90px' }}>FOR BILL</th>
+                                            <th style={{ textAlign: 'right', width: '130px' }}>TOTAL AMOUNT</th>
+                                            <th style={{ textAlign: 'center', minWidth: '180px' }}>ACTION</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -1314,6 +1323,21 @@ const CathLabIndent = () => {
                                                             fontSize: '0.95rem'
                                                         }}>
                                                             {intent.intent_id}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.88rem' }}>
+                                                            {intent.patient_name || '—'}
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <span style={{
+                                                            fontFamily: 'monospace',
+                                                            fontWeight: 600,
+                                                            color: '#475569',
+                                                            fontSize: '0.84rem'
+                                                        }}>
+                                                            {intent.uhid || '—'}
                                                         </span>
                                                     </td>
                                                     <td>
@@ -1913,6 +1937,14 @@ const CathLabIndent = () => {
                                     <div>
                                         <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Date</div>
                                         <div style={{ fontWeight: 700, color: '#0f172a' }}>{selectedIntentForModal.date ? dayjs(selectedIntentForModal.date).format('DD/MM/YYYY') : '-'}</div>
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Patient Name</div>
+                                        <div style={{ fontWeight: 700, color: '#0f172a' }}>{selectedIntentForModal.patient_name || '—'}</div>
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>UHID</div>
+                                        <div style={{ fontWeight: 700, color: '#0f172a' }}>{selectedIntentForModal.uhid || '—'}</div>
                                     </div>
                                     <div>
                                         <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>IP Number</div>

@@ -421,14 +421,8 @@ const Generalstorevendor = () => {
     if (!form.vendor_type) errs.vendor_type = "Type is required";
     if (!form.name.trim()) errs.name = "Name is required";
     if (!form.address_line1.trim()) errs.address_line1 = "Address Line 1 is required";
-    if (form.gstin && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(form.gstin)) {
-      errs.gstin = "Invalid GSTIN format";
-    }
     if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
       errs.email = "Invalid email address";
-    }
-    if (form.phone && !/^\+?[0-9]{7,15}$/.test(form.phone)) {
-      errs.phone = "Invalid phone number";
     }
     return errs;
   };
@@ -694,7 +688,7 @@ const Generalstorevendor = () => {
                         })
                       }
                       placeholder="e.g. 33AAHCA7054L1ZJ"
-                      maxLength={15}
+                      maxLength={50}
                       style={errors.gstin ? { borderColor: colors.danger } : {}}
                     />
                     {errors.gstin && <ErrorText>{errors.gstin}</ErrorText>}
