@@ -1402,6 +1402,43 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
 
   const [printBill, setPrintBill] = useState(null);
 
+  // ── Print Permission Rule ──────────────────────────────────────────────────
+  // In OLET002 (OP Pharmacy), Cash bills can only be viewed (Print button hidden).
+  // Credit bills in OLET002, and all bills in other outlets (e.g. OLET001), allow printing.
+  const allowBillPrint = (b) => {
+    if (!b) return false;
+    const currentOutlet = String(
+      selectedOutlet ||
+      localStorage.getItem("selected_outlet") ||
+      localStorage.getItem("outlet_code") ||
+      ""
+    ).trim().toUpperCase();
+
+    const billOutlet = String(
+      b.outlet_code ||
+      b.outletCode ||
+      b.outlet ||
+      ""
+    ).trim().toUpperCase();
+
+    const isOlet002 = (
+      currentOutlet === "OLET002" ||
+      currentOutlet === "2" ||
+      currentOutlet.includes("OLET002") ||
+      currentOutlet.includes("OP PHARMACY") ||
+      billOutlet === "OLET002" ||
+      billOutlet === "2" ||
+      billOutlet.includes("OLET002")
+    );
+
+    if (!isOlet002) return true; // Other outlets: print allowed
+
+    const pm = String(b.payment_mode || b.payment_method || b.paymentMode || "").trim().toLowerCase();
+    const bm = String(b.billing_mode || b.billingMode || "").trim().toLowerCase();
+    const isCredit = pm === "credit" || bm.includes("credit");
+    return isCredit; // In OLET002: print allowed ONLY if Credit
+  };
+
   // ── Print ─────────────────────────────────────────────────────────────────
   const handlePrint = async (bill) => {
     setPrintBill(bill);
@@ -1444,6 +1481,7 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
   };
 
   const handlePrintNow = () => {
+    if (!allowBillPrint(printBill)) return;
     const content = document.getElementById("print-area").innerHTML;
     const win = window.open("", "", "width=960,height=700");
     win.document.write(`
@@ -1966,7 +2004,13 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                                 {false && !isDeleted(bill) && (
                                   <IconBtn variant="delete" title="Delete" onClick={() => openDeleteModal(bill)}>🗑️</IconBtn>
                                 )}
-                                <IconBtn variant="print" title="Print" onClick={() => handlePrint(bill)}>🖨️</IconBtn>
+                                <IconBtn
+                                  variant={allowBillPrint(bill) ? "print" : "view"}
+                                  title={allowBillPrint(bill) ? "Print" : "View Bill"}
+                                  onClick={() => handlePrint(bill)}
+                                >
+                                  {allowBillPrint(bill) ? "🖨️" : "👁️"}
+                                </IconBtn>
                               </ActionGroup>
                             </Td>
                           </Tr>
@@ -2081,7 +2125,9 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
               padding: "12px 20px", background: "linear-gradient(130deg,#0d8f82,#10A596)",
               borderRadius: "10px 10px 0 0",
             }}>
-              <span style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>🖨️ Print Preview — GST Invoice</span>
+              <span style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>
+                {allowBillPrint(printBill) ? "🖨️ Print Preview — GST Invoice" : "👁️ View Bill — GST Invoice"}
+              </span>
               <button onClick={() => setPrintBill(null)} style={{
                 background: "rgba(255,255,255,0.18)", border: "none", borderRadius: 6,
                 color: "#fff", fontSize: 16, cursor: "pointer", width: 30, height: 30,
@@ -2486,7 +2532,9 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
 
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", padding: "12px 20px 16px", borderTop: "1px solid #e2e8f0" }}>
               <ModalBtn variant="cancel" onClick={() => setPrintBill(null)}>✕ Close</ModalBtn>
-              <ModalBtn variant="confirm" onClick={handlePrintNow}>🖨️ Print</ModalBtn>
+              {allowBillPrint(printBill) && (
+                <ModalBtn variant="confirm" onClick={handlePrintNow}>🖨️ Print</ModalBtn>
+              )}
             </div>
           </div>
         </ModalOverlay>
