@@ -926,21 +926,27 @@ export const calculateMedicinePricing = (item, customQty = null, customDiscVal =
 
   const taxableValue = productValue - discAmtOnBase;
 
-  // Get CGST & SGST Amt directly from DB value without calculation
+  // When NO discount: preserve unit CGST/SGST directly from stock DB
+  // When WITH discount: calculate discounted CGST/SGST on taxableValue!
   const cgstAmt = unitCgstAmt > 0 && discAmtOnBase === 0
-    ? parseFloat((qty * unitCgstAmt).toFixed(2))
-    : parseFloat(((taxableValue * cgstRate) / 100).toFixed(2));
+    ? parseFloat(unitCgstAmt.toFixed(2))
+    : parseFloat(((taxableValue * cgstRate) / (100 * (qty || 1))).toFixed(2));
 
   const sgstAmt = unitSgstAmt > 0 && discAmtOnBase === 0
-    ? parseFloat((qty * unitSgstAmt).toFixed(2))
-    : parseFloat(((taxableValue * sgstRate) / 100).toFixed(2));
+    ? parseFloat(unitSgstAmt.toFixed(2))
+    : parseFloat(((taxableValue * sgstRate) / (100 * (qty || 1))).toFixed(2));
 
   const totalGstAmt = parseFloat((cgstAmt + sgstAmt).toFixed(2));
 
-  // Total bill value
-  const lineTotal = gross;
+  // Line GST amount (sum of CGST + SGST on taxableValue)
+  const lineGst = parseFloat(((taxableValue * totalGstRate) / 100).toFixed(2));
 
-  // Total discount on MRP
+  // Total bill value: with discount = Taxable Value + GST; without discount = Gross
+  const lineTotal = discAmtOnBase > 0
+    ? parseFloat((taxableValue + lineGst).toFixed(2))
+    : gross;
+
+  // Total discount on MRP (Discount on base + Difference in GST)
   const totalDiscountOnMrp = parseFloat(Math.max(0, gross - lineTotal).toFixed(2));
 
   return {
@@ -1088,15 +1094,15 @@ export const buildPrintBillHtml = (data) => {
   const dbTotal = Number(totalAmount || (data && (data.total_amount || data.totalAmount)) || 0);
   const grossTotal = dbTotal > 0 ? dbTotal : (computedGross > 0 ? computedGross : 0);
 
-  // Total CGST and SGST using reverse-calculated pricing on active medicines
+  // Total CGST and SGST directly from DB values
   const totalCgstAmt = activeMedicines.reduce((sum, m) => {
-    const pricing = calculateMedicinePricing(m);
-    return sum + (isNaN(pricing.cgstAmt) ? 0 : pricing.cgstAmt);
+    const v = Number(m.CGST_Amt ?? m.cgst_amount ?? 0);
+    return sum + (isNaN(v) ? 0 : v);
   }, 0);
 
   const totalSgstAmt = activeMedicines.reduce((sum, m) => {
-    const pricing = calculateMedicinePricing(m);
-    return sum + (isNaN(pricing.sgstAmt) ? 0 : pricing.sgstAmt);
+    const v = Number(m.SGST_Amt ?? m.sgst_amount ?? 0);
+    return sum + (isNaN(v) ? 0 : v);
   }, 0);
 
   const totalTaxAmt = totalCgstAmt + totalSgstAmt;
@@ -1145,10 +1151,14 @@ export const buildPrintBillHtml = (data) => {
 
   const renderMedicineRow = (m) => {
     const pricing = calculateMedicinePricing(m);
-    const rate = pricing.mrp;
-    const itemDiscAmt = pricing.totalDiscountOnMrp > 0
-      ? pricing.totalDiscountOnMrp.toFixed(2)
-      : (Number(m.discount_amount || 0) > 0 ? Number(m.discount_amount).toFixed(2) : "0.00");
+    const rate = Number(m.mrp !== undefined && Number(m.mrp) > 0 ? m.mrp : pricing.mrp);
+    const qty = Number(m.qty !== undefined ? m.qty : (m.quantity ?? pricing.qty));
+    const cgstRate = Number(m.CGST_Percentage !== undefined ? m.CGST_Percentage : pricing.cgstRate);
+    const sgstRate = Number(m.SGST_Percentage !== undefined ? m.SGST_Percentage : pricing.sgstRate);
+    const cgstAmt = Number(m.CGST_Amt !== undefined ? m.CGST_Amt : (m.cgst_amount ?? pricing.cgstAmt));
+    const sgstAmt = Number(m.SGST_Amt !== undefined ? m.SGST_Amt : (m.sgst_amount ?? pricing.sgstAmt));
+    const lineTotal = Number(m.total !== undefined && Number(m.total) > 0 ? m.total : pricing.lineTotal);
+    const itemDiscAmt = Number(m.discount_amount !== undefined ? m.discount_amount : (pricing.totalDiscountOnMrp > 0 ? pricing.totalDiscountOnMrp : 0));
 
     return `
       <tr>
@@ -1156,14 +1166,14 @@ export const buildPrintBillHtml = (data) => {
         <td style="text-align: center; padding: 2px 3px; white-space: nowrap;">${m.hsn_code || "—"}</td>
         <td style="text-align: center; padding: 2px 3px; white-space: nowrap;">${m.batch_number || m.batch || "—"}</td>
         <td style="text-align: center; padding: 2px 3px; white-space: nowrap;">${formatExpiryDate(m.expiry_date || m.expiry)}</td>
-        <td style="text-align: center; font-weight: 700; padding: 2px 3px;">${pricing.qty}</td>
+        <td style="text-align: center; font-weight: 700; padding: 2px 3px;">${qty}</td>
         <td style="text-align: right; padding: 2px 4px; white-space: nowrap;">${rate.toFixed(2)}</td>
-        <td style="text-align: center; padding: 2px 3px;">${pricing.cgstRate}</td>
-        <td style="text-align: right; padding: 2px 3px; white-space: nowrap;">${pricing.cgstAmt.toFixed(2)}</td>
-        <td style="text-align: center; padding: 2px 3px;">${pricing.sgstRate}</td>
-        <td style="text-align: right; padding: 2px 3px; white-space: nowrap;">${pricing.sgstAmt.toFixed(2)}</td>
-        <td style="text-align: right; padding: 2px 4px; white-space: nowrap; font-weight: 600;">${itemDiscAmt}</td>
-        <td style="text-align: right; font-weight: 700; color: #111; padding: 2px 4px; white-space: nowrap;">${pricing.lineTotal.toFixed(2)}</td>
+        <td style="text-align: center; padding: 2px 3px;">${cgstRate}</td>
+        <td style="text-align: right; padding: 2px 3px; white-space: nowrap;">${cgstAmt.toFixed(2)}</td>
+        <td style="text-align: center; padding: 2px 3px;">${sgstRate}</td>
+        <td style="text-align: right; padding: 2px 3px; white-space: nowrap;">${sgstAmt.toFixed(2)}</td>
+        <td style="text-align: right; padding: 2px 4px; white-space: nowrap; font-weight: 600;">${itemDiscAmt.toFixed(2)}</td>
+        <td style="text-align: right; font-weight: 700; color: #111; padding: 2px 4px; white-space: nowrap;">${lineTotal.toFixed(2)}</td>
       </tr>
     `;
   };
@@ -1254,7 +1264,7 @@ export const buildPrintBillHtml = (data) => {
             <th rowspan="2" style="width: 70px; text-align: center; padding: 3px;">Batch</th>
             <th rowspan="2" style="width: 55px; text-align: center; padding: 3px;">Expiry</th>
             <th rowspan="2" style="width: 35px; text-align: center; padding: 3px;">Qty</th>
-            <th rowspan="2" style="width: 55px; text-align: right; padding: 3px 4px;">Rate</th>
+            <th rowspan="2" style="width: 55px; text-align: right; padding: 3px 4px;">MRP</th>
             <th colspan="2" style="text-align: center; padding: 2px 3px; border-bottom: 1px solid #888;">CGST</th>
             <th colspan="2" style="text-align: center; padding: 2px 3px; border-bottom: 1px solid #888;">SGST</th>
             <th rowspan="2" style="width: 55px; text-align: right; padding: 3px 4px;">Disc Amt</th>
@@ -2678,7 +2688,6 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         const formattedMedicines = medicineArray.map((item) => {
           // Get MRP directly from hospital_pharmacystock without calculation
           const mrpVal = Number(item.mrp !== undefined ? item.mrp : (item.MRP ?? 0)) || 0;
-          const priceVal = mrpVal;
 
           const expStatus = getExpiryStatus(item.expiry_date);
 
@@ -2693,9 +2702,6 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             days_to_expiry: expStatus.daysLeft,
             expiry_text: expStatus.text,
             mrp: mrpVal,
-            price: priceVal,
-            Selling_Price: priceVal,
-            selling_price: priceVal,
             hsn_code: item.hsn_code || "—",
             cgst_rate: Number(item.CGST_Percentage || 0),
             cgst_amount: Number(item.CGST_Amt || 0),
@@ -2850,9 +2856,6 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         ...medicine,
         quantity: qty,
         mrp: finalMrp,
-        price: finalPrice,
-        Selling_Price: finalPrice,
-        selling_price: finalPrice,
         product_value: pricing.productValue,
         taxable_value: pricing.taxableValue,
         cgst_rate: pricing.cgstRate,
@@ -3219,7 +3222,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
       cgst_amount: pricing.cgstAmt,
       sgst_rate: pricing.sgstRate,
       sgst_amount: pricing.sgstAmt,
-      discount_amount: pricing.discAmtOnBase,
+      discount_amount: pricing.totalDiscountOnMrp,
       total: pricing.lineTotal
     };
     setAddedMedicines(updatedMedicines);
@@ -3555,6 +3558,8 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
           const pricing = calculateMedicinePricing(m);
           return {
             item_id: Number(m.item_id),
+            stock_id: m.stock_id || m.id || undefined,
+            outlet_code: m.outlet_code || currentOutletCode,
             item_name: m.name || m.item_name || "",
             batch_number: String(m.batch_number || ""),
             qty: pricing.qty,
@@ -3596,6 +3601,8 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
           const reqQty = Number(m.orig_quantity || m.requested_qty || m.qty || m.quantity || 1);
           return {
             item_id: Number(m.item_id),
+            stock_id: m.stock_id || m.id || undefined,
+            outlet_code: m.outlet_code || currentOutletCode,
             item_name: m.name || m.item_name || "",
             batch_number: String(m.batch_number || ""),
             qty: reqQty,
@@ -3696,15 +3703,19 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         }
 
         // ── Recalculate totals from live frontend state (billable items only) ──
-        const updatedTotalAmount = parseFloat(
-          mappedBillable.reduce((s, m) => s + m.calculated_price, 0).toFixed(2)
+        const updatedGrossAmount = parseFloat(
+          mappedBillable.reduce((s, m) => s + (m.calculated_price || 0), 0).toFixed(2)
         );
 
         const updatedItemDiscount = mappedBillable.reduce((sum, m) => {
           return sum + (m.discount_amount || 0);
         }, 0);
 
-        const baseForOverall = Math.max(0, updatedTotalAmount - updatedItemDiscount);
+        const updatedTotalAmount = parseFloat(
+          Math.max(0, updatedGrossAmount - updatedItemDiscount).toFixed(2)
+        );
+
+        const baseForOverall = Math.max(0, updatedTotalAmount);
         const overallDiscAmtFinal =
           overallDiscountType === "amount"
             ? parseFloat(overallDiscountValue || 0)
@@ -3712,7 +3723,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
         const updatedTotalDiscount = updatedItemDiscount + overallDiscAmtFinal;
         const updatedNetAmount = Math.round(
-          Math.max(0, updatedTotalAmount - updatedTotalDiscount)
+          Math.max(0, updatedTotalAmount - overallDiscAmtFinal)
         );
 
         console.log(
@@ -3794,6 +3805,17 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             finalizeRes.created_date ||
             new Date().toISOString();
 
+          const savedBillDoc = finalizeRes.data?.saved_bill || finalizeRes.saved_bill || null;
+          const dbMeds = (savedBillDoc?.medicine_particulars && savedBillDoc.medicine_particulars.length > 0)
+            ? savedBillDoc.medicine_particulars
+            : mappedBillable;
+          const dbTotal = savedBillDoc?.total_amount != null ? Number(savedBillDoc.total_amount) : updatedTotalAmount;
+          const dbItemDisc = savedBillDoc?.total_item_discount != null ? Number(savedBillDoc.total_item_discount) : updatedItemDiscount;
+          const dbTotDisc = savedBillDoc?.discount_amount != null ? Number(savedBillDoc.discount_amount) : updatedTotalDiscount;
+          const dbNet = savedBillDoc?.net_amount != null ? Number(savedBillDoc.net_amount) : updatedNetAmount;
+          const dbRoundOff = savedBillDoc?.round_off != null ? Number(savedBillDoc.round_off) : parseFloat((updatedNetAmount - (updatedTotalAmount - updatedTotalDiscount)).toFixed(2));
+          const dbPayMode = savedBillDoc?.payment_mode || (isInsuranceFinal ? "Credit" : resolvedPaymentMode);
+
           setPrintBillData({
             billNo: savedBillNo,
             billDate: savedBillDate,
@@ -3807,18 +3829,18 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             inpatientNumber: formData.inpatientNo || formData.inpatient_number || formData.inpatientNumber || "",
             insuranceName: insuranceName || formData.insuranceName || (String(patientType || "").toLowerCase() === "insurance" ? "INSURANCE" : "") || "",
             billTypeName: formData.billTypeName || "OP Pharmacy",
-            medicines: [...mappedBillable],
-            totalAmount: updatedTotalAmount,
-            totalItemDiscount: updatedItemDiscount,
-            discount_amount: updatedTotalDiscount,
-            overallDiscountType,
-            overallDiscountValue,
-            overallDiscountAmount: overallDiscAmtFinal,
-            totalDiscount: updatedTotalDiscount,
-            round_off: parseFloat((updatedNetAmount - (updatedTotalAmount - updatedTotalDiscount)).toFixed(2)),
-            netAmount: updatedNetAmount,
-            payment_mode: isInsuranceFinal ? "Credit" : resolvedPaymentMode,
-            paymentMode: isInsuranceFinal ? "Credit" : resolvedPaymentMode,
+            medicines: [...dbMeds],
+            totalAmount: dbTotal,
+            totalItemDiscount: dbItemDisc,
+            discount_amount: dbTotDisc,
+            overallDiscountType: savedBillDoc?.overall_discount_type || overallDiscountType,
+            overallDiscountValue: savedBillDoc?.overall_discount_value != null ? savedBillDoc.overall_discount_value : overallDiscountValue,
+            overallDiscountAmount: savedBillDoc?.overall_discount_amount != null ? Number(savedBillDoc.overall_discount_amount) : overallDiscAmtFinal,
+            totalDiscount: dbTotDisc,
+            round_off: dbRoundOff,
+            netAmount: dbNet,
+            payment_mode: dbPayMode,
+            paymentMode: dbPayMode,
           });
 
           // ✅ 1. Only for selected_outlet OLET002: Print bill is generated after collecting payment in Cash Counter (not on Save Bill)
@@ -3972,7 +3994,8 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
           : baseForOverallFinal * (parseFloat(overallDiscountValue || 0) / 100);
 
       const totalDiscAmtFinal = totalItemDiscount + overallDiscAmtFinal;
-      const rawNetAmount = Math.max(0, grossTotalAmount - totalDiscAmtFinal);
+      const totalAmountFinal = Math.max(0, grossTotalAmount - totalItemDiscount);
+      const rawNetAmount = Math.max(0, totalAmountFinal - overallDiscAmtFinal);
       const roundedNet = Math.round(rawNetAmount);
       const roundOffValue = parseFloat((roundedNet - rawNetAmount).toFixed(2));
 
@@ -4168,6 +4191,17 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             response.created_date ||
             new Date().toISOString();
 
+          const savedBillDoc = response.data?.saved_bill || response.saved_bill || null;
+          const dbMeds = (savedBillDoc?.medicine_particulars && savedBillDoc.medicine_particulars.length > 0)
+            ? savedBillDoc.medicine_particulars
+            : addedMedicines;
+          const dbTotal = savedBillDoc?.total_amount != null ? Number(savedBillDoc.total_amount) : grossTotalAmount;
+          const dbItemDisc = savedBillDoc?.total_item_discount != null ? Number(savedBillDoc.total_item_discount) : totalItemDiscount;
+          const dbTotDisc = savedBillDoc?.discount_amount != null ? Number(savedBillDoc.discount_amount) : totalDiscAmtFinal;
+          const dbNet = savedBillDoc?.net_amount != null ? Number(savedBillDoc.net_amount) : roundedNet;
+          const dbRoundOff = savedBillDoc?.round_off != null ? Number(savedBillDoc.round_off) : roundOffValue;
+          const dbPayMode = savedBillDoc?.payment_mode || resolvedPaymentMode;
+
           setPrintBillData({
             billNo: savedBillNo,
             billDate: savedBillDate,
@@ -4181,19 +4215,19 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             inpatientNumber: formData.inpatientNo || formData.inpatient_number || formData.inpatientNumber || "",
             insuranceName: insuranceName || formData.insuranceName || (String(patientType || "").toLowerCase() === "insurance" ? "INSURANCE" : "") || "",
             billTypeName: formData.billTypeName || "OP Pharmacy",
-            medicines: [...addedMedicines],
-            totalAmount: grossTotalAmount,
-            totalItemDiscount,
-            discount_amount: totalDiscAmtFinal,
-            overallDiscountType,
-            overallDiscountValue,
-            overallDiscountAmount: overallDiscAmtFinal,
-            totalDiscount: totalDiscAmtFinal,
-            actual_net_amount: rawNetAmount,
-            round_off: roundOffValue,
-            netAmount: roundedNet,
-            payment_mode: resolvedPaymentMode,
-            paymentMode: resolvedPaymentMode,
+            medicines: [...dbMeds],
+            totalAmount: dbTotal,
+            totalItemDiscount: dbItemDisc,
+            discount_amount: dbTotDisc,
+            overallDiscountType: savedBillDoc?.overall_discount_type || overallDiscountType,
+            overallDiscountValue: savedBillDoc?.overall_discount_value != null ? savedBillDoc.overall_discount_value : overallDiscountValue,
+            overallDiscountAmount: savedBillDoc?.overall_discount_amount != null ? Number(savedBillDoc.overall_discount_amount) : overallDiscAmtFinal,
+            totalDiscount: dbTotDisc,
+            actual_net_amount: savedBillDoc?.net_amount != null ? Number(savedBillDoc.net_amount) : rawNetAmount,
+            round_off: dbRoundOff,
+            netAmount: dbNet,
+            payment_mode: dbPayMode,
+            paymentMode: dbPayMode,
           });
 
           // ✅ 1. Only for selected_outlet OLET002: Print bill is generated after collecting payment in Cash Counter
@@ -4444,10 +4478,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         quantity: qty,
         requested_qty: rawQty,
         stock_capped: isCapped,
-        price: price,
         mrp: mrp,
-        Selling_Price: mrp,
-        selling_price: mrp,
         product_value: pricing.productValue,
         taxable_value: pricing.taxableValue,
         hsn_code: stockMatch?.hsn_code || "—",
@@ -4694,10 +4725,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         dispatched_qty: dispQ,
         pending_qty: pendingQ,
         stock_capped: isCapped,
-        price: resolvedPrice,
         mrp: resolvedMrp,
-        selling_price: resolvedPrice,
-        Selling_Price: resolvedPrice,
         calculated_price: pricing.gross,
         product_value: pricing.productValue,
         taxable_value: pricing.taxableValue,
@@ -5110,10 +5138,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         name: resolvedItemName,
         batch_number: m.batch_number || "",
         quantity: rawQty,
-        price: price,
         mrp: mrp,
-        Selling_Price: mrp,
-        selling_price: mrp,
         product_value: pricing.productValue,
         taxable_value: pricing.taxableValue,
         hsn_code: stockMatch?.hsn_code || "—",
@@ -5239,14 +5264,16 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
     return sum + pricing.totalDiscountOnMrp;
   }, 0);
 
-  const baseForOverall = Math.max(0, grossTotalAmount - totalItemDiscount);
+  // Total Amount reflects discounted line totals (Gross - Item Discount)
+  const totalAmount = Math.max(0, grossTotalAmount - totalItemDiscount);
+
+  const baseForOverall = Math.max(0, totalAmount);
   const overallDiscAmt = overallDiscountType === "amount"
     ? parseFloat(overallDiscountValue || 0)
     : baseForOverall * (parseFloat(overallDiscountValue || 0) / 100);
 
   const totalDiscount = totalItemDiscount + overallDiscAmt;
-  const netAmount = Math.max(0, grossTotalAmount - totalDiscount);
-  const totalAmount = grossTotalAmount;
+  const netAmount = Math.max(0, totalAmount - overallDiscAmt);
 
 
 
@@ -5885,7 +5912,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
                                       discount_type: m.discount_type || "percent",
                                       discount_value: dVal,
                                       discount_percent: (m.discount_type || "percent") === "percent" ? dVal : 0,
-                                      discount_amount: pricing.discAmtOnBase,
+                                      discount_amount: pricing.totalDiscountOnMrp,
                                       discount: dVal,
                                       cgst_rate: pricing.cgstRate,
                                       cgst_amount: pricing.cgstAmt,
@@ -5946,7 +5973,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
                                   discount_type: "percent",
                                   discount_value: storedVal,
                                   discount_percent: "%",
-                                  discount_amount: pricing.discAmtOnBase,
+                                  discount_amount: pricing.totalDiscountOnMrp,
                                   discount: storedVal,
                                   product_value: pricing.productValue,
                                   taxable_value: pricing.taxableValue,
@@ -7491,7 +7518,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
                                 <th rowSpan={2} style={{ width: 70, textAlign: "center", padding: 3, color: "#111", fontWeight: 700, fontSize: 10.5 }}>Batch</th>
                                 <th rowSpan={2} style={{ width: 55, textAlign: "center", padding: 3, color: "#111", fontWeight: 700, fontSize: 10.5 }}>Expiry</th>
                                 <th rowSpan={2} style={{ width: 35, textAlign: "center", padding: 3, color: "#111", fontWeight: 700, fontSize: 10.5 }}>Qty</th>
-                                <th rowSpan={2} style={{ width: 55, textAlign: "right", padding: "3px 4px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>Rate</th>
+                                <th rowSpan={2} style={{ width: 55, textAlign: "right", padding: "3px 4px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>MRP</th>
                                 <th colSpan={2} style={{ textAlign: "center", padding: "2px 3px", borderBottom: "1px solid #888", color: "#111", fontWeight: 700, fontSize: 10.5 }}>CGST</th>
                                 <th colSpan={2} style={{ textAlign: "center", padding: "2px 3px", borderBottom: "1px solid #888", color: "#111", fontWeight: 700, fontSize: 10.5 }}>SGST</th>
                                 <th rowSpan={2} style={{ width: 55, textAlign: "right", padding: "3px 4px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>Disc Amt</th>
@@ -7507,24 +7534,28 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
                             <tbody style={{ borderBottom: isLastPage ? "1px solid #111" : "none" }}>
                               {pageMeds.map((m, i) => {
                                 const pricing = calculateMedicinePricing(m);
-                                const rate = pricing.mrp;
-                                const itemDiscAmt = pricing.totalDiscountOnMrp > 0
-                                  ? pricing.totalDiscountOnMrp.toFixed(2)
-                                  : (Number(m.discount_amount || 0) > 0 ? Number(m.discount_amount).toFixed(2) : "0.00");
+                                const rate = Number(m.mrp !== undefined && Number(m.mrp) > 0 ? m.mrp : pricing.mrp);
+                                const qty = Number(m.qty !== undefined ? m.qty : (m.quantity ?? pricing.qty));
+                                const cgstRate = Number(m.CGST_Percentage !== undefined ? m.CGST_Percentage : pricing.cgstRate);
+                                const sgstRate = Number(m.SGST_Percentage !== undefined ? m.SGST_Percentage : pricing.sgstRate);
+                                const cgstAmt = Number(m.CGST_Amt !== undefined ? m.CGST_Amt : (m.cgst_amount ?? pricing.cgstAmt));
+                                const sgstAmt = Number(m.SGST_Amt !== undefined ? m.SGST_Amt : (m.sgst_amount ?? pricing.sgstAmt));
+                                const lineTotal = Number(m.total !== undefined && Number(m.total) > 0 ? m.total : pricing.lineTotal);
+                                const itemDiscAmt = Number(m.discount_amount !== undefined ? m.discount_amount : (pricing.totalDiscountOnMrp > 0 ? pricing.totalDiscountOnMrp : 0));
                                 return (
                                   <tr key={i}>
                                     <td style={{ padding: "2px 4px", fontWeight: 500, maxWidth: 170, wordBreak: "break-word", lineHeight: 1.2 }}>{m.name || m.item_name || "—"}</td>
                                     <td style={{ padding: "2px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{m.hsn_code || "—"}</td>
                                     <td style={{ padding: "2px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{m.batch_number || m.batch || "—"}</td>
                                     <td style={{ padding: "2px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{formatExpiryDate(m.expiry_date || m.expiry)}</td>
-                                    <td style={{ padding: "2px 3px", textAlign: "center", fontWeight: 700 }}>{pricing.qty}</td>
+                                    <td style={{ padding: "2px 3px", textAlign: "center", fontWeight: 700 }}>{qty}</td>
                                     <td style={{ padding: "2px 4px", textAlign: "right", whiteSpace: "nowrap" }}>{rate.toFixed(2)}</td>
-                                    <td style={{ padding: "2px 3px", textAlign: "center" }}>{pricing.cgstRate}</td>
-                                    <td style={{ padding: "2px 3px", textAlign: "right", whiteSpace: "nowrap" }}>{pricing.cgstAmt.toFixed(2)}</td>
-                                    <td style={{ padding: "2px 3px", textAlign: "center" }}>{pricing.sgstRate}</td>
-                                    <td style={{ padding: "2px 3px", textAlign: "right", whiteSpace: "nowrap" }}>{pricing.sgstAmt.toFixed(2)}</td>
-                                    <td style={{ padding: "2px 4px", textAlign: "right", whiteSpace: "nowrap", fontWeight: 600 }}>{itemDiscAmt}</td>
-                                    <td style={{ padding: "2px 4px", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>{pricing.lineTotal.toFixed(2)}</td>
+                                    <td style={{ padding: "2px 3px", textAlign: "center" }}>{cgstRate}</td>
+                                    <td style={{ padding: "2px 3px", textAlign: "right", whiteSpace: "nowrap" }}>{cgstAmt.toFixed(2)}</td>
+                                    <td style={{ padding: "2px 3px", textAlign: "center" }}>{sgstRate}</td>
+                                    <td style={{ padding: "2px 3px", textAlign: "right", whiteSpace: "nowrap" }}>{sgstAmt.toFixed(2)}</td>
+                                    <td style={{ padding: "2px 4px", textAlign: "right", whiteSpace: "nowrap", fontWeight: 600 }}>{itemDiscAmt.toFixed(2)}</td>
+                                    <td style={{ padding: "2px 4px", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>{lineTotal.toFixed(2)}</td>
                                   </tr>
                                 );
                               })}
@@ -7581,13 +7612,13 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
                                   : "";
 
                                 const previewCgst = (activePreviewMeds || []).reduce((sum, m) => {
-                                  const pricing = calculateMedicinePricing(m);
-                                  return sum + (isNaN(pricing.cgstAmt) ? 0 : pricing.cgstAmt);
+                                  const v = Number(m.CGST_Amt ?? m.cgst_amount ?? 0);
+                                  return sum + (isNaN(v) ? 0 : v);
                                 }, 0);
 
                                 const previewSgst = (activePreviewMeds || []).reduce((sum, m) => {
-                                  const pricing = calculateMedicinePricing(m);
-                                  return sum + (isNaN(pricing.sgstAmt) ? 0 : pricing.sgstAmt);
+                                  const v = Number(m.SGST_Amt ?? m.sgst_amount ?? 0);
+                                  return sum + (isNaN(v) ? 0 : v);
                                 }, 0);
 
                                 const previewTax = previewCgst + previewSgst;

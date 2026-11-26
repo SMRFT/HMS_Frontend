@@ -957,7 +957,7 @@ const numberToWords = (num) => {
 // Reverse GST Pharmacy Pricing Calculation Helper
 const calculateMedicinePricing = (item, customQty = null, customDiscVal = null) => {
   const qty = customQty !== null ? (parseFloat(customQty) || 0) : (parseFloat(item?.quantity ?? item?.qty ?? 0) || 0);
-  const mrp = parseFloat(item?.mrp || item?.price || item?.rate || item?.Selling_Price || item?.selling_price || 0);
+  const mrp = parseFloat(item?.mrp || item?.rate || 0);
   const gross = parseFloat((qty * mrp).toFixed(2));
 
   const cgstRate = parseFloat(item?.cgst_rate ?? item?.CGST_Percentage ?? item?.cgst_percentage ?? item?.cgst_pct ?? 2.5);
@@ -2293,7 +2293,7 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                             <th rowSpan={2} style={{ width: 70, textAlign: "center", padding: 3, color: "#111", fontWeight: 700, fontSize: 10.5 }}>Batch</th>
                             <th rowSpan={2} style={{ width: 55, textAlign: "center", padding: 3, color: "#111", fontWeight: 700, fontSize: 10.5 }}>Expiry</th>
                             <th rowSpan={2} style={{ width: 35, textAlign: "center", padding: 3, color: "#111", fontWeight: 700, fontSize: 10.5 }}>Qty</th>
-                            <th rowSpan={2} style={{ width: 55, textAlign: "right", padding: "3px 4px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>Rate</th>
+                            <th rowSpan={2} style={{ width: 55, textAlign: "right", padding: "3px 4px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>MRP</th>
                             <th colSpan={2} style={{ textAlign: "center", padding: "2px 3px", borderBottom: "1px solid #888", color: "#111", fontWeight: 700, fontSize: 10.5 }}>CGST</th>
                             <th colSpan={2} style={{ textAlign: "center", padding: "2px 3px", borderBottom: "1px solid #888", color: "#111", fontWeight: 700, fontSize: 10.5 }}>SGST</th>
                             <th rowSpan={2} style={{ width: 55, textAlign: "right", padding: "3px 4px", color: "#111", fontWeight: 700, fontSize: 10.5 }}>Disc Amt</th>
