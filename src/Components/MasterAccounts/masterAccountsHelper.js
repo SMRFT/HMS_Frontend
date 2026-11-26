@@ -440,3 +440,56 @@ export const ReportPrintFooter = () => (
     </PrintSignatures>
 );
 
+/**
+ * Universal dynamic category & bill type matcher for all Master Accounts reports.
+ * Matches backend bill types, category names, aliases, and keyword groupings.
+ */
+export const matchCategoryOrBillType = (itemCategory, filterVal, itemModule = "") => {
+    if (!filterVal || filterVal === "all" || filterVal === "All" || filterVal === "ALL") return true;
+    if (!itemCategory) return false;
+
+    const itCat = String(itemCategory).trim();
+    const fVal = String(filterVal).trim();
+
+    if (itCat.toLowerCase() === fVal.toLowerCase()) return true;
+
+    // Normalized alphanumeric check (removes punctuation, spaces, brackets, hyphens)
+    const itNorm = itCat.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const fNorm = fVal.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+    if (itNorm === fNorm) return true;
+    if (fNorm.length >= 3 && itNorm.includes(fNorm)) return true;
+    if (itNorm.length >= 3 && fNorm.includes(itNorm)) return true;
+
+    // Check itemModule or type_name
+    if (itemModule) {
+        const modNorm = String(itemModule).toLowerCase().replace(/[^a-z0-9]/g, "");
+        if (modNorm === fNorm || (fNorm.length >= 3 && modNorm.includes(fNorm))) return true;
+    }
+
+    // Keyword tokens check (e.g. "ECG", "LAB", "PHARMACY", "DISCHARGE", "ADVANCE", "XRAY")
+    const fTokens = fVal.toLowerCase().split(/[\s()_/,.-]+/).filter(t => t.length >= 3);
+    const itTokens = itCat.toLowerCase().split(/[\s()_/,.-]+/).filter(t => t.length >= 3);
+    if (fTokens.length > 0 && fTokens.every(t => itCat.toLowerCase().includes(t))) return true;
+    if (itTokens.length > 0 && itTokens.every(t => fVal.toLowerCase().includes(t))) return true;
+
+    // Semantic hospital groupings
+    const fLower = fVal.toLowerCase();
+    const itLower = itCat.toLowerCase();
+    if (fLower.includes("discharge") && itLower.includes("discharge")) return true;
+    if (fLower.includes("registration") && itLower.includes("registration")) return true;
+    if (fLower.includes("pharmacy") && itLower.includes("pharmacy")) return true;
+    if (fLower.includes("admission") && itLower.includes("admission")) return true;
+    if ((fLower.includes("sales return") || fLower.includes("return")) && (itLower.includes("return") || itLower.includes("refund"))) return true;
+    if (fLower.includes("advance") && itLower.includes("advance")) return true;
+    if (fLower.includes("misc") && (itLower.includes("misc") || itLower.includes("expense"))) return true;
+    if (fLower.includes("investigation") && (
+        itLower.includes("lab") || itLower.includes("scan") || itLower.includes("x-ray") || itLower.includes("xray") ||
+        itLower.includes("ecg") || itLower.includes("echo") || itLower.includes("mri") || itLower.includes("pet") ||
+        itLower.includes("dialysis") || itLower.includes("dental") || itLower.includes("procedure")
+    )) return true;
+
+    return false;
+};
+
+

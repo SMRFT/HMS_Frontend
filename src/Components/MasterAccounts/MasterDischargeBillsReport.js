@@ -131,6 +131,18 @@ const MasterDischargeBillsReport = ({
     const bills = getSafeArray(reportData?.data);
     const summary = reportData?.summary || {};
 
+    const categoriesList = useMemo(() => {
+        const set = new Set();
+        bills.forEach(b => {
+            if (b.payment_mode) set.add(String(b.payment_mode).trim());
+            if (b.is_discharge_refund || b.is_refund) set.add("Discharge Refund");
+        });
+        if (set.size === 0) {
+            ["Cash", "Card", "Cheque", "Multiple Payment", "Discharge Refund"].forEach(m => set.add(m));
+        }
+        return Array.from(set).sort();
+    }, [bills]);
+
     const cardMachinesList = useMemo(() => {
         const set = new Set();
         bills.forEach(b => {
@@ -143,11 +155,11 @@ const MasterDischargeBillsReport = ({
     useEffect(() => {
         if (onLoadOptions && reportData) {
             onLoadOptions({
-                categories: ["Cash", "Card", "Cheque", "Multiple Payment", "Discharge Refund"],
+                categories: categoriesList,
                 cardMachines: cardMachinesList
             });
         }
-    }, [onLoadOptions, cardMachinesList, reportData]);
+    }, [onLoadOptions, categoriesList, cardMachinesList, reportData]);
 
     /* Search & Payment Mode & Card Machine filter */
     const filtered = useMemo(() => {

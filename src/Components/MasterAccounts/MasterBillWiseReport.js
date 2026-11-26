@@ -21,7 +21,8 @@ import {
     KPICard,
     DataTableWrapper,
     ReportPrintHeader,
-    ReportPrintFooter
+    ReportPrintFooter,
+    matchCategoryOrBillType
 } from "./masterAccountsHelper";
 
 const { RangePicker } = DatePicker;
@@ -248,9 +249,9 @@ const MasterBillWiseReport = ({
     const categoryList = useMemo(() => {
         const set = new Set();
         bills.forEach(b => {
-            if (b.category) set.add(b.category);
+            if (b.category) set.add(String(b.category).trim());
         });
-        return Array.from(set);
+        return Array.from(set).sort();
     }, [bills]);
 
     const cardTypeList = useMemo(() => {
@@ -283,40 +284,8 @@ const MasterBillWiseReport = ({
     /* Filter by category, card type, card machine and search */
     const filtered = useMemo(() => {
         let list = bills;
-        if (selectedCategory && selectedCategory !== "all" && selectedCategory !== "All") {
-            const catLower = selectedCategory.toLowerCase().trim();
-            const catNorm = catLower.replace(/[\s()_-]/g, "");
-            list = list.filter(b => {
-                const bCat = String(b.category || "").toLowerCase().trim();
-                if (!bCat) return false;
-                const bNorm = bCat.replace(/[\s()_-]/g, "");
-                const bMod = String(b.module || b.bill_type_name || "").toLowerCase().trim();
-
-                // Exact match
-                if (bCat === catLower || bNorm === catNorm) return true;
-
-                // Substring match for substantial tokens (>= 3 chars)
-                if (catNorm.length >= 3 && bNorm.includes(catNorm)) return true;
-                if (bNorm.length >= 3 && catNorm.includes(bNorm)) return true;
-                if (bMod && catNorm.length >= 3 && bMod.replace(/[\s()_-]/g, "").includes(catNorm)) return true;
-
-                // Keyword-based classification
-                if (catLower === "discharge" && bCat.includes("discharge")) return true;
-                if (catLower === "registration" && bCat.includes("registration")) return true;
-                if (catLower === "pharmacy" && bCat.includes("pharmacy")) return true;
-                if (catLower === "admission" && bCat.includes("admission")) return true;
-                if ((catLower === "sales return" || catLower === "salesreturn") && (bCat.includes("sales return") || bCat.includes("salesreturn") || b.is_sales_return)) return true;
-                if (catLower.includes("advance") && bCat.includes("advance")) return true;
-                if (catLower.includes("misc") && (bCat.includes("misc") || bCat.includes("expense"))) return true;
-                if (catLower.includes("investigation") && (
-                    bCat.includes("lab") || bCat.includes("scan") || bCat.includes("x-ray") || 
-                    bCat.includes("ecg") || bCat.includes("echo") || bCat.includes("mri") || 
-                    bCat.includes("pet") || bCat.includes("dialysis") || bCat.includes("dental") || 
-                    bCat.includes("procedure") || bCat.includes("pulmonology") || bCat.includes("cardiology")
-                )) return true;
-
-                return false;
-            });
+        if (selectedCategory && selectedCategory.toLowerCase() !== "all") {
+            list = list.filter(b => matchCategoryOrBillType(b.category, selectedCategory, b.module || b.bill_type_name));
         }
         if (selectedCardType !== "all") {
             const ctFilter = selectedCardType.toLowerCase().trim();

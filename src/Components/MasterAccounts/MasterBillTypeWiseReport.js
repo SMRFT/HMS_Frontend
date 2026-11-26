@@ -33,7 +33,8 @@ const MasterBillTypeWiseReport = ({
     outlet: propOutlet,
     initialOutlet = "all",
     billType: propBillType,
-    category: propCategory
+    category: propCategory,
+    onLoadOptions
 }) => {
     const HmsBaseUrl = process.env.REACT_APP_BACKEND_HMS_BASE_URL;
     const [dateRange, setDateRange] = useState([
@@ -102,6 +103,15 @@ const MasterBillTypeWiseReport = ({
 
     const billTypes = getSafeArray(reportData?.data);
     const summary = reportData?.summary || {};
+
+    useEffect(() => {
+        if (onLoadOptions && billTypes && billTypes.length > 0) {
+            const cats = Array.from(new Set(billTypes.map(d => d.bill_type || d.category || d.department).filter(Boolean))).sort();
+            onLoadOptions({
+                categories: cats
+            });
+        }
+    }, [onLoadOptions, billTypes]);
 
     const totalCash = billTypes.reduce((a, x) => a + cleanNum(x.cash), 0);
     const totalCard = billTypes.reduce((a, x) => a + cleanNum(x.card), 0);

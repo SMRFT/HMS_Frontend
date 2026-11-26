@@ -19,7 +19,8 @@ import {
     KPICard,
     DataTableWrapper,
     ReportPrintHeader,
-    ReportPrintFooter
+    ReportPrintFooter,
+    matchCategoryOrBillType
 } from "./masterAccountsHelper";
 
 const { RangePicker } = DatePicker;
@@ -229,16 +230,7 @@ const MasterCreditCardReport = ({
 
             (dGroup.sections || []).forEach(sec => {
                 if (filterVal !== "all") {
-                    const secCat = (sec.category || "").toLowerCase().trim();
-                    const filterNorm = filterVal.replace(/[\s()_-]/g, "");
-                    const secNorm = secCat.replace(/[\s()_-]/g, "");
-
-                    const matches = secCat === filterVal ||
-                        secNorm === filterNorm ||
-                        secNorm.includes(filterNorm) ||
-                        filterNorm.includes(secNorm);
-
-                    if (!matches) {
+                    if (!matchCategoryOrBillType(sec.category, filterVal)) {
                         return;
                     }
                 }

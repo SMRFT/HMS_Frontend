@@ -537,15 +537,17 @@ const MasterAccountsDashboard = () => {
 
     const handleLoadOptions = useCallback(({ categories, cardMachines }) => {
         if (Array.isArray(categories) && categories.length > 0) {
+            const uniqueCats = Array.from(new Set(categories.map(c => typeof c === "string" ? c.trim() : (c.bill_name || c.category || c.name || String(c)).trim()))).filter(Boolean).sort();
             setReportCategories(prev => {
-                if (prev.length === categories.length && prev.every((v, i) => v === categories[i])) return prev;
-                return categories;
+                if (prev.length === uniqueCats.length && prev.every((v, i) => v === uniqueCats[i])) return prev;
+                return uniqueCats;
             });
         }
         if (Array.isArray(cardMachines) && cardMachines.length > 0) {
+            const uniqueMachines = Array.from(new Set(cardMachines.map(m => String(m).trim()))).filter(Boolean).sort();
             setReportCardMachines(prev => {
-                if (prev.length === cardMachines.length && prev.every((v, i) => v === cardMachines[i])) return prev;
-                return cardMachines;
+                if (prev.length === uniqueMachines.length && prev.every((v, i) => v === uniqueMachines[i])) return prev;
+                return uniqueMachines;
             });
         }
     }, []);
@@ -1088,6 +1090,7 @@ const MasterAccountsDashboard = () => {
 
     const handleOpenModal = (report) => {
         setActiveModalReport(report);
+        setBillType("All");
         setCardMachine("all");
         setReportCategories([]);
         setReportCardMachines([]);
@@ -1156,7 +1159,7 @@ const MasterAccountsDashboard = () => {
         return (
             <Suspense fallback={<div style={{ padding: "80px", textAlign: "center" }}><Spin size="large" /></div>}>
                 <Component
-                    key={`${activeModalReport.id}-${dateRange[0]?.format('YYYY-MM-DD')}-${dateRange[1]?.format('YYYY-MM-DD')}-${selectedOutlet}-${selectedFloor}-${selectedCompany}`}
+                    key={`${activeModalReport.id}-${dateRange[0]?.format('YYYY-MM-DD')}-${dateRange[1]?.format('YYYY-MM-DD')}-${selectedOutlet}-${selectedFloor}-${selectedCompany}-${billType}-${cardMachine}`}
                     isModalView={true}
                     startDate={dateRange[0]?.format("YYYY-MM-DD")}
                     endDate={dateRange[1]?.format("YYYY-MM-DD")}
