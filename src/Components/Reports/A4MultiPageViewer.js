@@ -762,6 +762,9 @@ const A4MultiPageViewer = ({
     setSelectedCardMachine,
     availableCategories = [],
     availableCardMachines = [],
+    selectedDoctor = "all",
+    setSelectedDoctor,
+    availableDoctors = [],
     isMaximized,
     setIsMaximized,
     onClose,
@@ -782,6 +785,7 @@ const A4MultiPageViewer = ({
     const [tempFloor, setTempFloor] = useState(selectedFloor || "all");
     const [tempCompany, setTempCompany] = useState(selectedCompany || "all");
     const [tempCardMachine, setTempCardMachine] = useState(cardMachine || selectedCardMachine || "all");
+    const [tempDoctor, setTempDoctor] = useState(selectedDoctor || "all");
 
     const scrollAreaRef = useRef(null);
     const rawContainerRef = useRef(null);
@@ -804,7 +808,8 @@ const A4MultiPageViewer = ({
         if (selectedCompany !== undefined) setTempCompany(selectedCompany);
         const cm = cardMachine || selectedCardMachine;
         if (cm !== undefined) setTempCardMachine(cm);
-    }, [dateRange, selectedOutlet, billType, selectedFloor, selectedCompany, cardMachine, selectedCardMachine]);
+        if (selectedDoctor !== undefined) setTempDoctor(selectedDoctor);
+    }, [dateRange, selectedOutlet, billType, selectedFloor, selectedCompany, cardMachine, selectedCardMachine, selectedDoctor]);
 
     // ─── DYNAMIC PAGINATION ENGINE ───────────────────────────────────────────
     useEffect(() => {
@@ -906,6 +911,9 @@ const A4MultiPageViewer = ({
         if (setSelectedCardMachine) {
             setSelectedCardMachine(tempCardMachine);
         }
+        if (setSelectedDoctor) {
+            setSelectedDoctor(tempDoctor);
+        }
     };
 
     // ─── EXPORT ACTIONS ──────────────────────────────────────────────────────
@@ -970,7 +978,7 @@ const A4MultiPageViewer = ({
     ].includes(String(selectedReport?.id)) || [
         "/AdvanceRegistration", "/AdvanceRegistrationInsurence", "/IPAdvanceReport", "/DischargeBillsDetailed"
     ].includes(selectedReport?.route);
-    const isCategoryReport = ["bill_wise", "credit_card", "cash_bills", "discount_bills", "sales_tax_register", "sales_tax_reg", "daywise_sales_tax_register", "daywise_sales_tax", "collection_summary", "bill_cancel", "discharge_bills", "admission_vs_discharge", "misc_payment", "sales_return", "insurance_advance", "department_wise", "bill_type_wise"].includes(selectedReport?.id);
+    const isCategoryReport = ["bill_wise", "credit_card", "cash_bills", "discount_bills", "sales_tax_register", "sales_tax_reg", "daywise_sales_tax_register", "daywise_sales_tax", "collection_summary", "bill_cancel", "discharge_bills", "admission_vs_discharge", "misc_payment", "sales_return", "insurance_advance", "department_wise", "bill_type_wise", "doctor_revenue"].includes(selectedReport?.id);
     const isCardReport = [
         "bill_wise", "credit_card", "cashier_wise_detailed", "cash_bills", "discharge_bills", "advance_reg", "unified_accounts", "shift_basis", "accounts_ledger"
     ].includes(String(selectedReport?.id)) || [
@@ -1161,6 +1169,27 @@ const A4MultiPageViewer = ({
                                 {outlets.map((o) => (
                                     <option key={o.outlet_code || o.outlet_id || o.id} value={o.outlet_code || o.outlet_id}>
                                         {o.outlet_name || o.name} ({o.outlet_code || o.outlet_id})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+
+                    {selectedReport?.id === "doctor_revenue" && (
+                        <div className="filter-item">
+                            <span className="filter-label">Doctor:</span>
+                            <select
+                                value={tempDoctor}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setTempDoctor(val);
+                                    if (setSelectedDoctor) setSelectedDoctor(val);
+                                }}
+                            >
+                                <option value="all">All Doctors ({availableDoctors.length})</option>
+                                {availableDoctors.map((d, idx) => (
+                                    <option key={`${d.doctor_id}-${idx}`} value={d.doctor_id}>
+                                        {d.doctor_name}
                                     </option>
                                 ))}
                             </select>

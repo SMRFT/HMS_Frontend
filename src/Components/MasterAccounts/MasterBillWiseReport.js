@@ -404,6 +404,7 @@ const MasterBillWiseReport = ({
                 let secExpPaid = 0;
                 let secCash = 0;
                 let secCard = 0;
+                let secCredit = 0;
                 let secNet = 0;
 
                 // Sort items in ascending bill number order
@@ -421,11 +422,13 @@ const MasterBillWiseReport = ({
                     const netAmt = isSR ? -srAmt : isExp ? -expAmt : cleanNum(b.gross || ((b.cash || 0) + (b.bank || 0) + (b.credit || 0)));
                     const cashAmt = isSR && srAmt > 0 ? -srAmt : isExp && expAmt > 0 ? -expAmt : cleanNum(b.cash);
                     const cardAmt = cleanNum(b.bank);
+                    const creditAmt = cleanNum(b.credit);
 
                     secSalesRet += srAmt;
                     secExpPaid += expAmt;
                     secCash += cashAmt;
                     secCard += cardAmt;
+                    secCredit += creditAmt;
                     secNet += netAmt;
 
                     return {
@@ -438,6 +441,7 @@ const MasterBillWiseReport = ({
                         netAmt,
                         cashAmt,
                         cardAmt,
+                        creditAmt,
                         timeStr: extractTime(b.date)
                     };
                 });
@@ -449,6 +453,7 @@ const MasterBillWiseReport = ({
                     totalExpPaid: secExpPaid,
                     totalCash: secCash,
                     totalCard: secCard,
+                    totalCredit: secCredit,
                     totalNet: secNet,
                     count: enrichedItems.length
                 });
@@ -494,6 +499,7 @@ const MasterBillWiseReport = ({
                 "Expense Payment (₹)": "",
                 "Cash (₹)": "",
                 "Card / POS (₹)": "",
+                "Credit / Scheme (₹)": "",
                 "Net Amount (₹)": ""
             });
 
@@ -510,6 +516,7 @@ const MasterBillWiseReport = ({
                     "Expense Payment (₹)": "",
                     "Cash (₹)": "",
                     "Card / POS (₹)": "",
+                    "Credit / Scheme (₹)": "",
                     "Net Amount (₹)": ""
                 });
 
@@ -526,6 +533,7 @@ const MasterBillWiseReport = ({
                         "Expense Payment (₹)": it.expAmt > 0 ? -it.expAmt : 0,
                         "Cash (₹)": it.cashAmt,
                         "Card / POS (₹)": it.cardAmt,
+                        "Credit / Scheme (₹)": it.creditAmt,
                         "Net Amount (₹)": it.netAmt
                     });
                 });
@@ -542,6 +550,7 @@ const MasterBillWiseReport = ({
                     "Expense Payment (₹)": sec.totalExpPaid > 0 ? -sec.totalExpPaid : 0,
                     "Cash (₹)": sec.totalCash,
                     "Card / POS (₹)": sec.totalCard,
+                    "Credit / Scheme (₹)": sec.totalCredit,
                     "Net Amount (₹)": sec.totalNet
                 });
             });
@@ -559,6 +568,7 @@ const MasterBillWiseReport = ({
             "Expense Payment (₹)": totals.expPaid > 0 ? -totals.expPaid : 0,
             "Cash (₹)": totals.cashIn - totals.salesRet - totals.expPaid,
             "Card / POS (₹)": totals.cardIn,
+            "Credit / Scheme (₹)": totals.creditIn,
             "Net Amount (₹)": totals.netRev
         });
 
@@ -726,13 +736,14 @@ const MasterBillWiseReport = ({
                                     <th style={{ width: "8.5%", color: "#d97706" }} className="text-right">Expense Payment (₹)</th>
                                     <th style={{ width: "8%" }} className="text-right">Cash (₹)</th>
                                     <th style={{ width: "8%" }} className="text-right">Card / POS (₹)</th>
+                                    <th style={{ width: "8%", color: "#7c3aed" }} className="text-right">Credit / Scheme (₹)</th>
                                     <th style={{ width: "8.5%" }} className="text-right">Net Amount (₹)</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {groupedData.length === 0 ? (
                                     <tr>
-                                        <td colSpan={12} style={{ textAlign: "center", padding: "35px", color: "#64748b" }}>
+                                        <td colSpan={13} style={{ textAlign: "center", padding: "35px", color: "#64748b" }}>
                                             No billing records found for the selected criteria.
                                         </td>
                                     </tr>
@@ -741,7 +752,7 @@ const MasterBillWiseReport = ({
                                         <React.Fragment key={dg.date}>
                                             {/* Date Header Row */}
                                             <DateHeaderTr className="DateGroup date-group">
-                                                <td colSpan={12} style={{ padding: "4px 8px", background: "#f1f5f9", fontWeight: 700 }}>
+                                                <td colSpan={13} style={{ padding: "4px 8px", background: "#f1f5f9", fontWeight: 700 }}>
                                                     Date : {dg.date}
                                                 </td>
                                             </DateHeaderTr>
@@ -751,7 +762,7 @@ const MasterBillWiseReport = ({
                                                 <React.Fragment key={`${dg.date}-${sec.category}`}>
                                                     {/* Category Header Row */}
                                                     <SectionHeaderTr className="SectionHeader section-header">
-                                                        <td colSpan={12} style={{ padding: "4px 8px", background: "#e2e8f0", fontWeight: 800 }}>
+                                                        <td colSpan={13} style={{ padding: "4px 8px", background: "#e2e8f0", fontWeight: 800 }}>
                                                             {sec.category}
                                                         </td>
                                                     </SectionHeaderTr>
@@ -836,6 +847,9 @@ const MasterBillWiseReport = ({
                                                                 <td className="text-right font-mono font-bold" style={{ fontSize: "0.92rem", color: cleanNum(it.bank) > 0 ? "#2563eb" : "#0f172a" }}>
                                                                     {formatINR(it.bank)}
                                                                 </td>
+                                                                <td className="text-right font-mono font-bold" style={{ fontSize: "0.92rem", color: cleanNum(it.credit) > 0 ? "#7c3aed" : "#64748b" }}>
+                                                                    {formatINR(it.credit)}
+                                                                </td>
                                                                 <td className="text-right font-mono font-bold" style={{ color: it.netAmt < 0 ? "#dc2626" : "#0284c7", fontSize: "0.94rem" }}>
                                                                     {formatINR(it.netAmt)}
                                                                 </td>
@@ -859,6 +873,9 @@ const MasterBillWiseReport = ({
                                                         </td>
                                                         <td className="text-right font-mono font-bold" style={{ fontSize: "0.95rem", color: "#2563eb" }}>
                                                             {formatINR(sec.totalCard)}
+                                                        </td>
+                                                        <td className="text-right font-mono font-bold" style={{ fontSize: "0.95rem", color: "#7c3aed" }}>
+                                                            {formatINR(sec.totalCredit)}
                                                         </td>
                                                         <td className="text-right font-mono font-bold" style={{ color: sec.totalNet < 0 ? "#dc2626" : "#0284c7", fontSize: "0.98rem" }}>
                                                             {sec.totalNet < 0 ? `-₹${formatINR(Math.abs(sec.totalNet))}` : formatINR(sec.totalNet)}
@@ -887,6 +904,9 @@ const MasterBillWiseReport = ({
                                         </td>
                                         <td className="text-right font-mono font-bold" style={{ color: "#000000", fontSize: "1.05rem" }}>
                                             {formatINR(totals.cardIn)}
+                                        </td>
+                                        <td className="text-right font-mono font-bold" style={{ color: "#7c3aed", fontSize: "1.05rem" }}>
+                                            {formatINR(totals.creditIn)}
                                         </td>
                                         <td className="text-right font-mono font-bold" style={{ color: totals.netRev < 0 ? "#dc2626" : "#000000", fontSize: "1.08rem" }}>
                                             {formatINR(totals.netRev)}

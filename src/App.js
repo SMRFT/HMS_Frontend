@@ -231,6 +231,7 @@ import MasterCreditCardReport from "./Components/MasterAccounts/MasterCreditCard
 import MasterDatewiseSummaryReport from "./Components/MasterAccounts/MasterDatewiseSummaryReport";
 import MasterDepartmentWiseReport from "./Components/MasterAccounts/MasterDepartmentWiseReport";
 import MasterBillTypeWiseReport from "./Components/MasterAccounts/MasterBillTypeWiseReport";
+import MasterDoctorRevenueReport from "./Components/MasterAccounts/MasterDoctorRevenueReport";
 import MasterAdvanceRegistration from "./Components/MasterAccounts/MasterAdvanceRegistration";
 import MasterInsuranceAdvanceReport from "./Components/MasterAccounts/MasterInsuranceAdvanceReport";
 import MasterIPAdvanceReport from "./Components/MasterAccounts/MasterIPAdvanceReport";
@@ -242,6 +243,7 @@ import MasterDiscountBillsReport from "./Components/MasterAccounts/MasterDiscoun
 import MasterBillCancelReport from "./Components/MasterAccounts/MasterBillCancelReport";
 import MasterAccountsAuditReport from "./Components/MasterAccounts/MasterAccountsAuditReport";
 import MasterBillWiseReport from "./Components/MasterAccounts/MasterBillWiseReport";
+import MasterAllConsolidatedBillReport from "./Components/MasterAccounts/MasterAllConsolidatedBillReport";
 import MasterMiscPaymentReport from "./Components/MasterAccounts/MasterMiscPaymentReport";
 import MasterSalesTaxRegister from "./Components/MasterAccounts/MasterSalesTaxRegister";
 import MasterDaywiseSalesTaxRegister from "./Components/MasterAccounts/MasterDaywiseSalesTaxRegister";
@@ -1943,6 +1945,7 @@ function App() {
               <Route path="/MasterDatewiseSummaryReport" element={<MasterDatewiseSummaryReport />} />
               <Route path="/MasterDepartmentWiseReport" element={<MasterDepartmentWiseReport />} />
               <Route path="/MasterBillTypeWiseReport" element={<MasterBillTypeWiseReport />} />
+              <Route path="/MasterDoctorRevenueReport" element={<MasterDoctorRevenueReport />} />
               <Route path="/MasterAdvanceRegistration" element={<MasterAdvanceRegistration />} />
               <Route path="/MasterInsuranceAdvanceReport" element={<MasterInsuranceAdvanceReport />} />
               <Route path="/MasterIPAdvanceReport" element={<MasterIPAdvanceReport />} />
@@ -1954,6 +1957,7 @@ function App() {
               <Route path="/MasterBillCancelReport" element={<MasterBillCancelReport />} />
               <Route path="/MasterAccountsAuditReport" element={<MasterAccountsAuditReport />} />
               <Route path="/MasterBillWiseReport" element={<MasterBillWiseReport />} />
+              <Route path="/MasterAllConsolidatedBillReport" element={<MasterAllConsolidatedBillReport />} />
               <Route path="/MasterMiscPaymentReport" element={<MasterMiscPaymentReport />} />
               <Route path="/MasterSalesTaxRegister" element={<MasterSalesTaxRegister />} />
               <Route path="/MasterDaywiseSalesTaxRegister" element={<MasterDaywiseSalesTaxRegister />} />
