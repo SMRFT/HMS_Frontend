@@ -568,7 +568,12 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
                         'HSN': it.hsn,
                         'Batch': it.batch,
                         'Expiry': it.expiry,
-                        'Rate': Number(it.amount || 0).toFixed(2),
+                        'MRP (Per Unit)': (() => {
+                            const q = Number(it.qty || 0);
+                            const a = Number(it.amount || 0);
+                            const u = Number(it.mrp ?? it.rate ?? it.price ?? (q > 0 ? a / q : 0));
+                            return (q > 1 && Math.abs(u - a) < 0.01 ? a / q : u).toFixed(2);
+                        })(),
                         'CGST %': it.cgst_pct,
                         'CGST': it.cgst_amt,
                         'SGST %': it.sgst_pct,
@@ -906,7 +911,7 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
                                 <th style={{ width: '70px', textAlign: 'center' }} className="text-center">HSN</th>
                                 <th style={{ width: '95px', textAlign: 'left' }} className="text-left">Batch</th>
                                 <th style={{ width: '85px', textAlign: 'center' }} className="text-center">Expiry</th>
-                                <th style={{ width: '90px', textAlign: 'right' }} className="text-right">Rate</th>
+                                <th style={{ width: '95px', textAlign: 'right' }} className="text-right">MRP (Per Unit)</th>
                                 <th style={{ width: '55px', textAlign: 'center' }} className="text-center">CGST %</th>
                                 <th style={{ width: '65px', textAlign: 'right' }} className="text-right">CGST</th>
                                 <th style={{ width: '55px', textAlign: 'center' }} className="text-center">SGST %</th>
@@ -953,6 +958,9 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
                                                 const cgstVal = it.cgst_amt ?? it.cgst ?? 0;
                                                 const sgstVal = it.sgst_amt ?? it.sgst ?? 0;
                                                 const itAmt = Number(it.amount || 0);
+                                                const itQty = Number(it.qty || 0);
+                                                const rawUnit = Number(it.mrp ?? it.rate ?? it.price ?? (itQty > 0 ? itAmt / itQty : 0));
+                                                const unitRate = (itQty > 1 && Math.abs(rawUnit - itAmt) < 0.01) ? itAmt / itQty : rawUnit;
                                                 return (
                                                     <tr key={iIdx}>
                                                         <td className="text-center" style={{ textAlign: 'center' }}>{it.qty}</td>
@@ -960,7 +968,7 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
                                                         <td className="text-center" style={{ textAlign: 'center' }}>{it.hsn || '-'}</td>
                                                         <td className="text-left" style={{ textAlign: 'left' }}>{it.batch || '-'}</td>
                                                         <td className="text-center" style={{ textAlign: 'center' }}>{it.expiry || '-'}</td>
-                                                        <td className="text-right" style={{ textAlign: 'right', fontWeight: 800 }}>{itAmt.toFixed(2)}</td>
+                                                        <td className="text-right" style={{ textAlign: 'right', fontWeight: 800 }}>{unitRate.toFixed(2)}</td>
                                                         <td className="text-center" style={{ textAlign: 'center' }}>{it.cgst_pct ?? '-'}</td>
                                                         <td className="text-right" style={{ textAlign: 'right', fontWeight: 800 }}>{Number(cgstVal || 0).toFixed(2)}</td>
                                                         <td className="text-center" style={{ textAlign: 'center' }}>{it.sgst_pct ?? '-'}</td>

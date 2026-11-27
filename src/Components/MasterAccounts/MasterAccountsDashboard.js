@@ -32,7 +32,8 @@ import {
     Receipt,
     Layers,
     Building2,
-    BedDouble
+    BedDouble,
+    Stethoscope
 } from "lucide-react";
 import apiRequest from "../../Auth/apiRequest";
 import { fetchCachedOutlets, cachedApiRequest } from "./masterAccountsHelper";
@@ -50,6 +51,7 @@ const MasterCreditCardReport = lazy(() => import("./MasterCreditCardReport"));
 const MasterDatewiseSummaryReport = lazy(() => import("./MasterDatewiseSummaryReport"));
 const MasterDepartmentWiseReport = lazy(() => import("./MasterDepartmentWiseReport"));
 const MasterBillTypeWiseReport = lazy(() => import("./MasterBillTypeWiseReport"));
+const MasterDoctorRevenueReport = lazy(() => import("./MasterDoctorRevenueReport"));
 const MasterAdvanceRegistration = lazy(() => import("./MasterAdvanceRegistration"));
 const MasterInsuranceAdvanceReport = lazy(() => import("./MasterInsuranceAdvanceReport"));
 const MasterIPAdvanceReport = lazy(() => import("./MasterIPAdvanceReport"));
@@ -61,6 +63,7 @@ const MasterDiscountBillsReport = lazy(() => import("./MasterDiscountBillsReport
 const MasterBillCancelReport = lazy(() => import("./MasterBillCancelReport"));
 const MasterAccountsAuditReport = lazy(() => import("./MasterAccountsAuditReport"));
 const MasterBillWiseReport = lazy(() => import("./MasterBillWiseReport"));
+const MasterAllConsolidatedBillReport = lazy(() => import("./MasterAllConsolidatedBillReport"));
 const MasterMiscPaymentReport = lazy(() => import("./MasterMiscPaymentReport"));
 const MasterSalesTaxRegister = lazy(() => import("./MasterSalesTaxRegister"));
 const MasterDaywiseSalesTaxRegister = lazy(() => import("./MasterDaywiseSalesTaxRegister"));
@@ -534,8 +537,10 @@ const MasterAccountsDashboard = () => {
     const [isMaximized, setIsMaximized] = useState(false);
     const [reportCategories, setReportCategories] = useState([]);
     const [reportCardMachines, setReportCardMachines] = useState([]);
+    const [selectedDoctor, setSelectedDoctor] = useState("all");
+    const [reportDoctors, setReportDoctors] = useState([]);
 
-    const handleLoadOptions = useCallback(({ categories, cardMachines }) => {
+    const handleLoadOptions = useCallback(({ categories, cardMachines, doctors }) => {
         if (Array.isArray(categories) && categories.length > 0) {
             const uniqueCats = Array.from(new Set(categories.map(c => typeof c === "string" ? c.trim() : (c.bill_name || c.category || c.name || String(c)).trim()))).filter(Boolean).sort();
             setReportCategories(prev => {
@@ -548,6 +553,12 @@ const MasterAccountsDashboard = () => {
             setReportCardMachines(prev => {
                 if (prev.length === uniqueMachines.length && prev.every((v, i) => v === uniqueMachines[i])) return prev;
                 return uniqueMachines;
+            });
+        }
+        if (Array.isArray(doctors) && doctors.length > 0) {
+            setReportDoctors(prev => {
+                if (prev.length === doctors.length && prev.every((v, i) => v.doctor_id === doctors[i].doctor_id)) return prev;
+                return doctors;
             });
         }
     }, []);
@@ -692,6 +703,17 @@ const MasterAccountsDashboard = () => {
             component: MasterBillTypeWiseReport,
             fullPageRoute: "/MasterBillTypeWiseReport"
         },
+        {
+            id: "doctor_revenue",
+            title: "Doctor Revenue Report",
+            category: "Digital & Dept",
+            cluster: "digital_dept",
+            description: "Date-wise detailed bills analysis grouped by Doctor and Bill Type with purchase value deduction and payment mode/company.",
+            icon: <Stethoscope size={24} />,
+            color: "#6366f1",
+            component: MasterDoctorRevenueReport,
+            fullPageRoute: "/MasterDoctorRevenueReport"
+        },
 
         // Cluster 3: IP Admissions & Advances
         {
@@ -817,6 +839,17 @@ const MasterAccountsDashboard = () => {
             color: "#475569",
             component: MasterBillWiseReport,
             fullPageRoute: "/MasterBillWiseReport"
+        },
+        {
+            id: "all_consolidated_bills",
+            title: "All Consolidated Bill Report",
+            category: "Audit & Sundry",
+            cluster: "audit_sundry",
+            description: "Consolidated view of all bills across Paid, Pending, Cancel, Return, and Refund statuses.",
+            icon: <FileText size={24} />,
+            color: "#0f766e",
+            component: MasterAllConsolidatedBillReport,
+            fullPageRoute: "/MasterAllConsolidatedBillReport"
         },
         {
             id: "misc_payment",
@@ -1058,7 +1091,10 @@ const MasterAccountsDashboard = () => {
                     userReportPerms[normRoute] ||
                     (legacyRoute && userReportPerms[legacyRoute]) ||
                     userReportPerms[r.title] ||
-                    userReportPerms[r.id]
+                    userReportPerms[r.id] ||
+                    (r.id === "doctor_revenue" &&
+                        userReportPerms[route] === undefined &&
+                        (userReportPerms["/MasterBillTypeWiseReport"] || userReportPerms["/MasterDepartmentWiseReport"]))
                 );
                 if (!isAllowed) return false;
             } else if (userReportPerms && typeof userReportPerms === "object" && Object.keys(userReportPerms).length > 0) {
@@ -1070,7 +1106,10 @@ const MasterAccountsDashboard = () => {
                     userReportPerms[normRoute] ||
                     (legacyRoute && userReportPerms[legacyRoute]) ||
                     userReportPerms[r.title] ||
-                    userReportPerms[r.id]
+                    userReportPerms[r.id] ||
+                    (r.id === "doctor_revenue" &&
+                        userReportPerms[route] === undefined &&
+                        (userReportPerms["/MasterBillTypeWiseReport"] || userReportPerms["/MasterDepartmentWiseReport"]))
                 );
                 if (!isAllowed) return false;
             }
@@ -1094,6 +1133,8 @@ const MasterAccountsDashboard = () => {
         setCardMachine("all");
         setReportCategories([]);
         setReportCardMachines([]);
+        setSelectedDoctor("all");
+        setReportDoctors([]);
         if (report.id === "ip_advance") {
             setDateRange([dayjs(), dayjs()]);
             setSelectedFloor("all");
@@ -1159,7 +1200,7 @@ const MasterAccountsDashboard = () => {
         return (
             <Suspense fallback={<div style={{ padding: "80px", textAlign: "center" }}><Spin size="large" /></div>}>
                 <Component
-                    key={`${activeModalReport.id}-${dateRange[0]?.format('YYYY-MM-DD')}-${dateRange[1]?.format('YYYY-MM-DD')}-${selectedOutlet}-${selectedFloor}-${selectedCompany}-${billType}-${cardMachine}`}
+                    key={`${activeModalReport.id}-${dateRange[0]?.format('YYYY-MM-DD')}-${dateRange[1]?.format('YYYY-MM-DD')}-${selectedOutlet}-${selectedFloor}-${selectedCompany}-${billType}-${cardMachine}-${selectedDoctor}`}
                     isModalView={true}
                     startDate={dateRange[0]?.format("YYYY-MM-DD")}
                     endDate={dateRange[1]?.format("YYYY-MM-DD")}
@@ -1179,6 +1220,7 @@ const MasterAccountsDashboard = () => {
                     initialFloor={selectedFloor}
                     company={selectedCompany}
                     initialCompany={selectedCompany}
+                    doctor={selectedDoctor}
                     cardMachine={cardMachine}
                     selectedCardMachine={cardMachine}
                     setCardMachine={setCardMachine}
@@ -1692,6 +1734,9 @@ const MasterAccountsDashboard = () => {
                             ? reportCardMachines
                             : ["Paytm", "PNB", "Bajaj", "360 POS", "POS"]
                     }
+                    selectedDoctor={selectedDoctor}
+                    setSelectedDoctor={setSelectedDoctor}
+                    availableDoctors={reportDoctors}
                     isMaximized={isMaximized}
                     setIsMaximized={setIsMaximized}
                     onClose={handleCloseModal}
