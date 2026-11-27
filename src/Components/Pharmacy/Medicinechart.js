@@ -1885,8 +1885,35 @@ const calculateMedicinePricing = (item, customQty = null, customDiscVal = null) 
   const calcCgstAmt = (taxableValue * cgstRate) / 100;
   const calcSgstAmt = (taxableValue * sgstRate) / 100;
 
-  const unitCgstAmt = parseFloat(item?.unit_cgst_amt ?? item?.unit_cgst ?? (item?.is_saved_bill ? 0 : item?.CGST_Amt) ?? item?.cgst_amount ?? 0);
-  const unitSgstAmt = parseFloat(item?.unit_sgst_amt ?? item?.unit_sgst ?? (item?.is_saved_bill ? 0 : item?.SGST_Amt) ?? item?.sgst_amount ?? 0);
+  const unitCgstAmtRaw = parseFloat(item?.unit_cgst_amt ?? item?.unit_cgst ?? 0);
+  const unitSgstAmtRaw = parseFloat(item?.unit_sgst_amt ?? item?.unit_sgst ?? 0);
+
+  let unitCgstAmt = unitCgstAmtRaw;
+  let unitSgstAmt = unitSgstAmtRaw;
+
+  if (!unitCgstAmt && item?.CGST_Amt !== undefined && item?.CGST_Amt !== null) {
+    const rawVal = parseFloat(item.CGST_Amt) || 0;
+    const itemQty = parseFloat(item?.quantity ?? item?.qty ?? 1) || 1;
+    if (item?.is_saved_bill) {
+      unitCgstAmt = itemQty > 0 ? rawVal / itemQty : rawVal;
+    } else if (itemQty > 1 && Math.abs(rawVal - ((productValue * cgstRate) / 100)) < 0.05) {
+      unitCgstAmt = rawVal / itemQty;
+    } else {
+      unitCgstAmt = rawVal;
+    }
+  }
+
+  if (!unitSgstAmt && item?.SGST_Amt !== undefined && item?.SGST_Amt !== null) {
+    const rawVal = parseFloat(item.SGST_Amt) || 0;
+    const itemQty = parseFloat(item?.quantity ?? item?.qty ?? 1) || 1;
+    if (item?.is_saved_bill) {
+      unitSgstAmt = itemQty > 0 ? rawVal / itemQty : rawVal;
+    } else if (itemQty > 1 && Math.abs(rawVal - ((productValue * sgstRate) / 100)) < 0.05) {
+      unitSgstAmt = rawVal / itemQty;
+    } else {
+      unitSgstAmt = rawVal;
+    }
+  }
 
   let cgstAmt = parseFloat(calcCgstAmt.toFixed(2));
   let sgstAmt = parseFloat(calcSgstAmt.toFixed(2));
@@ -2730,15 +2757,22 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
         const origQ = Number(it.requested_qty ?? it.qty ?? it.quantity ?? 0);
         const dispQ = Number(it.dispatched_qty ?? 0);
         const pendingQ = it.pending_qty != null ? Number(it.pending_qty) : Math.max(0, origQ - dispQ);
+        const lineQty = pendingQ;
+        const unitC = Number(it.unit_cgst_amt ?? it.unit_cgst ?? it.CGST_Amt ?? it.cgst_amount ?? 0);
+        const unitS = Number(it.unit_sgst_amt ?? it.unit_sgst ?? it.SGST_Amt ?? it.sgst_amount ?? 0);
         return {
           ...it,
           item_name: resName,
           medicine_name: resName,
           mrp: up > 0 ? up : (Number(it.mrp) || 0),
-          qty: pendingQ,
+          qty: lineQty,
           requested_qty: origQ > 0 ? origQ : pendingQ,
           dispatched_qty: dispQ,
           pending_qty: pendingQ,
+          unit_cgst_amt: unitC,
+          unit_sgst_amt: unitS,
+          CGST_Amt: parseFloat((unitC * lineQty).toFixed(2)),
+          SGST_Amt: parseFloat((unitS * lineQty).toFixed(2)),
         };
       })
       .filter(it => Number(it.pending_qty ?? it.qty ?? 0) > 0);
@@ -4196,7 +4230,19 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
         const billNo = p.bill_number || p.bill_no || p.Bill_id || "2627/007336";
         const rawDate = p.bill_date || p.ward_request_date || p.created_date;
         const billDateStr = formatBillDateTime(rawDate);
-        const isOt = String(p.billing_mode || p.billingMode || "").toUpperCase().includes("OT");
+        const bmChart = String(p.billing_mode || p.billingMode || "").toUpperCase();
+        const isWardOrOt = Boolean(
+          p.is_ward_request ||
+          p.is_ot_request ||
+          bmChart === "WARD REQUEST" ||
+          bmChart === "OT REQUEST" ||
+          bmChart.includes("WARD REQUEST") ||
+          bmChart.includes("OT REQUEST") ||
+          bmChart.includes("WARD") ||
+          bmChart.includes("OT") ||
+          true
+        );
+        const isOt = bmChart.includes("OT");
         const roomLabel = isOt
           ? "OT Request"
           : (p.ward_name && p.ward_name !== "-" && p.ward_name !== "—" ? p.ward_name : (p.room_no && p.room_no !== "-" && p.room_no !== "—" ? p.room_no : (p.room || "—")));
@@ -4213,7 +4259,10 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
         let totalSgstAmt = 0;
         items.forEach((it) => {
           const pricing = calculateMedicinePricing(it);
-          const q = Number(it.qty !== undefined ? it.qty : (it.quantity ?? pricing.qty));
+          const dQty = Number(it.dispatched_qty);
+          const q = (isWardOrOt && it.dispatched_qty !== undefined && it.dispatched_qty !== null && it.dispatched_qty !== "" && !isNaN(dQty))
+            ? dQty
+            : Number(it.qty !== undefined ? it.qty : (it.quantity ?? pricing.qty));
           const lineAmt = Number(it.total !== undefined && Number(it.total) > 0 ? it.total : pricing.lineTotal);
           const rawC = Number(it.CGST_Amt !== undefined ? it.CGST_Amt : (it.cgst_amount ?? pricing.cgstAmt));
           const rawS = Number(it.SGST_Amt !== undefined ? it.SGST_Amt : (it.sgst_amount ?? pricing.sgstAmt));
@@ -4436,16 +4485,20 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                         items.map((item, i) => {
                           const pricing = calculateMedicinePricing(item);
                           const q = Number(item.qty !== undefined ? item.qty : (item.quantity ?? pricing.qty));
+                          const dQty = Number(item.dispatched_qty);
+                          const displayQty = (isWardOrOt && item.dispatched_qty !== undefined && item.dispatched_qty !== null && item.dispatched_qty !== "" && !isNaN(dQty))
+                            ? dQty
+                            : q;
                           const rate = Number(item.mrp !== undefined && Number(item.mrp) > 0 ? item.mrp : pricing.mrp);
                           const cgstPct = Number(item.CGST_Percentage !== undefined ? item.CGST_Percentage : pricing.cgstRate);
                           const sgstPct = Number(item.SGST_Percentage !== undefined ? item.SGST_Percentage : pricing.sgstRate);
                           const rawC = Number(item.CGST_Amt !== undefined ? item.CGST_Amt : (item.cgst_amount ?? pricing.cgstAmt));
                           const rawS = Number(item.SGST_Amt !== undefined ? item.SGST_Amt : (item.sgst_amount ?? pricing.sgstAmt));
-                          const cgstAmt = (q > 1 && rawC > 0 && Math.abs(rawC * q - pricing.cgstAmt) < Math.abs(rawC - pricing.cgstAmt) - 0.05)
-                            ? (rawC * q)
+                          const cgstAmt = (displayQty > 1 && rawC > 0 && Math.abs(rawC * displayQty - pricing.cgstAmt) < Math.abs(rawC - pricing.cgstAmt) - 0.05)
+                            ? (rawC * displayQty)
                             : rawC;
-                          const sgstAmt = (q > 1 && rawS > 0 && Math.abs(rawS * q - pricing.sgstAmt) < Math.abs(rawS - pricing.sgstAmt) - 0.05)
-                            ? (rawS * q)
+                          const sgstAmt = (displayQty > 1 && rawS > 0 && Math.abs(rawS * displayQty - pricing.sgstAmt) < Math.abs(rawS - pricing.sgstAmt) - 0.05)
+                            ? (rawS * displayQty)
                             : rawS;
                           const lineAmt = Number(item.total !== undefined && Number(item.total) > 0 ? item.total : pricing.lineTotal);
                           return (
@@ -4456,7 +4509,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
                               <td style={{ padding: "2.5px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{item.hsn_code || item.hsn || item.HSNCode || "—"}</td>
                               <td style={{ padding: "2.5px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{item.batch_number || item.batch || "—"}</td>
                               <td style={{ padding: "2.5px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{formatExpiryForBill(item.expiry_date || item.expiry || item.expiryDate)}</td>
-                              <td style={{ padding: "2.5px 3px", textAlign: "center", fontWeight: 700 }}>{q}</td>
+                              <td style={{ padding: "2.5px 3px", textAlign: "center", fontWeight: 700 }}>{displayQty}</td>
                               <td style={{ padding: "2.5px 4px", textAlign: "right", whiteSpace: "nowrap" }}>{rate.toFixed(2)}</td>
                               <td style={{ padding: "2.5px 3px", textAlign: "center" }}>{cgstPct}</td>
                               <td style={{ padding: "2.5px 3px", textAlign: "right", whiteSpace: "nowrap" }}>{cgstAmt.toFixed(2)}</td>

@@ -543,8 +543,26 @@ export default function PrintDialysisDischargeSummary() {
 // PrintReport — full A4-style discharge summary
 // ════════════════════════════════════════════════════
 function PrintReport({ record: r }) {
-  const hdSessions = Array.isArray(r.hd_sessions) ? r.hd_sessions : [];
-  const complications = Array.isArray(r.complications_during_hd) ? r.complications_during_hd : [];
+  const hdSessions =
+    typeof r.hd_sessions === "string"
+      ? r.hd_sessions
+      : typeof r.hdsessions === "string"
+      ? r.hdsessions
+      : Array.isArray(r.hd_sessions)
+      ? r.hd_sessions
+      : Array.isArray(r.hdsessions)
+      ? r.hdsessions
+      : "";
+  const complications =
+    typeof r.complications_during_hd === "string"
+      ? r.complications_during_hd
+      : typeof r.complications === "string"
+      ? r.complications
+      : Array.isArray(r.complications_during_hd)
+      ? r.complications_during_hd
+      : Array.isArray(r.complications)
+      ? r.complications
+      : "";
   const advice = Array.isArray(r.advice_on_discharge) ? r.advice_on_discharge : [];
   const labList =
     Array.isArray(r.lab_reports) && r.lab_reports.length > 0
@@ -687,7 +705,18 @@ function PrintReport({ record: r }) {
       )}
 
       {/* ── HD Sessions ── */}
-      {hdSessions.length > 0 && (() => {
+      {typeof hdSessions === "string" ? (
+        hdSessions.trim() ? (
+          <div className="rpt-card">
+            <div className="rpt-card-head">💉 HD Sessions</div>
+            <div className="rpt-card-body">
+              <div style={{ whiteSpace: "pre-line", fontSize: "0.85rem", color: "#334155", lineHeight: 1.6 }}>
+                {hdSessions}
+              </div>
+            </div>
+          </div>
+        ) : null
+      ) : (Array.isArray(hdSessions) && hdSessions.length > 0 && (() => {
         const standardKeys = new Set(["session_no", "date", "bp_pre_hd", "bp_post_hd", "weight_gain", "uf_removed", "complications", "is_custom", "_id"]);
         const customHdColumns = Array.from(
           new Set(
@@ -737,10 +766,21 @@ function PrintReport({ record: r }) {
             </div>
           </div>
         );
-      })()}
+      })())}
 
       {/* ── Complications ── */}
-      {complications.length > 0 && (
+      {typeof complications === "string" ? (
+        complications.trim() ? (
+          <div className="rpt-card">
+            <div className="rpt-card-head">⚠️ Complications During HD</div>
+            <div className="rpt-card-body">
+              <div style={{ whiteSpace: "pre-line", fontSize: "0.85rem", color: "#334155", lineHeight: 1.6 }}>
+                {complications}
+              </div>
+            </div>
+          </div>
+        ) : null
+      ) : (Array.isArray(complications) && complications.length > 0 && (
         <div className="rpt-card">
           <div className="rpt-card-head">⚠️ Complications During HD</div>
           <div className="rpt-card-body">
@@ -766,15 +806,7 @@ function PrintReport({ record: r }) {
             </table>
           </div>
         </div>
-      )}
-
-      {/* ── Condition on Discharge ── */}
-      <div className="rpt-card">
-        <div className="rpt-card-head">📝 Condition on Discharge</div>
-        <div className="rpt-card-body">
-          <p style={{ fontSize: 12.5, color: "#1e293b", lineHeight: 1.6 }}>{r.condition_on_discharge || "—"}</p>
-        </div>
-      </div>
+      ))}
 
       {/* ── Advice on Discharge ── */}
       {(Array.isArray(r.advice_on_discharge) ? r.advice_on_discharge.length > 0 : Boolean(r.advice_on_discharge)) && (
