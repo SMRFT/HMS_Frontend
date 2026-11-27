@@ -1267,6 +1267,24 @@ export default function CentralCashCounter() {
     URL.revokeObjectURL(url);
   };
 
+  const getIsOpPharmacy = (overrideShift = null) => {
+    const shift = overrideShift || activeShift;
+    const localOutlet = String(
+      localStorage.getItem("selected_outlet") ||
+      localStorage.getItem("outlet_code") ||
+      shift?.SelectedOutlet ||
+      ""
+    ).trim().toUpperCase();
+    const counter = String(shift?.CashCounter || cashCounterId || "").trim().toUpperCase();
+    return (
+      localOutlet === "OLET002" ||
+      localOutlet === "2" ||
+      localOutlet.includes("OLET002") ||
+      localOutlet.includes("OP PHARMACY") ||
+      counter === "CC0002"
+    );
+  };
+
   const handleShiftChange = async (shiftData) => {
     if (!shiftData) {
       setActiveShift(null);
@@ -1287,8 +1305,7 @@ export default function CentralCashCounter() {
       if (clean.CashCounter) {
         setCashCounterId(clean.CashCounter);
       }
-      const outlet = clean.SelectedOutlet || localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "";
-      const isOp = clean.CashCounter === "CC0002" || outlet === "OLET002";
+      const isOp = getIsOpPharmacy(clean);
       if (isOp) {
         fetchOpPharmacyPendingBills();
       } else {
@@ -1914,7 +1931,8 @@ export default function CentralCashCounter() {
 
   const fetchOpPharmacyPendingBills = useCallback(async (silent = false) => {
     try {
-      const response = await apiRequest(`${HmsBaseUrl}OPPharmacy_pending_bills/`, "GET");
+      const currentOutlet = localStorage.getItem("selected_outlet") || localStorage.getItem("outlet_code") || "OLET002";
+      const response = await apiRequest(`${HmsBaseUrl}OPPharmacy_pending_bills/?outlet_code=${currentOutlet}`, "GET");
       if (!response?.success) {
         if (!silent) {
           console.error("OP Pharmacy bills fetch error:", response);
@@ -2047,14 +2065,14 @@ export default function CentralCashCounter() {
       };
 
       const isUnpaidStatus = (status, billNo) =>
-        status === "Billed" && Boolean(billNo && billNo !== "-");
+        ["billed", "processing", "partially billed"].includes(String(status || "").trim().toLowerCase()) && Boolean(billNo && billNo !== "-");
 
       const formattedPending = billsArray
-        .filter((item) => (item.is_pending === true || (isUnpaidStatus(item.billing_status, item.bill_no) && isCurrentDate(item))) && item.billing_status === "Billed" && Boolean(item.bill_no))
+        .filter((item) => (item.is_pending === true || (isUnpaidStatus(item.billing_status, item.bill_no) && isCurrentDate(item))) && ["billed", "processing", "partially billed"].includes(String(item.billing_status || "").trim().toLowerCase()) && Boolean(item.bill_no))
         .map(formatPharmacyItem);
 
       const formattedUnpaid = billsArray
-        .filter((item) => (item.is_unpaid === true || (isUnpaidStatus(item.billing_status, item.bill_no) && !isCurrentDate(item))) && item.billing_status === "Billed" && Boolean(item.bill_no))
+        .filter((item) => (item.is_unpaid === true || (isUnpaidStatus(item.billing_status, item.bill_no) && !isCurrentDate(item))) && ["billed", "processing", "partially billed"].includes(String(item.billing_status || "").trim().toLowerCase()) && Boolean(item.bill_no))
         .map(formatPharmacyItem);
 
       const formattedReceived = billsArray
@@ -2667,12 +2685,12 @@ export default function CentralCashCounter() {
       return;
     }
     const outlet =
-      activeShift?.SelectedOutlet ||
       localStorage.getItem("selected_outlet") ||
       localStorage.getItem("outlet_code") ||
+      activeShift?.SelectedOutlet ||
       "";
     const counter = activeShift?.CashCounter || cashCounterId || "";
-    const isOp = counter === "CC0002" || outlet === "OLET002";
+    const isOp = getIsOpPharmacy();
 
     let bills = [];
     if (activeMenuItem === "Pending Bills") {
@@ -2835,12 +2853,12 @@ export default function CentralCashCounter() {
   const handleRefresh = () => {
     refreshActiveShift();
     const outlet =
-      activeShift?.SelectedOutlet ||
       localStorage.getItem("selected_outlet") ||
       localStorage.getItem("outlet_code") ||
+      activeShift?.SelectedOutlet ||
       "";
     const counter = activeShift?.CashCounter || cashCounterId || "";
-    const isOp = counter === "CC0002" || outlet === "OLET002";
+    const isOp = getIsOpPharmacy();
 
     if (activeMenuItem === "Pending Bills") {
       if (isOp) {
@@ -2903,12 +2921,12 @@ export default function CentralCashCounter() {
       return;
     }
     const outlet =
-      activeShift?.SelectedOutlet ||
       localStorage.getItem("selected_outlet") ||
       localStorage.getItem("outlet_code") ||
+      activeShift?.SelectedOutlet ||
       "";
     const counter = activeShift?.CashCounter || cashCounterId || "";
-    const isOp = counter === "CC0002" || outlet === "OLET002";
+    const isOp = getIsOpPharmacy();
     const silent = filteredBills.length > 0;
 
     if (activeMenuItem === "Pending Bills") {
@@ -2957,12 +2975,12 @@ export default function CentralCashCounter() {
     }
 
     const outlet =
-      activeShift?.SelectedOutlet ||
       localStorage.getItem("selected_outlet") ||
       localStorage.getItem("outlet_code") ||
+      activeShift?.SelectedOutlet ||
       "";
     const counter = activeShift?.CashCounter || cashCounterId || "";
-    const isOp = counter === "CC0002" || outlet === "OLET002";
+    const isOp = getIsOpPharmacy();
 
     const syncLatestData = () => {
       // Don't sync if tab is hidden or user has an active transaction modal open
@@ -4061,13 +4079,13 @@ export default function CentralCashCounter() {
                                     fontSize: "11.5px",
                                     fontWeight: 650,
                                     letterSpacing: "0.01em",
-                                    background: bill.status?.toLowerCase() === "pending" ? "#fffbeb"
+                                    background: (bill.status?.toLowerCase() === "pending" || bill.status?.toLowerCase() === "processing" || bill.status?.toLowerCase() === "partially billed") ? "#fffbeb"
                                       : bill.status?.toLowerCase() === "billed" ? "#eff6ff"
                                       : "#ecfdf5",
-                                    color: bill.status?.toLowerCase() === "pending" ? "#b45309"
+                                    color: (bill.status?.toLowerCase() === "pending" || bill.status?.toLowerCase() === "processing" || bill.status?.toLowerCase() === "partially billed") ? "#b45309"
                                       : bill.status?.toLowerCase() === "billed" ? "#1d4ed8"
                                       : "#047857",
-                                    border: `1px solid ${bill.status?.toLowerCase() === "pending" ? "#fde68a"
+                                    border: `1px solid ${(bill.status?.toLowerCase() === "pending" || bill.status?.toLowerCase() === "processing" || bill.status?.toLowerCase() === "partially billed") ? "#fde68a"
                                       : bill.status?.toLowerCase() === "billed" ? "#bfdbfe"
                                       : "#a7f3d0"}`
                                   }}>
@@ -4075,7 +4093,7 @@ export default function CentralCashCounter() {
                                       width: "5px",
                                       height: "5px",
                                       borderRadius: "50%",
-                                      background: bill.status?.toLowerCase() === "pending" ? "#f59e0b"
+                                      background: (bill.status?.toLowerCase() === "pending" || bill.status?.toLowerCase() === "processing" || bill.status?.toLowerCase() === "partially billed") ? "#f59e0b"
                                         : bill.status?.toLowerCase() === "billed" ? "#3b82f6"
                                         : "#10b981"
                                     }} />
@@ -4647,6 +4665,35 @@ export default function CentralCashCounter() {
                     }
                   </span>
                 </div>
+              )}
+
+              {/* ✅ Items / Medicines Particulars — shown for OP Pharmacy bills in Cash Counter */}
+              {Boolean(selectedBill?.raw?.medicine_particulars?.length) && (
+                <PaymentSection style={{ marginTop: "10px", maxHeight: "180px", overflowY: "auto" }}>
+                  <PaymentMethodLabel>📦 Items / Medicines ({selectedBill.raw.medicine_particulars.length})</PaymentMethodLabel>
+                  <table style={{ width: "100%", fontSize: "12px", borderCollapse: "collapse", marginTop: "4px" }}>
+                    <thead>
+                      <tr style={{ background: "#f1f5f9", textAlign: "left", color: "#475569" }}>
+                        <th style={{ padding: "6px 8px" }}>Item Name</th>
+                        <th style={{ padding: "6px 8px" }}>Batch</th>
+                        <th style={{ padding: "6px 8px", textAlign: "right" }}>Qty</th>
+                        <th style={{ padding: "6px 8px", textAlign: "right" }}>Disp Qty</th>
+                        <th style={{ padding: "6px 8px", textAlign: "right" }}>Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedBill.raw.medicine_particulars.map((m, idx) => (
+                        <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                          <td style={{ padding: "6px 8px", fontWeight: 500 }}>{m.item_name || m.name || (m.item_id ? `Item #${m.item_id}` : "—")}</td>
+                          <td style={{ padding: "6px 8px", color: "#64748b" }}>{m.batch_number || "—"}</td>
+                          <td style={{ padding: "6px 8px", textAlign: "right" }}>{m.qty || m.quantity || 0}</td>
+                          <td style={{ padding: "6px 8px", textAlign: "right", color: "#0d9488", fontWeight: 600 }}>{m.dispatched_qty ?? m.qty ?? 0}</td>
+                          <td style={{ padding: "6px 8px", textAlign: "right", fontWeight: 600 }}>₹{Number(m.total || m.calculated_price || 0).toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </PaymentSection>
               )}
 
               {/* ✅ Remarks field — shown for OP Pharmacy bills */}
