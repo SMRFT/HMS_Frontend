@@ -1061,7 +1061,11 @@ export const buildPrintBillHtml = (data) => {
 
   const inpatientNo = inpatientNumber || inpatient_number || (data && (data.ipNumber || data.ip_number)) || "";
   const resolvedUhid = (uhid && uhid !== "null") ? uhid : ((data && data.uhid && data.uhid !== "null") ? data.uhid : "—");
-  const resolvedRoom = roomNo || (data && (data.room || data.room_no)) || "";
+  const resolvedRoom = String(
+    (data && (data.room_no || data.roomNo || data.room || data.ward_name || data.wardName || data.bed_no)) ||
+    roomNo ||
+    ""
+  ).trim();
   const rawIns = insuranceName || insurance_company || (data && data.insurance_name) || "";
   const resolvedInsurance = (rawIns && !["general", "cash", "self"].includes(rawIns.toLowerCase()))
     ? rawIns
@@ -2298,17 +2302,18 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
           resolvedRoom = activeFromRoom.bedNo
             ? `${activeFromRoom.roomNo} / Bed ${activeFromRoom.bedNo}`
             : `${activeFromRoom.roomNo}`;
-          setAdmissionRoomNo(resolvedRoom);
-          setFormData(prev => ({ ...prev, roomNo: resolvedRoom }));
         } else if (activeFromShift) {
           resolvedRoom = activeFromShift.newBedNo
             ? `${activeFromShift.newRoomNo} / Bed ${activeFromShift.newBedNo}`
             : `${activeFromShift.newRoomNo}`;
-          setAdmissionRoomNo(resolvedRoom);
-          setFormData(prev => ({ ...prev, roomNo: resolvedRoom }));
-        } else {
-          setAdmissionRoomNo("");
+        } else if (admData?.room_no || admData?.roomNo || admData?.room) {
+          resolvedRoom = admData?.room_no || (admData?.roomNo ? (admData?.bedNo ? `${admData.roomNo} / Bed ${admData.bedNo}` : admData.roomNo) : "") || admData?.room || "";
+        } else if (patientFallback?.room_no || patientFallback?.roomNo || patientFallback?.room) {
+          resolvedRoom = patientFallback?.room_no || patientFallback?.roomNo || patientFallback?.room || "";
         }
+
+        setAdmissionRoomNo(resolvedRoom);
+        setFormData(prev => ({ ...prev, roomNo: resolvedRoom }));
 
         setFormData(prev => ({
           ...prev,
@@ -2336,7 +2341,8 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
         setFormData(prev => ({
           ...prev,
-          inpatientNo: prev.inpatientNo || ipNum || "",
+          roomNo: "",
+          inpatientNo: ipNum || "",
           insuranceName: insName || "",
           is_insurance: Boolean(insName || (custType && custType.toLowerCase().includes("insurance"))),
           customer_type: custType || prev.customer_type || "General",
@@ -2388,13 +2394,13 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
       ...prev,
       uhid: p.uhid || "",
       name: fullName,
-      inpatientNo: p.ip_number || prev.inpatientNo || "",
+      inpatientNo: p.ip_number || p.inpatient_number || "",
       doctor_id: finalDocId,
       doctor_name: finalDocName,
-      roomNo: p.room_no || prev.roomNo || "",
+      roomNo: p.room_no || "",
       dob: p.dob || "",
-      customer_type: p.customer_type || prev.customer_type || "",
-      insuranceName: insComp || prev.insuranceName || "",
+      customer_type: p.customer_type || "",
+      insuranceName: insComp || "",
       is_insurance: Boolean(insComp || (p.customer_type && p.customer_type.toLowerCase().includes("insurance"))),
     }));
 
@@ -2538,7 +2544,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
       ? `${activeRoom.roomNo} / Bed ${activeRoom.bedNo}`
       : activeShift
         ? `${activeShift.newRoomNo} / Bed ${activeShift.newBedNo}`
-        : "";
+        : ((adm.roomNo ? (adm.bedNo ? `${adm.roomNo} / Bed ${adm.bedNo}` : adm.roomNo) : "") || adm.room_no || adm.room || "");
     const roomNo = roomDisplay || activeRoom?.roomNo || activeShift?.newRoomNo || adm.room_no || "";
 
     const rawIPDoc = adm.consultingDoctor || adm.admittingDoctor || "";
@@ -3933,8 +3939,8 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             employeeName,
             patientAge: patientAge || "",
             cashierId: formData.cashier_id || "",
-            roomNo: formData.roomNo || admissionRoomNo || "",
-            inpatientNumber: formData.inpatientNo || formData.inpatient_number || formData.inpatientNumber || "",
+            roomNo: savedBillDoc?.room_no || savedBillDoc?.roomNo || formData.roomNo || admissionRoomNo || "",
+            inpatientNumber: savedBillDoc?.inpatient_number || savedBillDoc?.inpatientNo || savedBillDoc?.ip_number || formData.inpatientNo || formData.inpatient_number || formData.inpatientNumber || "",
             insuranceName: insuranceName || formData.insuranceName || (String(patientType || "").toLowerCase() === "insurance" ? "INSURANCE" : "") || "",
             billTypeName: formData.billTypeName || "OP Pharmacy",
             billing_mode: resolvedSavedBm,
@@ -4351,8 +4357,8 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             employeeName,
             patientAge: patientAge || "",
             cashierId: formData.cashier_id || "",
-            roomNo: formData.roomNo || admissionRoomNo || "",
-            inpatientNumber: formData.inpatientNo || formData.inpatient_number || formData.inpatientNumber || "",
+            roomNo: savedBillDoc?.room_no || savedBillDoc?.roomNo || formData.roomNo || admissionRoomNo || "",
+            inpatientNumber: savedBillDoc?.inpatient_number || savedBillDoc?.inpatientNo || savedBillDoc?.ip_number || formData.inpatientNo || formData.inpatient_number || formData.inpatientNumber || "",
             insuranceName: insuranceName || formData.insuranceName || (String(patientType || "").toLowerCase() === "insurance" ? "INSURANCE" : "") || "",
             billTypeName: formData.billTypeName || "OP Pharmacy",
             billing_mode: resolvedDirectBm,

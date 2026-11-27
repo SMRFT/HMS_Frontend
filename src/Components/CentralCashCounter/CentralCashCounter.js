@@ -1530,6 +1530,8 @@ export default function CentralCashCounter() {
   const rawNetVal = parseFloat(selectedBill?.total ?? selectedBill?.amount ?? 0);
   const isRefundBill = rawNetVal < 0 || selectedBill?.is_refund || selectedBill?.source === "ReturnBill";
   const netAmount = isRefundBill ? Math.abs(rawNetVal) : rawNetVal;
+  const isDischargeBill = String(selectedBill?.type || selectedBill?.bill_category || selectedBill?.category || "").trim().toLowerCase() === "discharge" || Number(selectedBill?.bill_type_id ?? selectedBill?.raw?.bill_type ?? selectedBill?.raw_bill_type) === 2;
+  const isZeroDischarge = isDischargeBill && Math.abs(netAmount) < 0.01;
 
   const paidAmount =
     (selectedMethods.cash ? parseFloat(payments.cash) || 0 : 0) +
@@ -1547,10 +1549,13 @@ export default function CentralCashCounter() {
     const rawVal = parseFloat(bill?.total ?? bill?.amount ?? 0);
     const isRefund = rawVal < 0 || bill?.is_refund || enrichedBill?.source === "ReturnBill";
     const totalAmt = isRefund ? Math.abs(rawVal) : Math.max(rawVal, 0);
+    const isDis = String(bill?.type || bill?.bill_category || bill?.category || "").trim().toLowerCase() === "discharge" || Number(bill?.bill_type_id ?? bill?.raw?.bill_type ?? bill?.raw_bill_type) === 2;
+    const isZeroDis = isDis && Math.abs(totalAmt) < 0.01;
+
     setIsMultipleMode(false);
     setSelectedMethods({ cash: true, card: false });
     setPayments({
-      cash: totalAmt > 0 ? String(totalAmt) : "",
+      cash: totalAmt > 0 ? String(totalAmt) : (isZeroDis ? "0" : ""),
       cheque: "",
       chequeNo: "",
       card: "",
@@ -2010,6 +2015,9 @@ export default function CentralCashCounter() {
           total: parseFloat(item.net_amount || 0),
           status: item.billing_status || "-",
           doctor: item.doctor_name || "-",
+          room: item.room_no || item.room || "",
+          room_no: item.room_no || item.room || "",
+          inpatient_number: item.inpatient_number || item.inpatientNo || item.ip_number || "",
           payment_method: (() => {
             const parsed = parsePaymentDetails(item.payment_details).label;
             if (parsed && parsed !== "-") return parsed;
@@ -2311,10 +2319,14 @@ export default function CentralCashCounter() {
       }
 
       if (activeMethods.length === 0) {
-        const msg = "Please enter at least one payment amount.";
-        setModalError(msg);
-        showToast("error", msg);
-        return;
+        if (isZeroDischarge) {
+          activeMethods.push({ method: "cash", Paid_amount: 0 });
+        } else {
+          const msg = "Please enter at least one payment amount.";
+          setModalError(msg);
+          showToast("error", msg);
+          return;
+        }
       }
 
       // Validate ref numbers based on selected methods (Card/Ref No is not mandatory)
@@ -2392,8 +2404,8 @@ export default function CentralCashCounter() {
               uhid: (selectedBill.uhid && selectedBill.uhid !== "-") ? selectedBill.uhid : (rawBill.uhid || "—"),
               patientAge: rawBill.age || selectedBill.age || "—",
               doctorName: selectedBill.doctor || rawBill.doctor_name || "—",
-              roomNo: rawBill.room_no || selectedBill.room || "",
-              inpatientNumber: rawBill.inpatient_number || selectedBill.inpatient_number || selectedBill.ip_number || "",
+              roomNo: rawBill.room_no || rawBill.room || selectedBill.room_no || selectedBill.room || "",
+              inpatientNumber: rawBill.inpatient_number || rawBill.inpatientNo || rawBill.ip_number || selectedBill.inpatient_number || selectedBill.ip_number || "",
               insuranceName: rawBill.insurance_name || "",
               billTypeName: rawBill.bill_type_name || selectedBill.bill_type || "OP Pharmacy",
               paymentMode: payment_details?.method || payment_details?.card_name || "Cash",
@@ -2575,10 +2587,14 @@ export default function CentralCashCounter() {
       }
 
       if (activeMethods.length === 0) {
-        const msg = "Please enter at least one payment amount.";
-        setModalError(msg);
-        showToast("error", msg);
-        return;
+        if (isZeroDischarge) {
+          activeMethods.push({ method: "cash", Paid_amount: 0 });
+        } else {
+          const msg = "Please enter at least one payment amount.";
+          setModalError(msg);
+          showToast("error", msg);
+          return;
+        }
       }
 
       // Validate ref numbers based on selected methods (Card/Ref No is not mandatory)
@@ -4180,8 +4196,8 @@ export default function CentralCashCounter() {
                                         uhid: (bill.uhid && bill.uhid !== "-") ? bill.uhid : (rawBill.uhid || "—"),
                                         patientAge: rawBill.age || bill.age || "—",
                                         doctorName: bill.doctor || rawBill.doctor_name || "—",
-                                        roomNo: rawBill.room_no || bill.room || "",
-                                        inpatientNumber: rawBill.inpatient_number || bill.inpatient_number || bill.ip_number || "",
+                                        roomNo: rawBill.room_no || rawBill.room || bill.room_no || bill.room || "",
+                                        inpatientNumber: rawBill.inpatient_number || rawBill.inpatientNo || rawBill.ip_number || bill.inpatient_number || bill.ip_number || "",
                                         insuranceName: rawBill.insurance_name || "",
                                         billTypeName: rawBill.bill_type_name || bill.bill_type || "OP Pharmacy",
                                         paymentMode: bill.payment_method || bill.payment_mode || "Cash",
@@ -4701,7 +4717,7 @@ export default function CentralCashCounter() {
             <ModalFooterBar>
               <CancelButton disabled={isSavingPayment} onClick={() => { setShowPaymentModal(false); setModalError(""); }}>Cancel</CancelButton>
               <SaveButton
-                disabled={paidAmount === 0 || Math.abs(paidAmount - netAmount) > 0.01 || isSavingPayment}
+                disabled={(!isZeroDischarge && paidAmount === 0) || Math.abs(paidAmount - netAmount) > 0.01 || isSavingPayment}
                 onClick={selectedBill?.source === "ReturnBill" ? submitReturnPayment : submitPayment}
                 style={{
                   pointerEvents: isSavingPayment ? "none" : "auto",
