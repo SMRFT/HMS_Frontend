@@ -404,26 +404,78 @@ const MasterDoctorRevenueReport = ({
     const toDisp = dateRangeMeta.to_display || dateRange[1].format("DD/MM/YYYY");
     const printedAt = reportData?.printed_at || dayjs().format("DD/MM/YYYY [at] HH:mm:ss");
 
-    return (
-        <ReportPageWrapper $isModal={isModalView}>
-            {!isModalView && (
-                <ControlCard>
-                    <HeaderBar>
-                        <div>
-                            <h2 style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                                <Stethoscope size={22} color="#6366f1" />
-                                Doctor Revenue Report (Date Wise Bills Analysis Detailed)
-                            </h2>
-                            <p>Doctor-wise and bill-type itemized revenue analysis with purchase cost deduction and payment mode/company breakdown</p>
-                        </div>
-                        <div className="action-buttons">
-                            <Button icon={<RefreshCw size={15} />} onClick={() => fetchReport(true)}>Refresh</Button>
-                            <Button icon={<Download size={15} />} onClick={handleExportExcel}>Export Excel</Button>
-                            <Button type="primary" icon={<Printer size={15} />} onClick={() => printReportArea("doctor-revenue-print-area")}>
-                                Print Report
-                            </Button>
-                        </div>
-                    </HeaderBar>
+        const handlePrintReport = () => {
+            const el = document.getElementById("doctor-revenue-print-area");
+            if (!el) return;
+            const win = window.open("", "_blank", "width=1200,height=800");
+            if (!win) return;
+            const styles = Array.from(document.querySelectorAll("style"))
+                .map((s) => s.outerHTML)
+                .join("\n");
+            win.document.write(`<!DOCTYPE html>
+<html>
+<head>
+<title>Doctor Revenue Report (${fromDisp} to ${toDisp})</title>
+${styles}
+<style>
+  @page { size: A4 landscape; margin: 10mm; }
+  * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  body { margin: 0; padding: 0; background: #fff; font-family: Arial, sans-serif; color: #0f172a; font-size: 11px; }
+  .no-print { display: none !important; }
+  .doc-banner, .cat-banner, .doc-footer, .grand-banner {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 12px !important;
+    width: 100% !important;
+  }
+  .doc-banner { background: #eef2ff !important; border: 1px solid #c7d2fe !important; padding: 6px 10px !important; font-weight: 700 !important; margin-top: 10px !important; page-break-after: avoid; }
+  .cat-banner { background: #f1f5f9 !important; border: 1px solid #cbd5e1 !important; padding: 4px 10px !important; font-weight: 700 !important; margin-top: 6px !important; page-break-after: avoid; }
+  .doc-footer { background: #f8fafc !important; border: 1px solid #94a3b8 !important; padding: 5px 10px !important; font-weight: 700 !important; margin-top: 4px !important; page-break-inside: avoid; }
+  .grand-banner { background: #0f172a !important; color: #ffffff !important; padding: 8px 12px !important; font-weight: 800 !important; margin-top: 12px !important; page-break-inside: avoid; }
+  table { width: 100% !important; border-collapse: collapse !important; font-size: 10px !important; }
+  th, td { border: 1px solid #cbd5e1 !important; padding: 3px 5px !important; }
+  thead th { background: #f1f5f9 !important; font-weight: 700 !important; }
+  .num { text-align: right !important; font-family: monospace !important; }
+  tr { page-break-inside: avoid; }
+  .print-sig-row { display: flex !important; justify-content: space-between !important; margin-top: 28px !important; padding-top: 8px !important; page-break-inside: avoid; }
+  .print-sig-box { width: 220px; text-align: center; border-top: 1px solid #334155; padding-top: 4px; font-weight: 700; font-size: 10px; }
+</style>
+</head>
+<body>
+  ${el.innerHTML}
+  <div class="print-sig-row">
+    <div class="print-sig-box">Prepared By</div>
+    <div class="print-sig-box">Accounts Officer</div>
+    <div class="print-sig-box">Authorized Signatory</div>
+  </div>
+</body>
+</html>`);
+            win.document.close();
+            win.focus();
+            setTimeout(() => { win.print(); win.close(); }, 300);
+        };
+
+        return (
+            <ReportPageWrapper $isModal={isModalView}>
+                {!isModalView && (
+                    <ControlCard>
+                        <HeaderBar>
+                            <div>
+                                <h2 style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                    <Stethoscope size={22} color="#6366f1" />
+                                    Doctor Revenue Report (Date Wise Bills Analysis Detailed)
+                                </h2>
+                                <p>Doctor-wise and bill-type itemized revenue analysis with purchase cost deduction and payment mode/company breakdown</p>
+                            </div>
+                            <div className="action-buttons">
+                                <Button icon={<RefreshCw size={15} />} onClick={() => fetchReport(true)}>Refresh</Button>
+                                <Button icon={<Download size={15} />} onClick={handleExportExcel}>Export Excel</Button>
+                                <Button type="primary" icon={<Printer size={15} />} onClick={handlePrintReport}>
+                                    Print Report
+                                </Button>
+                            </div>
+                        </HeaderBar>
 
                     <FilterBar style={{ flexWrap: "wrap", gap: "10px", justifyContent: "space-between", alignItems: "center" }}>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", alignItems: "center" }}>
@@ -502,7 +554,7 @@ const MasterDoctorRevenueReport = ({
                     <>
                         {filteredDoctors.map((doc) => (
                             <DoctorBlock key={`${doc.doctor_id}-${doc.doctor_sl_no}`}>
-                                <DoctorBanner>
+                                <DoctorBanner className="doc-banner">
                                     <div className="doc-title">
                                         <span>{doc.doctor_sl_no}</span>
                                         <span>{doc.doctor_name}</span>
@@ -514,7 +566,7 @@ const MasterDoctorRevenueReport = ({
 
                                 {(doc.categories || []).map((cat) => (
                                     <div key={`${doc.doctor_id}-${cat.category_name}-${cat.cat_sl_no}`}>
-                                        <CategoryBanner>
+                                        <CategoryBanner className="cat-banner">
                                             <div className="cat-title">
                                                 <span>{cat.cat_sl_no}</span>
                                                 <span>{cat.category_name}</span>
@@ -570,7 +622,7 @@ const MasterDoctorRevenueReport = ({
                                     </div>
                                 ))}
 
-                                <DoctorFooter>
+                                <DoctorFooter className="doc-footer">
                                     <span>DOCTOR TOTAL ({doc.doctor_name}):</span>
                                     <span>Bill Amt: {cleanNum(doc.bill_amount).toFixed(2)}</span>
                                     <span>Purchase: {cleanNum(doc.purchase_value).toFixed(2)}</span>
@@ -579,7 +631,7 @@ const MasterDoctorRevenueReport = ({
                             </DoctorBlock>
                         ))}
 
-                        <GrandTotalBanner>
+                        <GrandTotalBanner className="grand-banner">
                             <span>GRAND TOTAL ({visibleSummary.total_doctors || 0} Doctors | {visibleSummary.total_bills || 0} Bills)</span>
                             <span>Bill Amount: {formatINR(visibleSummary.total_bill_amount)}</span>
                             <span>Purchase Value: {formatINR(visibleSummary.total_purchase_value)}</span>
@@ -588,7 +640,9 @@ const MasterDoctorRevenueReport = ({
                     </>
                 )}
 
-                <ReportPrintFooter />
+                <div className="no-print">
+                    <ReportPrintFooter />
+                </div>
             </SectionContainer>
         </ReportPageWrapper>
     );
