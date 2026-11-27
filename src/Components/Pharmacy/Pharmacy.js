@@ -3441,11 +3441,10 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
     const billableMeds = updatedMeds.filter((m) => !m.save_later && Number(m.quantity || 0) > 0);
     if (billableMeds.length === 0) {
-      toast.warning("All items are marked Save Later. There are no in-stock medicines to bill right now.", { autoClose: 3500 });
-      return;
+      toast.info("Saving out-of-stock items for later in Medicine Chart...", { autoClose: 2500 });
+    } else {
+      toast.info("Out of stock items saved for later. Proceeding with in-stock items.", { autoClose: 2500 });
     }
-
-    toast.info("Out of stock items saved for later. Proceeding with in-stock items.", { autoClose: 2500 });
     proceedWithSave(intentStatus, updatedMeds);
   };
 
@@ -3474,11 +3473,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         ""
       ).trim().toUpperCase();
 
-      if (currentOutlet === "OLET001" || currentOutlet === "1") {
-        setSelectedPaymentMode("credit");
-      } else {
-        setSelectedPaymentMode("cash");
-      }
+      setSelectedPaymentMode("cash");
       setShowPaymentModal(true);
       return;
     }
@@ -3727,26 +3722,57 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
           };
         });
 
-        // Map deleted medicines with deleted_is: true
-        const mappedDeleted = deletedMedicines.map((m) => ({
-          item_id: Number(m.item_id),
-          item_name: m.name || m.item_name || "",
-          batch_number: String(m.batch_number || ""),
-          qty: 0,
-          mrp: m.mrp ?? m.price ?? 0,
-          calculated_price: 0,
-          product_value: 0,
-          taxable_value: 0,
-          CGST_Percentage: 0,
-          SGST_Percentage: 0,
-          CGST_Amt: 0,
-          SGST_Amt: 0,
-          total: 0,
-          deleted_is: true,
-          is_deleted: true,
-          dispatched_qty: Number(m.dispatched_qty || 0),
-          edit_history: m.edit_history || [],
-        }));
+        // Map deleted medicines: For ward requests, any deleted item with requested qty or out of stock must NOT be marked is_deleted!
+        // It must be preserved with save_later: true so it stays available in Medicine Chart when stock is replenished.
+        const mappedDeleted = deletedMedicines.map((m) => {
+          const reqQty = Number(m.orig_quantity || m.requested_qty || m.qty || m.quantity || 1);
+          if (isWardReqBill && (Number(m.available_stock) <= 0 || m.save_later || m.is_save_later || reqQty > 0)) {
+            return {
+              item_id: Number(m.item_id),
+              stock_id: m.stock_id || m.id || undefined,
+              outlet_code: m.outlet_code || currentOutletCode,
+              item_name: m.name || m.item_name || "",
+              batch_number: String(m.batch_number || ""),
+              qty: reqQty,
+              last_billed_qty: 0,
+              billed_qty: 0,
+              save_later: true,
+              is_save_later: true,
+              mrp: m.mrp ?? m.price ?? 0,
+              calculated_price: 0,
+              product_value: 0,
+              taxable_value: 0,
+              CGST_Percentage: 0,
+              SGST_Percentage: 0,
+              CGST_Amt: 0,
+              SGST_Amt: 0,
+              total: 0,
+              deleted_is: false,
+              is_deleted: false,
+              dispatched_qty: Number(m.dispatched_qty || 0),
+              edit_history: m.edit_history || [],
+            };
+          }
+          return {
+            item_id: Number(m.item_id),
+            item_name: m.name || m.item_name || "",
+            batch_number: String(m.batch_number || ""),
+            qty: 0,
+            mrp: m.mrp ?? m.price ?? 0,
+            calculated_price: 0,
+            product_value: 0,
+            taxable_value: 0,
+            CGST_Percentage: 0,
+            SGST_Percentage: 0,
+            CGST_Amt: 0,
+            SGST_Amt: 0,
+            total: 0,
+            deleted_is: true,
+            is_deleted: true,
+            dispatched_qty: Number(m.dispatched_qty || 0),
+            edit_history: m.edit_history || [],
+          };
+        });
 
         const finalMedicines = [...mappedBillable, ...mappedOutOfStock, ...mappedDeleted];
 
@@ -3861,7 +3887,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             ? overallDiscountType : null,
           overall_discount_value: parseFloat(overallDiscountValue || 0),
           overall_discount_amount: parseFloat(overallDiscAmtFinal.toFixed(2)),
-          payment_mode: isInsuranceFinal ? "Credit" : resolvedPaymentMode,
+          payment_mode: resolvedPaymentMode,
           customer_type: isInsuranceFinal ? "Insurance" : (patientType || formData.customer_type || "General"),
           is_insurance: Boolean(isInsuranceFinal),
           inpatient_number: formData.inpatientNo || formData.inpatient_number || "",
@@ -3926,7 +3952,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
           const dbTotDisc = savedBillDoc?.discount_amount != null ? Number(savedBillDoc.discount_amount) : updatedTotalDiscount;
           const dbNet = savedBillDoc?.net_amount != null ? Number(savedBillDoc.net_amount) : updatedNetAmount;
           const dbRoundOff = savedBillDoc?.round_off != null ? Number(savedBillDoc.round_off) : parseFloat((updatedNetAmount - (updatedTotalAmount - updatedTotalDiscount)).toFixed(2));
-          const dbPayMode = savedBillDoc?.payment_mode || (isInsuranceFinal ? "Credit" : resolvedPaymentMode);
+          const dbPayMode = savedBillDoc?.payment_mode || resolvedPaymentMode;
 
           const resolvedSavedBm = savedBillDoc?.billing_mode || formData.billing_mode || formData.billingMode || "WARD REQUEST";
           setPrintBillData({
@@ -7369,14 +7395,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         const paymentOptions = [
           { value: "cash", label: "Pay Now", desc: "Patient pays immediately (Cash / Card / UPI)" },
           { value: "credit", label: "Pay Later", desc: "Bill on credit — patient pays at a later date" },
-        ].filter(opt => {
-          // If selected_outlet is OLET001 / 1: display only Pay Later
-          if (activeOutlet === "OLET001" || activeOutlet === "1") {
-            return opt.value === "credit";
-          }
-          // If selected_outlet is OLET002 / 2: display Pay Now and Pay Later
-          return true;
-        });
+        ];
 
         return (
           <ModalOverlay onClick={() => setShowPaymentModal(false)}>
@@ -7387,9 +7406,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
               </ModalHeader>
               <ModalBody style={{ padding: "32px 36px" }}>
                 <div style={{ marginBottom: 24, color: "#475569", fontSize: "0.93rem" }}>
-                  {(activeOutlet === "OLET001" || activeOutlet === "1")
-                    ? "IP Pharmacy billing mode (Pay Later):"
-                    : "Choose how the patient will pay for this bill:"}
+                  Choose how the patient will pay for this bill:
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                   {paymentOptions.map(opt => (
@@ -7431,7 +7448,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
                 <Button
                   disabled={saving}
                   onClick={async () => {
-                    const finalMode = (activeOutlet === "OLET001" || activeOutlet === "1") ? "credit" : (selectedPaymentMode || "cash");
+                    const finalMode = selectedPaymentMode === "credit" ? "credit" : "cash";
                     setShowPaymentModal(false);
                     await executeSave(pendingBillIntent, finalMode);
                   }}

@@ -2115,20 +2115,27 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
 
   const isFullyDispatchedOrBilled = (patient) => {
     if (!patient) return false;
-    if (patient.is_dispatched) return true;
-    const bStatus = String(patient.billing_status || "").trim().toLowerCase();
-    if (bStatus === "billed" || bStatus === "paid" || bStatus === "completed") return true;
     const rawItems = Array.isArray(patient.medicine_items)
       ? patient.medicine_items
       : (Array.isArray(patient.medicine_particulars) ? patient.medicine_particulars : []);
-    if (rawItems.length === 0) return false;
+    if (rawItems.length === 0) return true;
     const validItems = rawItems.filter((it) => it && !it.deleted_is && !it.is_deleted);
-    if (validItems.length === 0) return false;
-    return validItems.every((it) => {
+    if (validItems.length === 0) return true;
+
+    // Check if there are any remaining pending or save-later items
+    const hasPendingItems = validItems.some((it) => {
       const orig = Number(it.requested_qty ?? it.qty ?? it.quantity ?? 0);
       const disp = Number(it.dispatched_qty ?? 0);
-      return orig > 0 && disp >= orig;
+      const pend = it.pending_qty != null ? Number(it.pending_qty) : (orig - disp);
+      return pend > 0 || it.save_later || it.is_save_later;
     });
+
+    // If ANY item is still pending or saved later, it is NEVER fully dispatched/billed!
+    if (hasPendingItems) return false;
+
+    if (patient.is_dispatched) return true;
+    const bStatus = String(patient.billing_status || "").trim().toLowerCase();
+    return bStatus === "billed" || bStatus === "paid" || bStatus === "completed";
   };
 
   const getPatientFinancials = (patient) => {
@@ -2775,7 +2782,7 @@ const MedicineChart = ({ onConvertToBill, onCountChange, refreshTrigger, activeT
           SGST_Amt: parseFloat((unitS * lineQty).toFixed(2)),
         };
       })
-      .filter(it => Number(it.pending_qty ?? it.qty ?? 0) > 0);
+      .filter(it => Number(it.pending_qty ?? it.qty ?? 0) > 0 || it.save_later || it.is_save_later);
 
     if (normalizedItems.length === 0) {
       alert("All items in this prescription have already been fully dispatched and billed.");
