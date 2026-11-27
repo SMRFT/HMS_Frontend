@@ -1036,11 +1036,17 @@ const GRNReceive = () => {
 
         const res = await apiRequest(`${baseUrl}grn/?${params.toString()}`, "GET");
         if (res && res.success) {
-          const rows = res.data || [];
-          const count = res.total_count ?? res.total_records ?? res.count ?? rows.length;
+          const payload = res.data;
+          const rows = Array.isArray(payload)
+            ? payload
+            : (Array.isArray(payload?.data)
+              ? payload.data
+              : (Array.isArray(payload?.results) ? payload.results : []));
+          const count = payload?.total_records ?? payload?.count ?? payload?.total_count ?? res?.total_records ?? rows.length;
+          const pages = payload?.total_pages ?? res?.total_pages ?? Math.max(1, Math.ceil(count / ps));
           setGrnList(rows);
           setTotalCount(count);
-          setTotalPages(res.total_pages ?? Math.max(1, Math.ceil(count / ps)));
+          setTotalPages(pages);
         } else {
           setGrnList([]);
           setTotalCount(0);
@@ -1072,14 +1078,16 @@ const GRNReceive = () => {
       q.set("status", "Verified");
       const pRes = await apiRequest(`${baseUrl}grn/?${q.toString()}`, "GET");
       if (pRes?.success) {
-        const pTotal = pRes.data?.total_records ?? pRes.data?.count ?? pRes.total_count ?? 0;
+        const payload = pRes.data;
+        const pTotal = payload?.total_records ?? payload?.count ?? payload?.total_count ?? pRes?.total_records ?? (Array.isArray(payload) ? payload.length : 0);
         setPendingCount(pTotal);
       }
 
       q.set("status", "Received");
       const rRes = await apiRequest(`${baseUrl}grn/?${q.toString()}`, "GET");
       if (rRes?.success) {
-        const rTotal = rRes.data?.total_records ?? rRes.data?.count ?? rRes.total_count ?? 0;
+        const payload = rRes.data;
+        const rTotal = payload?.total_records ?? payload?.count ?? payload?.total_count ?? rRes?.total_records ?? (Array.isArray(payload) ? payload.length : 0);
         setReceivedCount(rTotal);
       }
     } catch {
