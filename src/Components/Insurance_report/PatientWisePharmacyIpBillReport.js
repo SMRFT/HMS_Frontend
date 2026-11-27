@@ -359,6 +359,12 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
 
     const MIN_REPORT_DATE = dayjs('2026-11-15', 'YYYY-MM-DD');
     const clampMinDate = (d) => (d && d.isValid() && d.isBefore(MIN_REPORT_DATE, 'day') ? MIN_REPORT_DATE : d);
+    const parseAdmDate = (str) => {
+        if (!str) return dayjs(NaN);
+        const s = String(str).trim().slice(0, 10);
+        const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+        return m ? dayjs(`${m[3]}-${m[2]}-${m[1]}`) : dayjs(s);
+    };
 
     // Parse query params if any
     const queryParams = new URLSearchParams(location.search);
@@ -438,9 +444,9 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
 
                     let newDates = dateRange;
                     if (chosenAdm.admission_date) {
-                        const parsedStart = dayjs(chosenAdm.admission_date.slice(0, 10), 'DD/MM/YYYY');
+                        const parsedStart = parseAdmDate(chosenAdm.admission_date);
                         if (parsedStart.isValid()) {
-                            const parsedEnd = chosenAdm.discharge_date ? dayjs(chosenAdm.discharge_date.slice(0, 10), 'DD/MM/YYYY') : dayjs();
+                            const parsedEnd = chosenAdm.discharge_date ? parseAdmDate(chosenAdm.discharge_date) : dayjs();
                             newDates = [clampMinDate(parsedStart), clampMinDate(parsedEnd.isValid() ? parsedEnd : dayjs())];
                             setDateRange(newDates);
                         }
@@ -487,9 +493,9 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
 
         let newDates = dateRange;
         if (adm.admission_date) {
-            const parsedStart = dayjs(adm.admission_date.slice(0, 10), 'DD/MM/YYYY');
+            const parsedStart = parseAdmDate(adm.admission_date);
             if (parsedStart.isValid()) {
-                const parsedEnd = adm.discharge_date ? dayjs(adm.discharge_date.slice(0, 10), 'DD/MM/YYYY') : dayjs();
+                const parsedEnd = adm.discharge_date ? parseAdmDate(adm.discharge_date) : dayjs();
                 newDates = [clampMinDate(parsedStart), clampMinDate(parsedEnd.isValid() ? parsedEnd : dayjs())];
                 setDateRange(newDates);
             }
