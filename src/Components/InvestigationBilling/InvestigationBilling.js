@@ -647,11 +647,29 @@ const normalizeGender = (g) => {
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 };
 
-// SYRINGE (SYG01) is identified by name / item_id only — it carries no test_id.
+// SYRINGE (SYG01) is identified by name or billTypeNo ONLY — never by item_id or test_id.
 const isSyringeItem = (p) =>
-  p?.billTypeNo === "SYG01" ||
-  (p?.itemName && String(p.itemName).trim().toUpperCase() === "SYRINGE") ||
-  String(p?.item_id) === "1";
+  String(p?.billTypeNo || "").trim().toUpperCase() === "SYG01" ||
+  String(p?.itemName || "").trim().toUpperCase() === "SYRINGE";
+
+// Clean up item objects before storing: omit rate, nabh_rate, non_nabh_rate, no_nabh_rate.
+// Only SYG01 billTypeNo has status "Printed", otherwise status MUST be "Result Pending".
+// SYRINGE carries item_id only — no test_id.
+const sanitizeBillItem = (it) => {
+  const { rate, nabh_rate, non_nabh_rate, no_nabh_rate, ...clean } = it || {};
+  const isSyringe = isSyringeItem(clean);
+  if (isSyringe) {
+    clean.billTypeNo = "SYG01";
+    clean.status = "Printed";
+    delete clean.test_id;
+    if (!clean.item_id) clean.item_id = 1;
+  } else {
+    if (!clean.status || clean.status === "Printed") {
+      clean.status = "Result Pending";
+    }
+  }
+  return clean;
+};
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -769,7 +787,7 @@ const InvestigationBilling = () => {
   useEffect(() => {
     if (!location.state?.patientData) return;
     const data = location.state.patientData;
-    const isEstimate = data.EstBillNo !== undefined;
+    const isEstimate = Boolean(data.EstBillNo) && !data.investBillNo;
 
     setIsEditMode(Boolean(data.investBillNo) && Boolean(data.editRemarks));
     if (Array.isArray(data.history)) {
@@ -792,24 +810,26 @@ const InvestigationBilling = () => {
     }
 
     // Normalize items to ensure itemName, price, quantity, status are well-formed.
-    // SYRINGE (SYG01) must not carry test_id — item_id is enough.
+    // Omit rate, nabh_rate, non_nabh_rate, no_nabh_rate.
+    // Only SYG01 has status "Printed"; all other bill types must be "Result Pending".
     itemsArray = itemsArray.map((it) => {
-      const { test_id, ...withoutTestId } = it;
-      const base = isSyringeItem(it) ? withoutTestId : it;
+      const { test_id, rate, nabh_rate, non_nabh_rate, no_nabh_rate, ...clean } = it;
+      const isSyringe = isSyringeItem(it);
+      const base = isSyringe ? clean : { ...clean, ...(test_id && { test_id }) };
       return {
         ...base,
         itemName: it.itemName || it.name || it.test_name || "",
         price: it.price !== undefined ? it.price : 0,
         quantity: it.quantity || 1,
-        status: it.status || "Result Pending",
+        status: isSyringe ? "Printed" : (it.status || "Result Pending"),
       };
     });
 
     const resolvedBillName = data.bill_name || data.billType || "";
 
     setFormData({
-      investBillNo: isEstimate ? "" : data.investBillNo || "",
-      investBillDate: data.EstBillDate || data.investBillDate || "",
+      investBillNo: data.investBillNo || "",
+      investBillDate: data.investBillDate || data.EstBillDate || "",
       time: data.time || "",
       uhid: data.uhid || "",
       ipNumber: data.ipNumber || "",
@@ -829,11 +849,10 @@ const InvestigationBilling = () => {
       total: data.total || 0,
       finalPrice: data.finalPrice || 0,
       paymentMethod: data.paymentMethod || "",
-      paymentStatus: "Pending",
+      paymentStatus: data.paymentStatus || "Pending",
       item: JSON.stringify(itemsArray),
       EstBillNo: data.EstBillNo || "",
       roomNo: data.roomNo || "",
-      wardName: data.wardName || "",
       is_ward_request: Boolean(data.is_ward_request),
       ward_request_type: data.ward_request_type || "",
       customer_type: data.customer_type || "",
@@ -905,16 +924,15 @@ const InvestigationBilling = () => {
     setIsPriceEditable(Boolean(isEdit));
 
     const isLab = isLabBillType(billName, billTypeNo);
-    // SYRINGE (SYG01): item_id only — no test_id
+    // SYRINGE (SYG01): item_id only — no test_id, default status "Printed"
     const syringeProduct = {
       item_id: 1,
       itemName: "SYRINGE",
       billTypeNo: "SYG01",
       price: 10,
-      rate: 10,
       quantity: Number(quantity) > 0 ? Number(quantity) : 1,
       nabh_code: "",
-      status: "Result Pending",
+      status: "Printed",
     };
 
     if (clearProducts) {
@@ -933,7 +951,6 @@ const InvestigationBilling = () => {
             const hasSyringe = prev.some(
               (p) =>
                 (p.itemName && p.itemName.trim().toUpperCase() === "SYRINGE") ||
-                String(p.item_id) === "1" ||
                 p.billTypeNo === "SYG01",
             );
             if (!hasSyringe) {
@@ -950,8 +967,7 @@ const InvestigationBilling = () => {
           const filtered = prev.filter(
             (p) =>
               !(
-                ((p.itemName && p.itemName.trim().toUpperCase() === "SYRINGE") ||
-                  String(p.item_id) === "1") &&
+                (p.itemName && p.itemName.trim().toUpperCase() === "SYRINGE") ||
                 p.billTypeNo === "SYG01"
               ),
           );
@@ -999,10 +1015,19 @@ const InvestigationBilling = () => {
     );
     let fetchedItems = result.success ? (result.data.items || []) : [];
     if (isLab) {
+      // For lab bills, do not include tests with null, empty, or 0 price
+      fetchedItems = fetchedItems.filter(
+        (it) =>
+          it.price !== null &&
+          it.price !== undefined &&
+          String(it.price).trim() !== "" &&
+          !isNaN(Number(it.price)) &&
+          Number(it.price) > 0,
+      );
       const hasSyringeInItems = fetchedItems.some(
         (it) =>
           (it.itemName && it.itemName.trim().toUpperCase() === "SYRINGE") ||
-          String(it.item_id) === "1",
+          it.billTypeNo === "SYG01",
       );
       if (!hasSyringeInItems) {
         fetchedItems = [
@@ -1011,7 +1036,6 @@ const InvestigationBilling = () => {
             itemName: "SYRINGE",
             billTypeNo: "SYG01",
             price: 10,
-            rate: 10,
           },
           ...fetchedItems,
         ];
@@ -1045,13 +1069,17 @@ const InvestigationBilling = () => {
       "GET",
     );
     if (result.success) {
-      const packageItems = (result.data.items || []).map((item) => ({
-        ...item,
-        price: item.price || 0,
-        quantity: item.quantity || 1,
-        status: item.status || "Result Pending",
-        ...(pkgId ? { package_id: pkgId } : {}),
-      }));
+      const packageItems = (result.data.items || []).map((item) => {
+        const { rate, nabh_rate, non_nabh_rate, no_nabh_rate, ...cleanItem } = item;
+        const isSyringe = isSyringeItem(item);
+        return {
+          ...cleanItem,
+          price: item.price || 0,
+          quantity: item.quantity || 1,
+          status: isSyringe ? "Printed" : "Result Pending",
+          ...(pkgId ? { package_id: pkgId } : {}),
+        };
+      });
       const packageTotalPrice = result.data.totalPrice || "0.00";
       if (packageItems.length > 0) {
         setProductList(packageItems);
@@ -1112,7 +1140,7 @@ const InvestigationBilling = () => {
     if (isDuplicate) {
       const isSyringe =
         (selectedItem && selectedItem.trim().toUpperCase() === "SYRINGE") ||
-        String(obj?.item_id) === "1";
+        isSyringeItem(obj);
       if (isSyringe) {
         const updatedList = productList.map((p) => {
           const matchName =
@@ -1128,7 +1156,6 @@ const InvestigationBilling = () => {
               ...p,
               quantity: quantity,
               price: selectedPrice !== "" ? selectedPrice : p.price,
-              rate: selectedPrice !== "" ? selectedPrice : p.rate,
             };
           }
           return p;
@@ -1145,20 +1172,22 @@ const InvestigationBilling = () => {
       return;
     }
 
+    const isSyringe =
+      (selectedItem && selectedItem.trim().toUpperCase() === "SYRINGE") ||
+      (obj?.billTypeNo && String(obj.billTypeNo).trim().toUpperCase() === "SYG01");
     const newProduct = {
       itemName: selectedItem,
       price: selectedPrice,
-      rate: selectedPrice,
       quantity: quantity,
-      billTypeNo: formData.billTypeNo,
-      nabh_code: obj?.nabh_code || "",
-      ...(obj?.nabh_rate !== undefined && obj?.nabh_rate !== null && { nabh_rate: obj.nabh_rate }),
-      ...(obj?.non_nabh_rate !== undefined && obj?.non_nabh_rate !== null && { non_nabh_rate: obj.non_nabh_rate }),
-      ...(obj?.no_nabh_rate !== undefined && obj?.no_nabh_rate !== null && { no_nabh_rate: obj.no_nabh_rate }),
-      status: "Result Pending",
-      // SYRINGE (SYG01) carries item_id only — never test_id
-      ...(obj?.test_id && !isSyringeItem(obj) && { test_id: obj.test_id }),
-      ...(obj?.item_id && { item_id: obj.item_id }),
+      billTypeNo: isSyringe ? "SYG01" : formData.billTypeNo,
+      nabh_code: isSyringe ? "" : (obj?.nabh_code || ""),
+      status: isSyringe ? "Printed" : "Result Pending",
+      ...(isSyringe
+        ? { item_id: 1 }
+        : {
+            ...(obj?.test_id && { test_id: obj.test_id }),
+            ...(obj?.item_id && { item_id: obj.item_id }),
+          }),
     };
     const updatedList = [...productList, newProduct];
     setProductList(updatedList);
@@ -1342,6 +1371,14 @@ const InvestigationBilling = () => {
       }
       seenItems.add(key);
     }
+    const discountVal = parseFloat(formData.discount || 0);
+    const discountPercentVal = parseFloat(formData.discountPercent || 0);
+    if ((discountVal > 0 || discountPercentVal > 0) && !formData.discountRemarks?.trim()) {
+      toast.warning("Discount Remarks is required!");
+      const drInput = document.querySelector('input[name="discountRemarks"]');
+      if (drInput) drInput.focus();
+      return false;
+    }
     if (isEditMode && !formData.editRemarks?.trim()) {
       toast.warning("Edit Remarks is required!");
       return false;
@@ -1389,11 +1426,10 @@ const InvestigationBilling = () => {
       total: formData.total,
       finalPrice: formData.finalPrice,
       paymentMethod: formData.paymentMethod,
-      item: productList,
+      item: productList.map(sanitizeBillItem),
       age: formData.calculatedAge || formData.age || "",
       age_type: formData.ageType || "",
       roomNo: formData.roomNo || "",
-      wardName: formData.wardName || "",
       is_ward_request: Boolean(formData.is_ward_request),
       ward_request_type: formData.ward_request_type || "",
       ...getPatientIdentityFields(),
@@ -1415,7 +1451,7 @@ const InvestigationBilling = () => {
             ...formData,
             EstBillNo: estBillNo,
             EstBillDate: formData.investBillDate,
-            item: productList,
+            item: productList.map(sanitizeBillItem),
           },
           isEstimate: true,
           toastMsg: "Estimate generated successfully!",
@@ -1462,13 +1498,12 @@ const InvestigationBilling = () => {
         finalPrice: formData.finalPrice,
         paymentMethod: formData.paymentMethod,
         paymentStatus: formData.paymentStatus,
-        item: productList,
+        item: productList.map(sanitizeBillItem),
         is_emergency: !!formData.is_emergency,
         EstBillNo: formData.EstBillNo,
         age: formData.calculatedAge || formData.age || "",
         age_type: formData.ageType || "",
         roomNo: formData.roomNo || "",
-        wardName: formData.wardName || "",
         is_ward_request: Boolean(formData.is_ward_request),
         ward_request_type: formData.ward_request_type || "",
         ...getPatientIdentityFields(),
@@ -1486,19 +1521,7 @@ const InvestigationBilling = () => {
         const billNo = result.data?.investBillNo;
         if (billNo) {
           if (isEditMode) {
-            const isCash =
-              String(formData.paymentMethod || "")
-                .trim()
-                .toLowerCase() === "cash";
-            if (isCash) {
-              toast.success(
-                "Cash bill updated successfully! Sent for approval in Dept BUD Report.",
-              );
-            } else {
-              toast.success(
-                "Credit bill updated successfully (approval not required).",
-              );
-            }
+            toast.success("Bill updated successfully!");
             navigate("/ViewBills");
             return;
           }
@@ -1510,7 +1533,7 @@ const InvestigationBilling = () => {
               ...formData,
               investBillNo: billNo,
               investBillDate: formData.investBillDate,
-              item: productList,
+              item: productList.map(sanitizeBillItem),
             },
             isEstimate: false,
             toastMsg: "Bill generated successfully!",
@@ -2303,14 +2326,27 @@ const InvestigationBilling = () => {
               </InputWrapper>
 
               <InputWrapper>
-                <Label>Discount Remarks</Label>
+                <Label>
+                  Discount Remarks
+                  {(parseFloat(formData.discount || 0) > 0 ||
+                    parseFloat(formData.discountPercent || 0) > 0) && (
+                    <span style={{ color: "#ef4444", marginLeft: 4 }}>*</span>
+                  )}
+                </Label>
                 <Input
                   type="text"
                   name="discountRemarks"
                   value={formData.discountRemarks}
                   onChange={handleInputChange}
                   disabled={!isDiscountAllowed}
-                  placeholder={!isDiscountAllowed ? "Not allowed" : ""}
+                  placeholder={
+                    !isDiscountAllowed
+                      ? "Not allowed"
+                      : (parseFloat(formData.discount || 0) > 0 ||
+                         parseFloat(formData.discountPercent || 0) > 0)
+                      ? "Remarks required"
+                      : ""
+                  }
                 />
               </InputWrapper>
 
