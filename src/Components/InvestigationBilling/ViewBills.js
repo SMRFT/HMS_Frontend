@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { DatePicker } from "antd";
 import dayjs from "dayjs";
 import styled from "styled-components";
-import ReactSelect from "react-select";
+import ReactSelect, { components } from "react-select";
+import * as XLSX from "xlsx";
 import apiRequest from "../../Auth/apiRequest";
 import { toast } from "react-toastify";
 import PrintModal from "./PrintModal"; // ← fast in-page print modal (shared with InvestigationBilling)
@@ -47,6 +48,43 @@ export const getBillStatus = (bill) => {
   if (bill.is_fully_refunded || bill.paymentStatus === "Sales Returned")
     return "Sales Returned";
   return bill.paymentStatus || "Unknown";
+};
+
+export const getPaymentMode = (bill) => {
+  if (!bill) return "—";
+  const raw =
+    bill.payment_method ||
+    bill.payment_details?.method ||
+    bill.paymentMethod ||
+    "";
+  const str = String(raw).trim().toLowerCase();
+  if (str === "multiple payment" || str === "multiple") return "Multiple";
+  if (str === "cash") return "Cash";
+  if (str === "card") return "Card";
+  if (str === "credit") return "Credit";
+  if (str === "cheque") return "Cheque";
+  if (str === "online" || str === "upi") return "Online";
+  if (!raw) return "—";
+  return raw.charAt(0).toUpperCase() + raw.slice(1);
+};
+
+export const getPaymentBreakdownText = (bill) => {
+  if (!bill) return "";
+  const breakdown = bill.payment_details?.breakdown;
+  if (Array.isArray(breakdown) && breakdown.length > 0) {
+    return breakdown
+      .map(
+        (b) =>
+          `${String(b.method || "").toUpperCase()}: ₹${parseFloat(
+            b.Paid_amount || 0,
+          ).toFixed(2)}${b["Card Machine"] ? ` (${b["Card Machine"]})` : ""}`,
+      )
+      .join(", ");
+  }
+  if (bill.payment_details?.["Card Machine"]) {
+    return `Machine: ${bill.payment_details["Card Machine"]}`;
+  }
+  return "";
 };
 
 // A delete request also sets is_approved=false on the backend, so the edit
@@ -236,6 +274,88 @@ const searchableSelectStyles = {
   }),
 };
 
+const CheckboxOption = (props) => {
+  return (
+    <components.Option {...props}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          cursor: "pointer",
+        }}
+      >
+        <input
+          type="checkbox"
+          checked={props.isSelected}
+          onChange={() => null}
+          style={{
+            cursor: "pointer",
+            width: "14px",
+            height: "14px",
+            accentColor: colors.primary,
+          }}
+        />
+        <span>{props.label}</span>
+      </div>
+    </components.Option>
+  );
+};
+
+const multiSearchableSelectStyles = {
+  ...searchableSelectStyles,
+  menu: (base) => ({
+    ...base,
+    minWidth: "260px",
+    zIndex: 9999,
+  }),
+  control: (base, state) => ({
+    ...searchableSelectStyles.control(base, state),
+    height: "auto",
+    minHeight: "28px",
+  }),
+  valueContainer: (base) => ({
+    ...base,
+    padding: "2px 6px",
+    height: "auto",
+    minHeight: "28px",
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "2px",
+  }),
+  option: (base, state) => ({
+    ...base,
+    padding: "6px 10px",
+    backgroundColor: state.isFocused ? "#f0fdfa" : "transparent",
+    color: colors.textMain,
+    cursor: "pointer",
+    ":active": {
+      backgroundColor: "#e0f2fe",
+    },
+  }),
+  multiValue: (base) => ({
+    ...base,
+    backgroundColor: "#e0f2fe",
+    borderRadius: "4px",
+    margin: "1px",
+    fontSize: "0.74rem",
+  }),
+  multiValueLabel: (base) => ({
+    ...base,
+    color: "#0369a1",
+    fontWeight: 600,
+    padding: "1px 4px",
+  }),
+  multiValueRemove: (base) => ({
+    ...base,
+    color: "#0369a1",
+    ":hover": {
+      backgroundColor: "#bae6fd",
+      color: "#0284c7",
+    },
+  }),
+};
+
 // ─── Table extras ─────────────────────────────────────────────────────────────
 
 const ActionGroup = styled.div`
@@ -414,6 +534,117 @@ const ConfirmRefundBtn = styled(Button)`
   &:disabled {
     background: #ccc;
     cursor: not-allowed;
+  }
+`;
+
+// ─── Summary Toolbar & Action Buttons ─────────────────────────────────────────
+
+const SummaryToolbar = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: #f8fafc;
+  border: 1px solid ${colors.border};
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+`;
+
+const SummaryStats = styled.div`
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+`;
+
+const StatCard = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: ${({ $primary }) => ($primary ? "#f0fdfa" : "#ffffff")};
+  border: 1px solid
+    ${({ $primary }) => ($primary ? colors.primary : colors.border)};
+  padding: 6px 14px;
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+`;
+
+const StatLabel = styled.span`
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: ${colors.textMuted};
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+`;
+
+const StatValue = styled.span`
+  font-size: 0.96rem;
+  font-weight: 700;
+  color: ${({ $primary }) => ($primary ? colors.primary : colors.textMain)};
+`;
+
+const ActionButtonsGroup = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+const ExportExcelBtn = styled(Button)`
+  background: #16a34a;
+  color: #ffffff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 6px 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  &:hover {
+    background: #15803d;
+  }
+`;
+
+const ClearFiltersBtn = styled(Button)`
+  background: #f1f5f9;
+  color: #334155;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 6px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid #cbd5e1;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  &:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+    border-color: #94a3b8;
+  }
+`;
+
+const PrintReportBtn = styled(Button)`
+  background: #4f46e5;
+  color: #ffffff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 6px 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  &:hover {
+    background: #4338ca;
   }
 `;
 
@@ -867,14 +1098,35 @@ const BillsReport = () => {
   const [estimateBills, setEstimateBills] = useState([]);
   const [filteredBills, setFilteredBills] = useState([]);
   const [filters, setFilters] = useState({
-    billType: "",
+    billType: [],
     doctor: "",
     patientType: "ALL",
-    uhid: "",
     status: "",
+    paymentMode: "ALL",
   });
   const [billTypes, setBillTypes] = useState([]);
   const [doctors, setDoctors] = useState([]);
+
+  const paymentModeOptions = useMemo(
+    () => [
+      { value: "ALL", label: "All Payment Modes" },
+      { value: "Cash", label: "Cash" },
+      { value: "Card", label: "Card" },
+      { value: "Multiple", label: "Multiple" },
+      { value: "Credit", label: "Credit" },
+      { value: "Online", label: "Online" },
+      { value: "Cheque", label: "Cheque" },
+    ],
+    [],
+  );
+
+  const grossTotal = useMemo(() => {
+    return filteredBills.reduce((acc, bill) => {
+      if (filters.status !== "Deleted" && isBillDeleted(bill)) return acc;
+      const val = parseFloat(bill.finalPrice ?? bill.total ?? 0);
+      return acc + (isNaN(val) ? 0 : val);
+    }, 0);
+  }, [filteredBills, filters.status]);
 
   const statusOptions = useMemo(
     () => [
@@ -922,8 +1174,23 @@ const BillsReport = () => {
   const [refundRemarksErr, setRefundRemarksErr] = useState(false);
   const [viewRefundBill, setViewRefundBill] = useState(null);
   const [viewEditHistoryBill, setViewEditHistoryBill] = useState(null);
-  const [nameSearch, setNameSearch] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [billTypeSearch, setBillTypeSearch] = useState("");
   const [actionsBill, setActionsBill] = useState(null);
+
+  const handleClearFilters = () => {
+    setFromDate(dayjs());
+    setToDate(dayjs());
+    setFilters({
+      billType: [],
+      doctor: "",
+      patientType: "ALL",
+      status: "",
+      paymentMode: "ALL",
+    });
+    setSearchTerm("");
+    setBillTypeSearch("");
+  };
 
   // Print modal state — { bill, isEstimate }
   const [printJob, setPrintJob] = useState(null);
@@ -961,8 +1228,21 @@ const BillsReport = () => {
     try {
       const qp = new URLSearchParams();
       Object.entries(filters).forEach(([k, v]) => {
-        if (v && v !== "ALL" && k !== "status") qp.append(k, v);
+        if (
+          v &&
+          v !== "ALL" &&
+          k !== "status" &&
+          k !== "paymentMode" &&
+          k !== "patientType" &&
+          k !== "billType"
+        )
+          qp.append(k, v);
       });
+      if (Array.isArray(filters.billType) && filters.billType.length > 0) {
+        qp.append("billType", filters.billType.join(","));
+      } else if (typeof filters.billType === "string" && filters.billType.trim()) {
+        qp.append("billType", filters.billType.trim());
+      }
       qp.append("start_date", fromDate.format("YYYY-MM-DD"));
       qp.append("end_date", toDate.format("YYYY-MM-DD"));
 
@@ -983,7 +1263,13 @@ const BillsReport = () => {
 
   useEffect(() => {
     fetchBills();
-  }, [filters.billType, filters.doctor, filters.uhid, fromDate, toDate, HMSURL]);
+  }, [
+    JSON.stringify(filters.billType),
+    filters.doctor,
+    fromDate,
+    toDate,
+    HMSURL,
+  ]);
 
   useEffect(() => {
     const fetchMeta = async () => {
@@ -1002,9 +1288,10 @@ const BillsReport = () => {
     fetchMeta();
   }, [HMSURL]);
 
-  // client-side IP/OP + patient name + status filter
+  // client-side filtering: patientType, status, paymentMode, billType, and unified search (UHID / IP / Patient Name / Bill No)
   useEffect(() => {
-    const tokens = nameSearch.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const term = searchTerm.trim().toLowerCase();
+    const tokens = term ? term.split(/\s+/).filter(Boolean) : [];
 
     setFilteredBills(
       estimateBills.filter((bill) => {
@@ -1013,7 +1300,7 @@ const BillsReport = () => {
         if (filters.patientType === "OP" && !(bill.uhid && !bill.ipNumber))
           return false;
 
-        if (tokens.length) {
+        if (term) {
           const fullName = [
             bill.salutation,
             bill.firstName,
@@ -1023,7 +1310,21 @@ const BillsReport = () => {
             .filter(Boolean)
             .join(" ")
             .toLowerCase();
-          if (!tokens.every((t) => fullName.includes(t))) return false;
+          const uhid = String(bill.uhid || "").toLowerCase();
+          const ipNo = String(bill.ipNumber || "").toLowerCase();
+          const investBillNo = String(bill.investBillNo || "").toLowerCase();
+          const estBillNo = String(bill.EstBillNo || "").toLowerCase();
+
+          const matchesIdOrBill =
+            uhid.includes(term) ||
+            ipNo.includes(term) ||
+            investBillNo.includes(term) ||
+            estBillNo.includes(term);
+
+          const matchesName =
+            tokens.length > 0 && tokens.every((t) => fullName.includes(t));
+
+          if (!matchesIdOrBill && !matchesName) return false;
         }
 
         if (filters.status && filters.status !== "ALL") {
@@ -1033,10 +1334,31 @@ const BillsReport = () => {
           }
         }
 
+        if (filters.paymentMode && filters.paymentMode !== "ALL") {
+          const mode = getPaymentMode(bill);
+          if (mode.toLowerCase() !== filters.paymentMode.toLowerCase()) {
+            return false;
+          }
+        }
+
+        if (Array.isArray(filters.billType) && filters.billType.length > 0) {
+          const bt = String(bill.bill_type ?? "");
+          if (!filters.billType.map(String).includes(bt)) {
+            return false;
+          }
+        }
+
         return true;
       }),
     );
-  }, [estimateBills, filters.patientType, filters.status, nameSearch]);
+  }, [
+    estimateBills,
+    filters.patientType,
+    filters.status,
+    filters.paymentMode,
+    filters.billType,
+    searchTerm,
+  ]);
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
@@ -1121,36 +1443,12 @@ const BillsReport = () => {
     setRemarksError(false);
   };
 
-  const handleRemarksConfirm = async () => {
+  const handleRemarksConfirm = () => {
     if (!remarksValue.trim()) {
       setRemarksError(true);
       return;
     }
-    const billNo = remarksBill.investBillNo || remarksBill.EstBillNo;
     const remarks = remarksValue.trim();
-    const isCash =
-      String(remarksBill.paymentMethod || "")
-        .trim()
-        .toLowerCase() === "cash";
-
-    try {
-      await apiRequest(`${HMSURL}request-bill-edit/`, "PATCH", {
-        investBillNo: billNo,
-        editRemarks: remarks,
-        is_approve: !isCash,
-        paymentMethod: remarksBill.paymentMethod,
-      });
-      setEstimateBills((prev) =>
-        prev.map((b) =>
-          (b.investBillNo || b.EstBillNo) === billNo
-            ? { ...b, is_approved: !isCash, editRemarks: remarks }
-            : b,
-        ),
-      );
-    } catch (e) {
-      console.warn("request-bill-edit error:", e);
-    }
-
     navigate("/InvestigationBilling", {
       state: {
         patientData: { ...remarksBill, editRemarks: remarks },
@@ -1180,10 +1478,6 @@ const BillsReport = () => {
       return;
     }
     const billNo = deleteBill.investBillNo || deleteBill.EstBillNo;
-    const isCash =
-      String(deleteBill.paymentMethod || "")
-        .trim()
-        .toLowerCase() === "cash";
 
     try {
       const result = await apiRequest(`${HMSURL}delete-bill/`, "PATCH", {
@@ -1192,41 +1486,10 @@ const BillsReport = () => {
         paymentMethod: deleteBill.paymentMethod,
       });
       if (result.success) {
-        if (isCash) {
-          toast.success(
-            "Cash bill delete request submitted for approval in Dept BUD Report.",
-          );
-          setEstimateBills((prev) =>
-            prev.map((b) =>
-              (b.investBillNo || b.EstBillNo) === billNo
-                ? {
-                    ...b,
-                    is_delete_requested: true,
-                    is_approved: false,
-                    deleteRemarks: deleteRemarks.trim(),
-                  }
-                : b,
-            ),
-          );
-        } else {
-          toast.success(
-            "Credit bill deleted successfully (audit recorded).",
-          );
-          setEstimateBills((prev) =>
-            prev.map((b) =>
-              (b.investBillNo || b.EstBillNo) === billNo
-                ? {
-                    ...b,
-                    is_active: false,
-                    is_delete_requested: true,
-                    is_approved: true,
-                    deleteRemarks: deleteRemarks.trim(),
-                    paymentStatus: "Deleted",
-                  }
-                : b,
-            ),
-          );
-        }
+        toast.success("Bill deleted successfully.");
+        setEstimateBills((prev) =>
+          prev.filter((b) => (b.investBillNo || b.EstBillNo) !== billNo),
+        );
         handleDeleteCancel();
       } else {
         toast.error(result.error || "Failed to delete bill");
@@ -1314,6 +1577,344 @@ const BillsReport = () => {
   const fmtName = (s, f, m, l) =>
     `${s || ""} ${f || ""} ${m ? m + " " : ""}${l || ""}`.trim();
 
+  const handleExportExcel = () => {
+    if (!filteredBills || filteredBills.length === 0) {
+      toast.warning("No bills available to export");
+      return;
+    }
+
+    try {
+      const exportRows = filteredBills.map((bill, index) => {
+        const mode = getPaymentMode(bill);
+        const bText = getPaymentBreakdownText(bill);
+        const amt = parseFloat(bill.finalPrice ?? bill.total ?? 0);
+        return {
+          "Sl.No": index + 1,
+          "Date / Time": formatBillDate(bill.investBillDate || bill.EstBillDate),
+          "Bill No": bill.investBillNo || bill.EstBillNo || "",
+          "UHID No": bill.uhid || "",
+          "IP No": bill.ipNumber || "",
+          "Patient Name": fmtName(
+            bill.salutation,
+            bill.firstName,
+            bill.middleName,
+            bill.lastName,
+          ),
+          Age:
+            bill.age && bill.age_type
+              ? `${bill.age}/${bill.age_type}`
+              : bill.age || "",
+          "Room No": bill.roomNo || "",
+          "Bill Type": bill.bill_name || bill.billTypeNo || "",
+          "Bill Amount (₹)": isNaN(amt) ? 0 : Number(amt.toFixed(2)),
+          "Payment Mode": mode,
+          "Payment Details": bText || mode,
+          Doctor: bill.doctorName || bill.doctor || "",
+          "Billed By": bill.created_by || "",
+          Status: getBillStatus(bill),
+        };
+      });
+
+      // Add Gross Total summary row
+      exportRows.push({
+        "Sl.No": "",
+        "Date / Time": "",
+        "Bill No": "Total",
+        "UHID No": "",
+        "IP No": "",
+        "Patient Name": `Total Bills: ${filteredBills.length}`,
+        Age: "",
+        "Room No": "",
+        "Bill Type": "Gross Total",
+        "Bill Amount (₹)": Number(grossTotal.toFixed(2)),
+        "Payment Mode": "",
+        "Payment Details": "",
+        Doctor: "",
+        "Billed By": "",
+        Status: "",
+      });
+
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(exportRows);
+      ws["!cols"] = [
+        { wch: 8 },  // Sl.No
+        { wch: 22 }, // Date / Time
+        { wch: 18 }, // Bill No
+        { wch: 15 }, // UHID No
+        { wch: 15 }, // IP No
+        { wch: 25 }, // Patient Name
+        { wch: 10 }, // Age
+        { wch: 12 }, // Room No
+        { wch: 22 }, // Bill Type
+        { wch: 16 }, // Bill Amount (₹)
+        { wch: 16 }, // Payment Mode
+        { wch: 30 }, // Payment Details
+        { wch: 22 }, // Doctor
+        { wch: 14 }, // Billed By
+        { wch: 16 }, // Status
+      ];
+
+      XLSX.utils.book_append_sheet(wb, ws, "Investigation Bills");
+      const fromStr = fromDate ? fromDate.format("DD-MM-YYYY") : "";
+      const toStr = toDate ? toDate.format("DD-MM-YYYY") : "";
+      const filename = `Investigation_Bills_${fromStr}_to_${toStr}.xlsx`;
+      XLSX.writeFile(wb, filename);
+      toast.success("Excel exported successfully!");
+    } catch (err) {
+      console.error("Excel export error:", err);
+      toast.error("Failed to export Excel file");
+    }
+  };
+
+  const handlePrintReport = () => {
+    if (!filteredBills || filteredBills.length === 0) {
+      toast.warning("No bills available to print");
+      return;
+    }
+
+    const printDate = new Date().toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
+    });
+
+    const activeBillType =
+      Array.isArray(filters.billType) && filters.billType.length > 0
+        ? billTypeOptions
+            .filter((o) => filters.billType.includes(o.value))
+            .map((o) => o.label)
+            .join(", ")
+        : "All";
+    const activeDoctor =
+      filters.doctor &&
+      doctorOptions.find((o) => o.value === String(filters.doctor))?.label;
+
+    const rowsHtml = filteredBills
+      .map((bill, idx) => {
+        const mode = getPaymentMode(bill);
+        const bText = getPaymentBreakdownText(bill);
+        const name = fmtName(
+          bill.salutation,
+          bill.firstName,
+          bill.middleName,
+          bill.lastName,
+        );
+        const ageStr =
+          bill.age && bill.age_type
+            ? `${bill.age}/${bill.age_type}`
+            : bill.age || "-";
+        const statusStr = getBillStatus(bill);
+        const amt = parseFloat(bill.finalPrice ?? bill.total ?? 0).toFixed(2);
+        const isDel = isBillDeleted(bill);
+
+        return `
+          <tr style="${isDel ? "color: #94a3b8; text-decoration: line-through;" : ""}">
+            <td style="text-align: center;">${idx + 1}</td>
+            <td>${formatBillDate(bill.investBillDate || bill.EstBillDate)}</td>
+            <td style="font-weight: 600;">${bill.investBillNo || bill.EstBillNo || ""}</td>
+            <td>${bill.uhid || "-"}</td>
+            <td>${bill.ipNumber || "-"}</td>
+            <td>${name || "-"}</td>
+            <td>${ageStr}</td>
+            <td>${bill.bill_name || bill.billTypeNo || "-"}</td>
+            <td>
+              <strong>${mode}</strong>
+              ${bText ? `<div style="font-size: 9px; color: #64748b; margin-top: 1px;">${bText}</div>` : ""}
+            </td>
+            <td>${bill.doctorName || "-"}</td>
+            <td>${statusStr}</td>
+            <td style="text-align: right; font-weight: 600;">₹ ${amt}</td>
+          </tr>
+        `;
+      })
+      .join("");
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Investigation Bills Report</title>
+          <style>
+            @page {
+              size: A4 landscape;
+              margin: 10mm;
+            }
+            body {
+              font-family: Arial, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              color: #1e293b;
+              margin: 0;
+              padding: 12px;
+              font-size: 11px;
+            }
+            .header {
+              text-align: center;
+              border-bottom: 2px solid #0d9488;
+              padding-bottom: 8px;
+              margin-bottom: 12px;
+            }
+            .header h1 {
+              margin: 0;
+              font-size: 18px;
+              color: #0f766e;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            }
+            .header .meta {
+              font-size: 11px;
+              color: #475569;
+              margin-top: 4px;
+            }
+            .filters-bar {
+              display: flex;
+              justify-content: space-between;
+              background: #f8fafc;
+              border: 1px solid #e2e8f0;
+              padding: 6px 10px;
+              border-radius: 4px;
+              margin-bottom: 12px;
+              font-size: 10.5px;
+            }
+            .summary-cards {
+              display: flex;
+              gap: 16px;
+              margin-bottom: 12px;
+            }
+            .card {
+              border: 1px solid #cbd5e1;
+              background: #f8fafc;
+              padding: 6px 12px;
+              border-radius: 4px;
+            }
+            .card strong {
+              color: #0d9488;
+              font-size: 13px;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              font-size: 10px;
+            }
+            thead {
+              display: table-header-group;
+            }
+            tr {
+              page-break-inside: avoid;
+            }
+            th, td {
+              border: 1px solid #cbd5e1;
+              padding: 5px 6px;
+              text-align: left;
+            }
+            th {
+              background: #f1f5f9;
+              font-weight: 700;
+              color: #334155;
+            }
+            tfoot tr {
+              background: #f8fafc;
+              font-weight: 700;
+            }
+            .print-footer {
+              margin-top: 16px;
+              display: flex;
+              justify-content: space-between;
+              font-size: 10px;
+              color: #64748b;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>Investigation Bills Report</h1>
+            <div class="meta">
+              Period: <strong>${fromDate ? fromDate.format("DD-MM-YYYY") : ""}</strong> to <strong>${toDate ? toDate.format("DD-MM-YYYY") : ""}</strong>
+              &nbsp;|&nbsp; Generated on: ${printDate}
+            </div>
+          </div>
+
+          <div class="filters-bar">
+            <div>
+              <span><strong>Patient Type:</strong> ${filters.patientType || "ALL"}</span> &nbsp;|&nbsp;
+              <span><strong>Bill Type:</strong> ${activeBillType || "All"}</span> &nbsp;|&nbsp;
+              <span><strong>Doctor:</strong> ${activeDoctor || "All"}</span> &nbsp;|&nbsp;
+              <span><strong>Payment Mode:</strong> ${filters.paymentMode || "All"}</span> &nbsp;|&nbsp;
+              <span><strong>Status:</strong> ${filters.status || "All"}</span>
+            </div>
+          </div>
+
+          <div class="summary-cards">
+            <div class="card">
+              Total Bills: <strong>${filteredBills.length}</strong>
+            </div>
+            <div class="card">
+              Gross Total: <strong>₹ ${grossTotal.toLocaleString("en-IN", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}</strong>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 30px; text-align: center;">Sl</th>
+                <th style="width: 110px;">Date / Time</th>
+                <th style="width: 95px;">Bill No</th>
+                <th style="width: 75px;">UHID</th>
+                <th style="width: 75px;">IP No</th>
+                <th>Patient Name</th>
+                <th style="width: 45px;">Age</th>
+                <th>Bill Type</th>
+                <th style="width: 110px;">Payment Mode</th>
+                <th>Doctor</th>
+                <th style="width: 70px;">Status</th>
+                <th style="width: 80px; text-align: right;">Amount (₹)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="5" style="text-align: right; font-weight: 700;">Grand Total (${filteredBills.length} Bills):</td>
+                <td colspan="6"></td>
+                <td style="text-align: right; font-weight: 700; color: #0f766e;">₹ ${grossTotal.toLocaleString(
+                  "en-IN",
+                  {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  },
+                )}</td>
+              </tr>
+            </tfoot>
+          </table>
+
+          <div class="print-footer">
+            <span>Hospital Management System - Investigation Billing</span>
+            <span>Printed by Authorized User</span>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const printWin = window.open("", "_blank");
+    if (!printWin) {
+      toast.error("Popup blocked! Please allow popups for this site to print.");
+      return;
+    }
+    printWin.document.open();
+    printWin.document.write(html);
+    printWin.document.close();
+    printWin.focus();
+    setTimeout(() => {
+      printWin.print();
+    }, 300);
+  };
+
   // ─── JSX ──────────────────────────────────────────────────────────────────────
 
   return (
@@ -1396,22 +1997,37 @@ const BillsReport = () => {
             <ReactSelect
               isClearable
               isSearchable
-              placeholder="Select Bill Type"
+              isMulti
+              closeMenuOnSelect={false}
+              hideSelectedOptions={false}
+              inputValue={billTypeSearch}
+              onInputChange={(newVal, { action }) => {
+                if (action === "input-change") {
+                  setBillTypeSearch(newVal);
+                } else if (action === "menu-close") {
+                  setBillTypeSearch("");
+                }
+              }}
+              components={{ Option: CheckboxOption }}
+              placeholder="Select Bill Type(s)"
               options={billTypeOptions}
               value={
-                filters.billType
-                  ? billTypeOptions.find(
-                    (o) => o.value === String(filters.billType),
-                  ) || null
-                  : null
+                Array.isArray(filters.billType) && filters.billType.length > 0
+                  ? billTypeOptions.filter((o) =>
+                      filters.billType.includes(o.value),
+                    )
+                  : []
               }
-              onChange={(selected) => {
+              onChange={(selected, actionMeta) => {
                 setFilters((prev) => ({
                   ...prev,
-                  billType: selected ? selected.value : "",
+                  billType: selected ? selected.map((o) => o.value) : [],
                 }));
+                if (actionMeta?.action === "clear") {
+                  setBillTypeSearch("");
+                }
               }}
-              styles={searchableSelectStyles}
+              styles={multiSearchableSelectStyles}
               menuPortalTarget={
                 typeof document !== "undefined" ? document.body : null
               }
@@ -1471,22 +2087,40 @@ const BillsReport = () => {
           </InputWrapper>
 
           <InputWrapper>
-            <Label>UHID</Label>
-            <Input
-              type="text"
-              name="uhid"
-              value={filters.uhid}
-              onChange={handleFilterChange}
+            <Label>Payment Mode</Label>
+            <ReactSelect
+              isClearable
+              isSearchable={false}
+              placeholder="All Payment Modes"
+              options={paymentModeOptions}
+              value={
+                filters.paymentMode && filters.paymentMode !== "ALL"
+                  ? paymentModeOptions.find(
+                      (o) => o.value === filters.paymentMode,
+                    ) || null
+                  : null
+              }
+              onChange={(selected) => {
+                setFilters((prev) => ({
+                  ...prev,
+                  paymentMode: selected ? selected.value : "ALL",
+                }));
+              }}
+              styles={searchableSelectStyles}
+              menuPortalTarget={
+                typeof document !== "undefined" ? document.body : null
+              }
             />
           </InputWrapper>
-          <InputWrapper>
-            <Label>Patient Name</Label>
+
+          <InputWrapper style={{ gridColumn: "span 2" }}>
+            <Label>Search (UHID / IP / Patient / Bill No)</Label>
             <Input
               type="text"
-              name="patientName"
-              placeholder="Search by name"
-              value={nameSearch}
-              onChange={(e) => setNameSearch(e.target.value)}
+              name="search"
+              placeholder="Search by UHID, IP Number, Patient Name, Bill Number..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
           </InputWrapper>
 
@@ -1508,6 +2142,42 @@ const BillsReport = () => {
             </RadioGroup>
           </InputWrapper>
         </FilterGrid>
+
+        {/* ── Summary & Actions Bar (Gross Total, Counts, Print & Excel) ── */}
+        <SummaryToolbar>
+          <SummaryStats>
+            <StatCard>
+              <StatLabel>Total Bills</StatLabel>
+              <StatValue>{filteredBills.length}</StatValue>
+            </StatCard>
+            <StatCard $primary>
+              <StatLabel>Gross Total</StatLabel>
+              <StatValue $primary>
+                ₹{" "}
+                {grossTotal.toLocaleString("en-IN", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </StatValue>
+            </StatCard>
+          </SummaryStats>
+
+          <ActionButtonsGroup>
+            <ClearFiltersBtn
+              type="button"
+              onClick={handleClearFilters}
+              title="Reset all filters and search fields"
+            >
+              🔄 Clear Filters
+            </ClearFiltersBtn>
+            <PrintReportBtn type="button" onClick={handlePrintReport}>
+              🖨️ Print Report
+            </PrintReportBtn>
+            <ExportExcelBtn type="button" onClick={handleExportExcel}>
+              📥 Export Excel
+            </ExportExcelBtn>
+          </ActionButtonsGroup>
+        </SummaryToolbar>
 
         {/* Table */}
         {filteredBills.length > 0 ? (
@@ -1546,7 +2216,7 @@ const BillsReport = () => {
                   <ScrollableTh>Room No</ScrollableTh>
                   <ScrollableTh>Bill Type</ScrollableTh>
                   <ScrollableTh>Bill Amount</ScrollableTh>
-                  <ScrollableTh>Payment Method</ScrollableTh>
+                  <ScrollableTh>Payment Mode</ScrollableTh>
                   <ScrollableTh>Doctor</ScrollableTh>
                   <ScrollableTh>Billed By</ScrollableTh>
                   <ScrollableTh>Edited By</ScrollableTh>
@@ -1675,7 +2345,72 @@ const BillsReport = () => {
                     <Td>{bill.roomNo}</Td>
                     <Td>{bill.bill_name}</Td>
                     <Td>₹ {bill.finalPrice}</Td>
-                    <Td>{bill.paymentMethod}</Td>
+                    <Td>
+                      {(() => {
+                        const mode = getPaymentMode(bill);
+                        const breakdown = bill.payment_details?.breakdown;
+                        const bText = getPaymentBreakdownText(bill);
+                        return (
+                          <div title={bText || mode}>
+                            <span
+                              style={{
+                                fontWeight: 600,
+                                color:
+                                  mode === "Multiple"
+                                    ? "#0284c7"
+                                    : mode === "Cash"
+                                    ? "#16a34a"
+                                    : mode === "Card"
+                                    ? "#9333ea"
+                                    : colors.textMain,
+                              }}
+                            >
+                              {mode}
+                            </span>
+                            {mode === "Multiple" &&
+                              Array.isArray(breakdown) &&
+                              breakdown.length > 0 && (
+                                <div
+                                  style={{
+                                    fontSize: "0.7rem",
+                                    color: colors.textMuted,
+                                    marginTop: 2,
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  {breakdown.map((b, i) => (
+                                    <span
+                                      key={i}
+                                      style={{
+                                        marginRight: 4,
+                                        display: "inline-block",
+                                        background: "#f1f5f9",
+                                        padding: "1px 4px",
+                                        borderRadius: 3,
+                                      }}
+                                    >
+                                      {String(b.method || "").toUpperCase()}: ₹
+                                      {parseFloat(b.Paid_amount || 0).toFixed(0)}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            {mode === "Card" &&
+                              bill.payment_details?.["Card Machine"] && (
+                                <div
+                                  style={{
+                                    fontSize: "0.7rem",
+                                    color: colors.textMuted,
+                                    marginTop: 1,
+                                  }}
+                                >
+                                  {bill.payment_details["Card Machine"]}
+                                </div>
+                              )}
+                          </div>
+                        );
+                      })()}
+                    </Td>
                     <Td>{bill.doctorName}</Td>
                     <Td>{bill.created_by}</Td>
                     <Td>
@@ -1788,6 +2523,83 @@ const BillsReport = () => {
                   </Tr>
                 ))}
               </tbody>
+              <tfoot>
+                <tr style={{ background: "#f8fafc", fontWeight: "bold" }}>
+                  <StickyTd
+                    $left={COL.slNo.left}
+                    $width={COL.slNo.width}
+                    style={{ background: "#f8fafc", fontWeight: 700 }}
+                  >
+                    Total
+                  </StickyTd>
+                  <StickyTd
+                    $left={COL.dateTime.left}
+                    $width={COL.dateTime.width}
+                    style={{ background: "#f8fafc" }}
+                  >
+                    —
+                  </StickyTd>
+                  <StickyTd
+                    $left={COL.billNo.left}
+                    $width={COL.billNo.width}
+                    style={{ background: "#f8fafc" }}
+                  >
+                    —
+                  </StickyTd>
+                  <StickyTd
+                    $left={COL.uhid.left}
+                    $width={COL.uhid.width}
+                    style={{ background: "#f8fafc" }}
+                  >
+                    —
+                  </StickyTd>
+                  <StickyTd
+                    $left={COL.ipNo.left}
+                    $width={COL.ipNo.width}
+                    style={{ background: "#f8fafc" }}
+                  >
+                    —
+                  </StickyTd>
+                  <StickyTd
+                    $left={COL.patientName.left}
+                    $width={COL.patientName.width}
+                    $last
+                    style={{ background: "#f8fafc", fontWeight: 700 }}
+                  >
+                    {filteredBills.length} Bill
+                    {filteredBills.length !== 1 ? "s" : ""}
+                  </StickyTd>
+                  <Td style={{ background: "#f8fafc" }}>—</Td>
+                  <Td style={{ background: "#f8fafc" }}>—</Td>
+                  <Td style={{ background: "#f8fafc", fontWeight: 700 }}>
+                    Gross Total
+                  </Td>
+                  <Td
+                    style={{
+                      background: "#f8fafc",
+                      fontWeight: 700,
+                      color: colors.primary,
+                      fontSize: "0.85rem",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    ₹{" "}
+                    {grossTotal.toLocaleString("en-IN", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </Td>
+                  <Td style={{ background: "#f8fafc" }}>—</Td>
+                  <Td style={{ background: "#f8fafc" }}>—</Td>
+                  <Td style={{ background: "#f8fafc" }}>—</Td>
+                  <Td style={{ background: "#f8fafc" }}>—</Td>
+                  <Td style={{ background: "#f8fafc" }}>—</Td>
+                  <Td style={{ background: "#f8fafc" }}>—</Td>
+                  <StickyActionsTd style={{ background: "#f8fafc" }}>
+                    —
+                  </StickyActionsTd>
+                </tr>
+              </tfoot>
             </table>
           </FrozenTableWrapper>
         ) : (
