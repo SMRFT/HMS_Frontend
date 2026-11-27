@@ -2559,6 +2559,51 @@ const DischargeBilling = () => {
             insuranceBillNumber: isPIssue ? (p.insurance_bill_number || "") : "",
             companyName: isPIssue ? (p.company || p.company_code || p.insurance_company || "") : "",
           });
+          const liveMedAmt = parseFloat(p.medicines_amount) || 0;
+          if (liveMedAmt > 0) {
+            setFormRaw(f => ({ ...f, medicines: String(liveMedAmt) }));
+            setItems(prevItems => {
+              let foundMed = false;
+              const updated = prevItems.map(it => {
+                const iname = String(it.itemName || it.name || "").trim().toUpperCase();
+                if (iname === "MEDICINE CHARGES" || it.billTypeNo === "PHARM01" || it.bill_type === 13 || it.source === "hospital_pharmacybilling") {
+                  foundMed = true;
+                  return {
+                    ...it,
+                    rate: String(liveMedAmt),
+                    price: liveMedAmt,
+                    amount: liveMedAmt,
+                    _baseRate: liveMedAmt,
+                  };
+                }
+                return it;
+              });
+              if (!foundMed) {
+                updated.push({
+                  ...EMPTY_ITEM,
+                  itemName: "MEDICINE CHARGES",
+                  name: "MEDICINE CHARGES",
+                  code: "04009",
+                  price: liveMedAmt,
+                  rate: String(liveMedAmt),
+                  quantity: 1,
+                  discount: 0,
+                  amount: liveMedAmt,
+                  ward: "SEMI-PRIVATE WARD",
+                  billTypeNo: "PHARM01",
+                  bill_type: 13,
+                  doctor: p.doctor || "",
+                  payment_status: "Billed",
+                  package_name: "",
+                  source: "hospital_pharmacybilling",
+                  category: "MEDICINE / PHARMACY CHARGES",
+                  _baseRate: liveMedAmt,
+                  _key: `live_med_${Date.now()}`,
+                });
+              }
+              return updated;
+            });
+          }
         }
       } catch (err) {
         console.error("Failed to fetch full patient details on edit:", err);
