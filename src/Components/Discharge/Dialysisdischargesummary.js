@@ -3,8 +3,6 @@ import apiRequest from "../../Auth/apiRequest";
 import { toast as rToast } from "react-toastify";
 import {
   TODAY,
-  buildDefaultHdSessions,
-  buildDefaultComplications,
   buildDefaultAdvice,
 } from "./Dischargeconstants";
 
@@ -27,8 +25,8 @@ const initialFormState = () => ({
   date_of_first_dialysis: TODAY,
   date_of_last_dialysis: TODAY,
   blood_investigations: [],
-  hd_sessions: buildDefaultHdSessions(),
-  complications_during_hd: buildDefaultComplications(),
+  hd_sessions: "",
+  complications_during_hd: "",
   condition_on_discharge: "",
   advice_on_discharge: "",
   next_hd_session_on: TODAY,
@@ -36,9 +34,6 @@ const initialFormState = () => ({
 
 export default function DialysisDischargeSummary() {
   const [form, setForm] = useState(initialFormState);
-  const [customColumns, setCustomColumns] = useState([]);
-  const [showAddColumnModal, setShowAddColumnModal] = useState(false);
-  const [newColumnName, setNewColumnName] = useState("");
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
   const [activeSection, setActiveSection] = useState(0);
@@ -468,92 +463,6 @@ export default function DialysisDischargeSummary() {
     setField("blood_investigations", arr);
   };
  
-  const updateHdSession = (idx, key, val) => {
-    const arr = [...form.hd_sessions];
-    arr[idx] = { ...arr[idx], [key]: val };
-    setField("hd_sessions", arr);
-  };
-
-  const addHdSession = () => {
-    const romanNumerals = [
-      "I", "II", "III", "IV", "V", "VI",
-      "VII", "VIII", "IX", "X", "XI", "XII",
-      "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX"
-    ];
-    const nextIndex = form.hd_sessions.length;
-    const label = romanNumerals[nextIndex] || `S${nextIndex + 1}`;
-    const newRow = {
-      session_no: label,
-      date: TODAY,
-      bp_pre_hd: "",
-      bp_post_hd: "",
-      weight_gain: "",
-      uf_removed: "",
-      complications: "NIL",
-      is_custom: true,
-    };
-    customColumns.forEach((col) => {
-      newRow[col] = "";
-    });
-    setForm((prev) => ({
-      ...prev,
-      hd_sessions: [...prev.hd_sessions, newRow],
-    }));
-    showToast(`Session ${label} added.`, "info");
-  };
-
-  const removeHdSession = (idx) => {
-    if (form.hd_sessions.length <= 1) {
-      showToast("At least one session row is required.", "warning");
-      return;
-    }
-    const label = form.hd_sessions[idx]?.session_no || `#${idx + 1}`;
-    setForm((prev) => ({
-      ...prev,
-      hd_sessions: prev.hd_sessions.filter((_, i) => i !== idx),
-    }));
-    showToast(`Session ${label} removed.`, "info");
-  };
-
-  const addCustomColumn = (colName) => {
-    const trimmed = (colName || "").trim();
-    if (!trimmed) return;
-    if (customColumns.includes(trimmed)) {
-      showToast(`Field "${trimmed}" already exists.`, "warning");
-      return;
-    }
-    setCustomColumns((prev) => [...prev, trimmed]);
-    setForm((prev) => ({
-      ...prev,
-      hd_sessions: prev.hd_sessions.map((s) => ({
-        ...s,
-        [trimmed]: s[trimmed] !== undefined ? s[trimmed] : "",
-      })),
-    }));
-    setNewColumnName("");
-    setShowAddColumnModal(false);
-    showToast(`Added field "${trimmed}" to HD Sessions.`, "success");
-  };
-
-  const removeCustomColumn = (colName) => {
-    setCustomColumns((prev) => prev.filter((c) => c !== colName));
-    setForm((prev) => ({
-      ...prev,
-      hd_sessions: prev.hd_sessions.map((s) => {
-        const copy = { ...s };
-        delete copy[colName];
-        return copy;
-      }),
-    }));
-    showToast(`Removed field "${colName}".`, "info");
-  };
-
-  const updateComplication = (idx, key, val) => {
-    const arr = [...form.complications_during_hd];
-    arr[idx] = { ...arr[idx], [key]: val };
-    setField("complications_during_hd", arr);
-  };
-
   const handleSubmit = async () => {
     if (!form.name || !form.uhid || !form.next_hd_session_on) {
       showToast("Please fill in Name, UHID, and Next HD Session Date.", "error");
@@ -576,22 +485,10 @@ export default function DialysisDischargeSummary() {
             : Array.isArray(form.blood_investigations)
             ? form.blood_investigations
             : [],
-        hd_sessions: form.hd_sessions.filter(
-          (s) =>
-            s.bp_pre_hd ||
-            s.bp_post_hd ||
-            s.weight_gain ||
-            s.uf_removed ||
-            (s.complications && s.complications !== "NIL") ||
-            s.is_custom ||
-            customColumns.some((col) => s[col])
-        ),
-        complications_during_hd: form.complications_during_hd.map((c) => ({
-          type: c.type,
-          date: c.date || TODAY,
-          medication_type: c.medication_type || "NIL",
-          medications: c.medications || "NIL",
-        })),
+        hd_sessions: form.hd_sessions || "",
+        hdsessions: form.hd_sessions || "",
+        complications_during_hd: form.complications_during_hd || "",
+        complications: form.complications_during_hd || "",
         advice_on_discharge:
           typeof form.advice_on_discharge === "string"
             ? form.advice_on_discharge
@@ -1516,271 +1413,26 @@ export default function DialysisDischargeSummary() {
         ══════════════════════════════════════════ */}
         {activeSection === 2 && (
           <div className="section-card">
-            <div className="section-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span>💉</span> HD Sessions
-                <span className="tag">Hemodialysis Log</span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <button
-                  type="button"
-                  onClick={() => setShowAddColumnModal(true)}
-                  style={{
-                    background: "#0d9488",
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: 6,
-                    padding: "6px 12px",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 5
-                  }}
-                >
-                  ➕ Add Column / Field
-                </button>
-                <button
-                  type="button"
-                  onClick={addHdSession}
-                  style={{
-                    background: "#0f766e",
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: 6,
-                    padding: "6px 12px",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 5
-                  }}
-                >
-                  ➕ Add Session Row
-                </button>
-              </div>
+            <div className="section-header">
+              <span>💉</span> HD Sessions
+              <span className="tag">Hemodialysis Log</span>
             </div>
-            <div className="section-body" style={{ overflowX: "auto" }}>
-              <p style={{ fontSize: 12, color: "#94a3b8", marginBottom: 14 }}>
-                All dates default to today. Complications default to NIL (editable). Click <strong>"Add Session Row"</strong> to add more sessions or <strong>"Add Column / Field"</strong> to add custom parameters.
+            <div className="section-body">
+              <p style={{ fontSize: 12, color: "#94a3b8", marginBottom: 12 }}>
+                Enter HD sessions details, dates, pre/post BP, UF removed, and observations.
               </p>
-              <table className="hd-table">
-                <thead>
-                  <tr>
-                    <th>Session</th>
-                    <th>Date</th>
-                    <th>BP Pre-HD</th>
-                    <th>BP Post-HD</th>
-                    <th>Weight Gain</th>
-                    <th>UF Removed</th>
-                    <th>Complications</th>
-                    {customColumns.map((col) => (
-                      <th key={col}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
-                          <span>{col}</span>
-                          <span
-                            onClick={() => removeCustomColumn(col)}
-                            style={{ cursor: "pointer", color: "#f87171", fontSize: 14, fontWeight: "bold" }}
-                            title={`Remove ${col} column`}
-                          >
-                            ×
-                          </span>
-                        </div>
-                      </th>
-                    ))}
-                    <th style={{ width: 44, textAlign: "center" }}>Act</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {form.hd_sessions.map((s, i) => (
-                    <tr key={i}>
-                      <td><span className="session-badge">{s.session_no}</span></td>
-                      <td>
-                        <input
-                          className="dds-input"
-                          type="date"
-                          value={s.date}
-                          onChange={(e) => updateHdSession(i, "date", e.target.value)}
-                          style={{ minWidth: 130 }}
-                        />
-                      </td>
-                      <td><input className="dds-input" placeholder="140/90" value={s.bp_pre_hd} onChange={(e) => updateHdSession(i, "bp_pre_hd", e.target.value)} style={{ minWidth: 90 }} /></td>
-                      <td><input className="dds-input" placeholder="130/80" value={s.bp_post_hd} onChange={(e) => updateHdSession(i, "bp_post_hd", e.target.value)} style={{ minWidth: 90 }} /></td>
-                      <td><input className="dds-input" placeholder="2 kg" value={s.weight_gain} onChange={(e) => updateHdSession(i, "weight_gain", e.target.value)} style={{ minWidth: 80 }} /></td>
-                      <td><input className="dds-input" placeholder="1.5 L" value={s.uf_removed} onChange={(e) => updateHdSession(i, "uf_removed", e.target.value)} style={{ minWidth: 80 }} /></td>
-                      <td><input className="dds-input" placeholder="NIL" value={s.complications} onChange={(e) => updateHdSession(i, "complications", e.target.value)} style={{ minWidth: 110 }} /></td>
-                      {customColumns.map((col) => (
-                        <td key={col}>
-                          <input
-                            className="dds-input"
-                            placeholder={col}
-                            value={s[col] || ""}
-                            onChange={(e) => updateHdSession(i, col, e.target.value)}
-                            style={{ minWidth: 95 }}
-                          />
-                        </td>
-                      ))}
-                      <td style={{ textAlign: "center" }}>
-                        <button
-                          type="button"
-                          onClick={() => removeHdSession(i)}
-                          title="Delete Session Row"
-                          style={{
-                            background: "transparent",
-                            border: "none",
-                            color: "#ef4444",
-                            cursor: "pointer",
-                            fontSize: 14,
-                            padding: "2px 6px"
-                          }}
-                        >
-                          🗑️
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              <div style={{ marginTop: 14, display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <button
-                  type="button"
-                  onClick={addHdSession}
-                  style={{
-                    background: "#f1f5f9",
-                    color: "#0f766e",
-                    border: "1px dashed #0d9488",
-                    borderRadius: 6,
-                    padding: "8px 16px",
-                    fontSize: 12.5,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6
-                  }}
-                >
-                  ➕ Add Another Session Row
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowAddColumnModal(true)}
-                  style={{
-                    background: "#f1f5f9",
-                    color: "#0d9488",
-                    border: "1px dashed #0d9488",
-                    borderRadius: 6,
-                    padding: "8px 16px",
-                    fontSize: 12.5,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6
-                  }}
-                >
-                  ➕ Add Custom Column / Field
-                </button>
-              </div>
-
-              {/* Inline Prompt for Add Column / Field */}
-              {showAddColumnModal && (
-                <div
-                  style={{
-                    marginTop: 15,
-                    padding: 16,
-                    background: "#f0fdf4",
-                    border: "1px solid #86efac",
-                    borderRadius: 8,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 10,
-                    maxWidth: 520
-                  }}
-                >
-                  <div style={{ fontWeight: 700, fontSize: 13, color: "#166534" }}>
-                    Add Dynamic Column to HD Sessions
-                  </div>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <input
-                      className="dds-input"
-                      placeholder="e.g. Duration, Heparin, Dialyzer, BFR..."
-                      value={newColumnName}
-                      onChange={(e) => setNewColumnName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          addCustomColumn(newColumnName);
-                        }
-                      }}
-                      style={{ flex: 1 }}
-                      autoFocus
-                    />
-                    <button
-                      type="button"
-                      onClick={() => addCustomColumn(newColumnName)}
-                      style={{
-                        background: "#16a34a",
-                        color: "#fff",
-                        border: "none",
-                        borderRadius: 6,
-                        padding: "6px 14px",
-                        fontWeight: 600,
-                        fontSize: 12.5,
-                        cursor: "pointer"
-                      }}
-                    >
-                      Add
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowAddColumnModal(false);
-                        setNewColumnName("");
-                      }}
-                      style={{
-                        background: "#e2e8f0",
-                        color: "#475569",
-                        border: "none",
-                        borderRadius: 6,
-                        padding: "6px 12px",
-                        fontSize: 12.5,
-                        cursor: "pointer"
-                      }}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                  {/* Quick suggestion pills */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                    <span style={{ fontSize: 11, color: "#475569", fontWeight: 600 }}>Quick suggestions:</span>
-                    {["Duration (hrs)", "Heparin", "Dialyzer", "BFR (ml/min)", "Dialysate Flow", "Access"].map((sugg) => (
-                      <button
-                        key={sugg}
-                        type="button"
-                        onClick={() => addCustomColumn(sugg)}
-                        style={{
-                          background: "#fff",
-                          border: "1px solid #cbd5e1",
-                          borderRadius: 12,
-                          padding: "2px 8px",
-                          fontSize: 11,
-                          color: "#0f766e",
-                          cursor: "pointer"
-                        }}
-                      >
-                        + {sugg}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <textarea
+                className="dds-input"
+                rows={8}
+                placeholder="Enter HD Sessions details..."
+                value={form.hd_sessions}
+                onChange={(e) => setField("hd_sessions", e.target.value)}
+                style={{ resize: "vertical", width: "100%", lineHeight: 1.6, fontSize: "0.95rem" }}
+              />
             </div>
           </div>
         )}
- 
+
         {/* ══════════════════════════════════════════
             SECTION 3 — Complications
         ══════════════════════════════════════════ */}
@@ -1791,35 +1443,21 @@ export default function DialysisDischargeSummary() {
               <span className="tag">If Any</span>
             </div>
             <div className="section-body">
-              <p style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16 }}>
-                Dates default to today. Rows with no medication data will be excluded on submit.
+              <p style={{ fontSize: 12, color: "#94a3b8", marginBottom: 12 }}>
+                Enter any complications during HD (e.g. hypotension, cramps, chest pain, or NIL).
               </p>
-              {/* Column headers */}
-              <div style={{ display: "grid", gridTemplateColumns: "190px 140px 96px 1fr", gap: 8, padding: "6px 0 10px", borderBottom: "2px solid #dde3ec", marginBottom: 6 }}>
-                {["Complication", "Date", "IV / Oral", "Medications"].map((h) => (
-                  <div key={h} style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", letterSpacing: "0.05em", textTransform: "uppercase" }}>{h}</div>
-                ))}
-              </div>
-              {form.complications_during_hd.map((c, i) => (
-                <div className="comp-row" key={i}>
-                  <div className="comp-type">
-                    <span style={{ color: "#0f766e", marginRight: 6, fontFamily: "DM Mono", fontSize: 12 }}>{i + 1}.</span>
-                    {c.type}
-                  </div>
-                  <input
-                    className="dds-input"
-                    type="date"
-                    value={c.date}
-                    onChange={(e) => updateComplication(i, "date", e.target.value)}
-                  />
-                  <input className="dds-input" placeholder="IV / Oral" value={c.medication_type} onChange={(e) => updateComplication(i, "medication_type", e.target.value)} />
-                  <input className="dds-input" placeholder="Medication names" value={c.medications} onChange={(e) => updateComplication(i, "medications", e.target.value)} />
-                </div>
-              ))}
+              <textarea
+                className="dds-input"
+                rows={8}
+                placeholder="Enter Complications during HD (or NIL)..."
+                value={form.complications_during_hd}
+                onChange={(e) => setField("complications_during_hd", e.target.value)}
+                style={{ resize: "vertical", width: "100%", lineHeight: 1.6, fontSize: "0.95rem" }}
+              />
             </div>
           </div>
         )}
- 
+
         {/* ══════════════════════════════════════════
             SECTION 4 — Discharge
         ══════════════════════════════════════════ */}

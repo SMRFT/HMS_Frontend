@@ -2116,8 +2116,16 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
             <div id="print-area" style={{ padding: "16px 20px", fontFamily: "Arial, Helvetica, sans-serif", fontSize: 11.5, color: "#111", lineHeight: 1.35, background: "#f8fafc" }}>
               {(() => {
                 const rawMeds = parseMedicineParticulars(printBill.medicine_particulars || []);
+                const bmView = String(printBill.billing_mode || printBill.billingMode || "").trim().toUpperCase();
                 const isPartiallyBilled = Boolean(
                   printBill.is_ward_request ||
+                  printBill.is_ot_request ||
+                  bmView === "WARD REQUEST" ||
+                  bmView === "OT REQUEST" ||
+                  bmView.includes("WARD REQUEST") ||
+                  bmView.includes("OT REQUEST") ||
+                  bmView.includes("WARD") ||
+                  bmView.includes("OT") ||
                   String(printBill.billing_status || "").toLowerCase().includes("processing") ||
                   String(printBill.billing_status || "").toLowerCase().includes("partially")
                 );
@@ -2131,7 +2139,7 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                     const origQty = Number(m.qty || m.quantity || 0);
                     if (delQty >= origQty && origQty > 0) return false;
                   }
-                  if (isPartiallyBilled && m.dispatched_qty !== undefined) {
+                  if (isPartiallyBilled && m.dispatched_qty !== undefined && m.dispatched_qty !== null && m.dispatched_qty !== "") {
                     return Number(m.dispatched_qty || 0) > 0;
                   }
                   return Number(m.qty || m.quantity || 0) > 0;
@@ -2310,6 +2318,10 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                           {pageMeds && pageMeds.length > 0 ? (
                             pageMeds.map((med, i) => {
                               const qty      = Number(med.qty !== undefined ? med.qty : (med.quantity ?? 0));
+                              const dQty     = Number(med.dispatched_qty);
+                              const displayQty = (isPartiallyBilled && med.dispatched_qty !== undefined && med.dispatched_qty !== null && med.dispatched_qty !== "" && !isNaN(dQty))
+                                ? dQty
+                                : qty;
                               const price    = Number(med.mrp !== undefined && Number(med.mrp) > 0 ? med.mrp : (med.price ?? 0));
                               const amt      = Number(
                                 med.total !== undefined && Number(med.total) > 0
@@ -2345,7 +2357,7 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                                   <td style={{ padding: "2px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{med.hsn_code || med.hsn || "—"}</td>
                                   <td style={{ padding: "2px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{med.batch_number || med.batch || "—"}</td>
                                   <td style={{ padding: "2px 3px", textAlign: "center", whiteSpace: "nowrap" }}>{formatExpiryForBill(med.expiry_date || med.expiry)}</td>
-                                  <td style={{ padding: "2px 3px", textAlign: "center", fontWeight: 700 }}>{qty}</td>
+                                  <td style={{ padding: "2px 3px", textAlign: "center", fontWeight: 700 }}>{displayQty}</td>
                                   <td style={{ padding: "2px 4px", textAlign: "right", whiteSpace: "nowrap" }}>{price.toFixed(2)}</td>
                                   <td style={{ padding: "2px 3px", textAlign: "center" }}>{cgstPct}</td>
                                   <td style={{ padding: "2px 3px", textAlign: "right", whiteSpace: "nowrap" }}>{cgstAmt.toFixed(2)}</td>

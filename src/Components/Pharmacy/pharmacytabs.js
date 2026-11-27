@@ -384,6 +384,9 @@ const OPPharmacyTabs = () => {
       // ── Medicine items — map ALL fields from the enriched API response ──
       medicine_items: items.map((item) => {
         const rate = Number(item.mrp || 0);
+        const lineQty = item.pending_qty ?? item.qty ?? item.quantity ?? 0;
+        const unitC = Number(item.unit_cgst_amt ?? item.unit_cgst ?? item.CGST_Amt ?? item.cgst_amount ?? 0);
+        const unitS = Number(item.unit_sgst_amt ?? item.unit_sgst ?? item.SGST_Amt ?? item.sgst_amount ?? 0);
 
         return {
           ...item,
@@ -393,11 +396,11 @@ const OPPharmacyTabs = () => {
                                (item.name && !String(item.name).startsWith("Item #") ? item.name : null) ||
                                item.item_name || item.medicine_name || item.name || "",
           batch_number:        item.batch_number    || "",
-          qty:                 item.pending_qty ?? item.qty ?? item.quantity ?? 0,
-          quantity:            item.pending_qty ?? item.qty ?? item.quantity ?? 0,
+          qty:                 lineQty,
+          quantity:            lineQty,
           requested_qty:       item.requested_qty ?? item.qty ?? (item.pending_qty ?? item.quantity ?? 0),
           dispatched_qty:      item.dispatched_qty ?? 0,
-          pending_qty:         item.pending_qty ?? item.qty ?? item.quantity ?? 0,
+          pending_qty:         lineQty,
           dosage:              item.dosage          || "",
           noOfDays:            item.noOfDays        || item.no_of_days || "",
           dose:                item.dose            || "",
@@ -407,8 +410,10 @@ const OPPharmacyTabs = () => {
           available_stock:     item.available_stock ?? 0,
           CGST_Percentage:     item.CGST_Percentage ?? 0,
           SGST_Percentage:     item.SGST_Percentage ?? 0,
-          CGST_Amt:            item.CGST_Amt        ?? 0,
-          SGST_Amt:            item.SGST_Amt        ?? 0,
+          unit_cgst_amt:       unitC,
+          unit_sgst_amt:       unitS,
+          CGST_Amt:            parseFloat((unitC * lineQty).toFixed(2)),
+          SGST_Amt:            parseFloat((unitS * lineQty).toFixed(2)),
           mrp:                 rate,
           is_consumable_items: Boolean(item.is_consumable_items),
         };
