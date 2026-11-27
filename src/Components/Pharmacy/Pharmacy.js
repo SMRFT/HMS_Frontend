@@ -3473,7 +3473,12 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
         ""
       ).trim().toUpperCase();
 
-      setSelectedPaymentMode("cash");
+      const isOlet001 = currentOutlet === "OLET001" || currentOutlet === "1" || currentOutlet.includes("OLET001") || currentOutlet.includes("IP PHARMACY");
+      if (isOlet001) {
+        setSelectedPaymentMode("credit");
+      } else {
+        setSelectedPaymentMode("cash");
+      }
       setShowPaymentModal(true);
       return;
     }
@@ -7392,10 +7397,18 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
           ""
         ).trim().toUpperCase();
 
+        const isOlet001 = activeOutlet === "OLET001" || activeOutlet === "1" || activeOutlet.includes("OLET001") || activeOutlet.includes("IP PHARMACY");
+
         const paymentOptions = [
           { value: "cash", label: "Pay Now", desc: "Patient pays immediately (Cash / Card / UPI)" },
           { value: "credit", label: "Pay Later", desc: "Bill on credit — patient pays at a later date" },
-        ];
+        ].filter(opt => {
+          // OLET001 strictly has only Pay Later option (stores Credit)
+          if (isOlet001) {
+            return opt.value === "credit";
+          }
+          return true;
+        });
 
         return (
           <ModalOverlay onClick={() => setShowPaymentModal(false)}>
@@ -7406,7 +7419,9 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
               </ModalHeader>
               <ModalBody style={{ padding: "32px 36px" }}>
                 <div style={{ marginBottom: 24, color: "#475569", fontSize: "0.93rem" }}>
-                  Choose how the patient will pay for this bill:
+                  {isOlet001
+                    ? "IP Pharmacy billing mode (Pay Later):"
+                    : "Choose how the patient will pay for this bill:"}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                   {paymentOptions.map(opt => (
@@ -7448,7 +7463,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
                 <Button
                   disabled={saving}
                   onClick={async () => {
-                    const finalMode = selectedPaymentMode === "credit" ? "credit" : "cash";
+                    const finalMode = isOlet001 ? "credit" : (selectedPaymentMode === "credit" ? "credit" : "cash");
                     setShowPaymentModal(false);
                     await executeSave(pendingBillIntent, finalMode);
                   }}
