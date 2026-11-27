@@ -606,11 +606,17 @@ const NormalBillSheet = ({
     if (cleanD) {
       sub = sub ? `${sub}; ${cleanD.toUpperCase()}` : cleanD.toUpperCase();
     }
+    let itAmt = parseFloat(it.amount) || 0;
+    if (!isBreakdown && (name.startsWith("MEDICINE CHARGES") || name.startsWith("PHARMACY CHARGES") || name === "MEDICINES")) {
+      if (effectiveMedAmt > 0) {
+        itAmt = effectiveMedAmt;
+      }
+    }
     displayItems.push({
       name,
       subDesc: sub,
       qty: it.quantity || 1,
-      amount: parseFloat(it.amount) || 0,
+      amount: itAmt,
     });
   });
 
@@ -635,17 +641,17 @@ const NormalBillSheet = ({
       });
     } else if (effectiveMedAmt > 0 && !displayItems.some(i => i.name.includes("MEDICINE") || i.name.includes("PHARMACY"))) {
       displayItems.push({
-        name: "MEDICINE CHARGES 1",
+        name: "MEDICINE CHARGES",
         subDesc: "",
         qty: 1,
         amount: effectiveMedAmt,
       });
     }
   } else {
-    // In STANDARD mode: show consolidated MEDICINE CHARGES 1 row (do not list individual pharmacy items)
+    // In STANDARD mode: show consolidated MEDICINE CHARGES row (do not list individual pharmacy items)
     if (effectiveMedAmt > 0 && !displayItems.some(i => i.name.includes("MEDICINE") || i.name.includes("PHARMACY"))) {
       displayItems.push({
-        name: "MEDICINE CHARGES 1",
+        name: "MEDICINE CHARGES",
         subDesc: "",
         qty: 1,
         amount: effectiveMedAmt,
@@ -1119,9 +1125,11 @@ const InsuranceClaimSheet = ({
     const existingMedSum = (groups["MEDICINE / PHARMACY CHARGES"] || []).reduce(
       (s, it) => s + (parseFloat(it.amount) || 0), 0
     );
-    const totalMedForIns = pharmacyMedicines.length > 0
-      ? pharmacyMedicines.reduce((s, m) => s + (parseFloat(m.amount || m.calculated_price || 0)), 0)
-      : (medAmt > 0 ? medAmt : existingMedSum);
+    const totalMedForIns = medAmt > 0
+      ? medAmt
+      : (pharmacyMedicines.length > 0
+        ? pharmacyMedicines.reduce((s, m) => s + (parseFloat(m.amount || m.calculated_price || 0)), 0)
+        : existingMedSum);
 
     // Completely clear out any individual items under MEDICINE / PHARMACY CHARGES!
     groups["MEDICINE / PHARMACY CHARGES"] = [];
@@ -1724,7 +1732,10 @@ export const PrintSheet = React.forwardRef(({
         @media print {
           @page {
             size: ${isA5 ? "A5 portrait" : "A4 portrait"};
-            margin: ${isA5 ? "5mm 5mm 5mm" : "12mm 10mm 10mm"};
+            margin-top: ${!withHeader ? `${(headerSpacerHeight * 0.264583).toFixed(1)}mm` : (isA5 ? "5mm" : "12mm")} !important;
+            margin-bottom: ${isA5 ? "5mm" : "10mm"} !important;
+            margin-left: ${isA5 ? "5mm" : "10mm"} !important;
+            margin-right: ${isA5 ? "5mm" : "10mm"} !important;
             @bottom-right {
               content: none;
             }
@@ -1805,11 +1816,21 @@ export const PrintSheet = React.forwardRef(({
             margin-bottom: 0 !important;
             height: auto;
           }
+          ${!withHeader ? `
+          .letterpad-spacer {
+            display: none !important;
+            height: 0 !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          ` : `
           .letterpad-spacer {
             height: ${headerSpacerHeight}px !important;
             min-height: ${headerSpacerHeight}px !important;
             display: block !important;
           }
+          `}
           .bill-page-2 {
             page-break-before: always !important;
             break-before: page !important;
@@ -2130,7 +2151,10 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
             <style>
               @page {
                 size: ${isA5 ? "A5 portrait" : "A4 portrait"};
-                margin: ${isA5 ? "5mm 5mm 5mm" : "12mm 10mm 10mm"};
+                margin-top: ${!withHeader ? `${(headerSpacerHeight * 0.264583).toFixed(1)}mm` : (isA5 ? "5mm" : "12mm")} !important;
+                margin-bottom: ${isA5 ? "5mm" : "10mm"} !important;
+                margin-left: ${isA5 ? "5mm" : "10mm"} !important;
+                margin-right: ${isA5 ? "5mm" : "10mm"} !important;
               }
               *, *::before, *::after {
                 box-sizing: border-box;
@@ -2176,16 +2200,33 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
                 page-break-before: always !important;
                 break-before: page !important;
               }
+              ${!withHeader ? `
+              .letterpad-spacer {
+                display: none !important;
+                height: 0 !important;
+                min-height: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+              }
+              ` : `
               .letterpad-spacer {
                 height: ${headerSpacerHeight}px !important;
                 min-height: ${headerSpacerHeight}px !important;
                 display: block !important;
               }
+              `}
               .no-print {
                 display: none !important;
               }
               table {
                 border-collapse: collapse;
+              }
+              thead {
+                display: table-header-group !important;
+              }
+              tr {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
               }
             </style>
           </head>
@@ -2308,9 +2349,10 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
     let bodyHtml = clone.innerHTML;
     bodyHtml = bodyHtml.replace(/class="print-area"[^>]*style="[^"]*"/i, 'class="print-area" style="width:100%;margin:0;padding:0;"');
 
+    const letterpadTopPt = !withHeader ? `${(headerSpacerHeight * 0.75).toFixed(1)}pt` : (isA5 ? "12pt" : "18pt");
     const pageSizeCss = isA5
-      ? "size: 419.55pt 595.35pt;\n      margin: 12pt 16pt 12pt 16pt;"
-      : "size: 595.35pt 841.95pt;\n      margin: 18pt 22pt 18pt 22pt;";
+      ? `size: 419.55pt 595.35pt;\n      margin: ${letterpadTopPt} 16pt 12pt 16pt;`
+      : `size: 595.35pt 841.95pt;\n      margin: ${letterpadTopPt} 22pt 18pt 22pt;`;
 
     const header = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
 <head>
@@ -2342,6 +2384,11 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
     .bill-page-1 { page-break-after: always; mso-break-type: section-break; }
     .bill-page-2, .page-break { page-break-before: always; mso-break-type: section-break; }
     br.page-break { page-break-before: always; mso-break-type: section-break; }
+    ${!withHeader ? `
+    .letterpad-spacer { display: none !important; height: 0 !important; mso-hide: all; }
+    ` : `
+    .letterpad-spacer { height: ${headerSpacerHeight}px !important; }
+    `}
   </style>
 </head>
 <body>
@@ -2423,11 +2470,19 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
         } else {
           // If the element is longer than 1 page (e.g. Page 2 with dozens of items),
           // slice canvas across pages so nothing is ever clipped or cut off
-          const pageCanvasHeight = Math.floor((printableHeight * canvas.width) / printableWidth);
+          const letterpadSpaceMm = !withHeader ? (headerSpacerHeight * 0.264583) : 0;
           let heightLeft = canvas.height;
           let sY = 0;
 
           while (heightLeft > 0) {
+            // First slice (sY === 0) already has letterpad-spacer at top from captured DOM.
+            // Subsequent slices (sY > 0) start from the middle of the table, so if !withHeader,
+            // we reduce the slice height to leave space at top and offset target Y by letterpadSpaceMm!
+            const isSubsequentSlice = sY > 0 && !withHeader;
+            const availableHeightMm = isSubsequentSlice
+              ? Math.max(50, printableHeight - letterpadSpaceMm)
+              : printableHeight;
+            const pageCanvasHeight = Math.floor((availableHeightMm * canvas.width) / printableWidth);
             const currentChunkHeight = Math.min(heightLeft, pageCanvasHeight);
 
             const pageCanvas = document.createElement("canvas");
@@ -2449,11 +2504,13 @@ const DischargeBillPrintModal = ({ isOpen, bill, onClose, defaultViewMode = "NOR
             }
             isFirstPdfPage = false;
 
+            const targetY = isSubsequentSlice ? (margin + letterpadSpaceMm) : margin;
+
             pdf.addImage(
               pageCanvas.toDataURL("image/jpeg", 0.98),
               "JPEG",
               margin,
-              margin,
+              targetY,
               printableWidth,
               chunkTargetHeight
             );
