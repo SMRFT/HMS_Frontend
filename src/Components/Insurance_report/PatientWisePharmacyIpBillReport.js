@@ -357,12 +357,17 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
     const navigate = useNavigate();
     const location = useLocation();
 
+    const MIN_REPORT_DATE = dayjs('2026-11-15', 'YYYY-MM-DD');
+    const clampMinDate = (d) => (d && d.isValid() && d.isBefore(MIN_REPORT_DATE, 'day') ? MIN_REPORT_DATE : d);
+
     // Parse query params if any
     const queryParams = new URLSearchParams(location.search);
     const initialIp = queryParams.get('ip_number') || queryParams.get('ip_no') || '';
     const initialUhid = queryParams.get('uhid') || '';
-    const initialFrom = queryParams.get('from_date') || dayjs().subtract(14, 'days').format('YYYY-MM-DD');
-    const initialTo = queryParams.get('to_date') || dayjs().format('YYYY-MM-DD');
+    const rawInitialFrom = dayjs(queryParams.get('from_date') || dayjs().subtract(14, 'days').format('YYYY-MM-DD'));
+    const rawInitialTo = dayjs(queryParams.get('to_date') || dayjs().format('YYYY-MM-DD'));
+    const initialFrom = clampMinDate(rawInitialFrom).format('YYYY-MM-DD');
+    const initialTo = clampMinDate(rawInitialTo).format('YYYY-MM-DD');
 
     const [uhid, setUhid] = useState(initialUhid);
     const [ipNumber, setIpNumber] = useState(initialIp);
@@ -436,7 +441,7 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
                         const parsedStart = dayjs(chosenAdm.admission_date.slice(0, 10), 'DD/MM/YYYY');
                         if (parsedStart.isValid()) {
                             const parsedEnd = chosenAdm.discharge_date ? dayjs(chosenAdm.discharge_date.slice(0, 10), 'DD/MM/YYYY') : dayjs();
-                            newDates = [parsedStart, parsedEnd.isValid() ? parsedEnd : dayjs()];
+                            newDates = [clampMinDate(parsedStart), clampMinDate(parsedEnd.isValid() ? parsedEnd : dayjs())];
                             setDateRange(newDates);
                         }
                     }
@@ -485,7 +490,7 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
             const parsedStart = dayjs(adm.admission_date.slice(0, 10), 'DD/MM/YYYY');
             if (parsedStart.isValid()) {
                 const parsedEnd = adm.discharge_date ? dayjs(adm.discharge_date.slice(0, 10), 'DD/MM/YYYY') : dayjs();
-                newDates = [parsedStart, parsedEnd.isValid() ? parsedEnd : dayjs()];
+                newDates = [clampMinDate(parsedStart), clampMinDate(parsedEnd.isValid() ? parsedEnd : dayjs())];
                 setDateRange(newDates);
             }
         }
@@ -831,6 +836,7 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
                         <DatePicker.RangePicker
                             value={dateRange}
                             onChange={(dates) => setDateRange(dates)}
+                            disabledDate={(current) => current && current.isBefore(MIN_REPORT_DATE, 'day')}
                             format="DD/MM/YYYY"
                             allowClear={true}
                             style={{ height: '36px', borderRadius: '8px' }}
