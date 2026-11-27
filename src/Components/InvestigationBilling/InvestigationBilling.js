@@ -310,6 +310,11 @@ const EstimateBtn = styled(Button)`
   &:hover {
     background: #d97706;
   }
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    filter: grayscale(0.5);
+  }
 `;
 
 const SubmitBtn = styled(Button)`
@@ -724,6 +729,7 @@ const InvestigationBilling = () => {
   const [showHistoryAccordion, setShowHistoryAccordion] = useState(false);
   const [isPriceEditable, setIsPriceEditable] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isEstimating, setIsEstimating] = useState(false);
 
   // ── Print modal state: { bill, isEstimate, toastMsg } ──────────────────────
   const [printJob, setPrintJob] = useState(null);
@@ -781,6 +787,15 @@ const InvestigationBilling = () => {
     };
     fetchDoctors();
   }, [HMSURL]);
+
+  useEffect(() => {
+    if (doctors.length > 0 && formData.doctor) {
+      const resolved = resolveDoctorId(formData.doctor, doctors);
+      if (resolved && resolved !== formData.doctor) {
+        setFormData((prev) => ({ ...prev, doctor: resolved }));
+      }
+    }
+  }, [doctors]);
 
   // ── Handle incoming navigation data ────────────────────────────────────────
 
@@ -1238,33 +1253,52 @@ const InvestigationBilling = () => {
     );
     if (byId) return byId.employeeId;
 
-    // 2. Exact match by employeeName
+    // 2. Strip parentheses e.g. "DR.KATHIRVEL KUMARAN (SURGICAL ONCOLOGIST)"
+    const cleanWithoutParen = clean.replace(/\s*\([^)]*\)/g, "").trim();
+
+    // 3. Exact match by employeeName
     const byName = doctorList.find(
-      (d) => (d.employeeName || "").trim().toLowerCase() === clean.toLowerCase()
+      (d) =>
+        (d.employeeName || "").trim().toLowerCase() === clean.toLowerCase() ||
+        (d.employeeName || "").trim().toLowerCase() === cleanWithoutParen.toLowerCase()
     );
     if (byName) return byName.employeeId;
 
-    // 3. Normalized comparison (ignoring "Dr.", dots, special characters)
+    // 4. Normalized comparison (ignoring "Dr.", dots, special characters)
     const normalize = (s) =>
       String(s || "")
         .toLowerCase()
         .replace(/^dr\.?\s*/i, "")
         .replace(/[^a-z0-9]/g, "");
 
-    const cleanNorm = normalize(clean);
+    const cleanNorm = normalize(cleanWithoutParen || clean);
     if (cleanNorm) {
       const byNorm = doctorList.find((d) => {
         const dNorm = normalize(d.employeeName || "");
         return (
           dNorm === cleanNorm ||
-          dNorm.includes(cleanNorm) ||
-          cleanNorm.includes(dNorm)
+          (dNorm && cleanNorm.includes(dNorm)) ||
+          (cleanNorm && dNorm.includes(cleanNorm))
         );
       });
       if (byNorm) return byNorm.employeeId;
+
+      // 5. Match by word tokens
+      const words = (cleanWithoutParen || clean)
+        .toLowerCase()
+        .replace(/^dr\.?\s*/i, "")
+        .split(/[\s,.-]+/)
+        .filter((w) => w.length > 2);
+      if (words.length > 0) {
+        const byWords = doctorList.find((d) => {
+          const dLower = (d.employeeName || "").toLowerCase();
+          return words.every((w) => dLower.includes(w));
+        });
+        if (byWords) return byWords.employeeId;
+      }
     }
 
-    // 4. Return as-is if no ID match (will display as raw doctor name)
+    // 6. Return as-is if no ID match (will display as raw doctor name)
     return clean;
   };
 
@@ -1404,69 +1438,78 @@ const InvestigationBilling = () => {
 
   const handleEstimate = async (e) => {
     e.preventDefault();
+    if (isEstimating || isSubmitting) return;
     if (!validateForm()) return;
 
-    const formPayload = {
-      EstBillNo: formData.investBillNo,
-      uhid: formData.uhid,
-      ipNumber: formData.ipNumber,
-      doctor: formData.doctor,
-      bill_type: formData.bill_type,
-      billTypeNo: formData.billTypeNo,
-      package_id:
-        formData.package_id ||
-        (selectedBillTypeNo === "PACK" ? selectedPackageNo : "") ||
-        "",
-      referredBy: formData.referredBy,
-      discountPercent: formData.discountPercent
-        ? parseFloat(formData.discountPercent)
-        : 0,
-      discount: formData.discount ? parseFloat(formData.discount) : 0,
-      discountRemarks: formData.discountRemarks,
-      total: formData.total,
-      finalPrice: formData.finalPrice,
-      paymentMethod: formData.paymentMethod,
-      item: productList.map(sanitizeBillItem),
-      age: formData.calculatedAge || formData.age || "",
-      age_type: formData.ageType || "",
-      roomNo: formData.roomNo || "",
-      is_ward_request: Boolean(formData.is_ward_request),
-      ward_request_type: formData.ward_request_type || "",
-      ...getPatientIdentityFields(),
-    };
+    setIsEstimating(true);
+    try {
+      const formPayload = {
+        EstBillNo: formData.investBillNo,
+        uhid: formData.uhid,
+        ipNumber: formData.ipNumber,
+        doctor: resolveDoctorId(formData.doctor, doctors) || formData.doctor,
+        bill_type: formData.bill_type,
+        billTypeNo: formData.billTypeNo,
+        package_id:
+          formData.package_id ||
+          (selectedBillTypeNo === "PACK" ? selectedPackageNo : "") ||
+          "",
+        referredBy: formData.referredBy,
+        discountPercent: formData.discountPercent
+          ? parseFloat(formData.discountPercent)
+          : 0,
+        discount: formData.discount ? parseFloat(formData.discount) : 0,
+        discountRemarks: formData.discountRemarks,
+        total: formData.total,
+        finalPrice: formData.finalPrice,
+        paymentMethod: formData.paymentMethod,
+        item: productList.map(sanitizeBillItem),
+        age: formData.calculatedAge || formData.age || "",
+        age_type: formData.ageType || "",
+        roomNo: formData.roomNo || "",
+        is_ward_request: Boolean(formData.is_ward_request),
+        ward_request_type: formData.ward_request_type || "",
+        ...getPatientIdentityFields(),
+      };
 
-    const result = await apiRequest(
-      `${HMSURL}estimateBilling/`,
-      "POST",
-      formPayload,
-    );
-    if (result.success) {
-      const estBillNo = result.data?.EstBillNo;
-      if (estBillNo) {
-        // ── Open print modal with an in-modal toast instead of alert(). ──
-        // ── The modal stays open until the user explicitly closes it — ──
-        // ── form reset/reload happens on that close, not on a timer.  ──
-        setPrintJob({
-          bill: {
-            ...formData,
-            EstBillNo: estBillNo,
-            EstBillDate: formData.investBillDate,
-            item: productList.map(sanitizeBillItem),
-          },
-          isEstimate: true,
-          toastMsg: "Estimate generated successfully!",
-        });
+      const result = await apiRequest(
+        `${HMSURL}estimateBilling/`,
+        "POST",
+        formPayload,
+      );
+      if (result.success) {
+        const estBillNo = result.data?.EstBillNo;
+        if (estBillNo) {
+          // ── Open print modal with an in-modal toast instead of alert(). ──
+          // ── The modal stays open until the user explicitly closes it — ──
+          // ── form reset/reload happens on that close, not on a timer.  ──
+          setPrintJob({
+            bill: {
+              ...formData,
+              EstBillNo: estBillNo,
+              EstBillDate: formData.investBillDate,
+              item: productList.map(sanitizeBillItem),
+            },
+            isEstimate: true,
+            toastMsg: "Estimate generated successfully!",
+          });
+        } else {
+          toast.error(
+            "Estimate generated but estimate number not received from server!",
+          );
+        }
       } else {
-        toast.error(
-          "Estimate generated but estimate number not received from server!",
-        );
+        Swal.fire({
+          icon: "error",
+          title: "Failed to Save Estimate",
+          text: result.error || "An error occurred while saving the estimate.",
+        });
       }
-    } else {
-      Swal.fire({
-        icon: "error",
-        title: "Failed to Save Estimate",
-        text: result.error || "An error occurred while saving the estimate.",
-      });
+    } catch (err) {
+      console.error("Error saving estimate:", err);
+      toast.error("An unexpected error occurred while saving the estimate.");
+    } finally {
+      setIsEstimating(false);
     }
   };
 
@@ -1481,7 +1524,7 @@ const InvestigationBilling = () => {
         investBillNo: formData.investBillNo,
         uhid: formData.uhid,
         ipNumber: formData.ipNumber,
-        doctor: formData.doctor,
+        doctor: resolveDoctorId(formData.doctor, doctors) || formData.doctor,
         bill_type: formData.bill_type,
         billTypeNo: formData.billTypeNo,
         package_id:
@@ -2398,10 +2441,15 @@ const InvestigationBilling = () => {
               <ResetBtn type="button" data-skip-enter="true" onClick={handleReset}>
                 🔄 Reset
               </ResetBtn>
-              <EstimateBtn type="button" data-skip-enter="true" onClick={handleEstimate}>
-                📊 Make Estimate
+              <EstimateBtn
+                type="button"
+                data-skip-enter="true"
+                onClick={handleEstimate}
+                disabled={isEstimating || isSubmitting}
+              >
+                {isEstimating ? "⏳ Estimating..." : "📊 Make Estimate"}
               </EstimateBtn>
-              <SubmitBtn type="submit" disabled={isSubmitting}>
+              <SubmitBtn type="submit" disabled={isSubmitting || isEstimating}>
                 {isSubmitting
                   ? "⏳ Saving..."
                   : isEditMode
