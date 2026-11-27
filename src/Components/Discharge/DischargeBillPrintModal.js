@@ -606,11 +606,17 @@ const NormalBillSheet = ({
     if (cleanD) {
       sub = sub ? `${sub}; ${cleanD.toUpperCase()}` : cleanD.toUpperCase();
     }
+    let itAmt = parseFloat(it.amount) || 0;
+    if (!isBreakdown && (name.startsWith("MEDICINE CHARGES") || name.startsWith("PHARMACY CHARGES") || name === "MEDICINES")) {
+      if (effectiveMedAmt > 0) {
+        itAmt = effectiveMedAmt;
+      }
+    }
     displayItems.push({
       name,
       subDesc: sub,
       qty: it.quantity || 1,
-      amount: parseFloat(it.amount) || 0,
+      amount: itAmt,
     });
   });
 
@@ -635,17 +641,17 @@ const NormalBillSheet = ({
       });
     } else if (effectiveMedAmt > 0 && !displayItems.some(i => i.name.includes("MEDICINE") || i.name.includes("PHARMACY"))) {
       displayItems.push({
-        name: "MEDICINE CHARGES 1",
+        name: "MEDICINE CHARGES",
         subDesc: "",
         qty: 1,
         amount: effectiveMedAmt,
       });
     }
   } else {
-    // In STANDARD mode: show consolidated MEDICINE CHARGES 1 row (do not list individual pharmacy items)
+    // In STANDARD mode: show consolidated MEDICINE CHARGES row (do not list individual pharmacy items)
     if (effectiveMedAmt > 0 && !displayItems.some(i => i.name.includes("MEDICINE") || i.name.includes("PHARMACY"))) {
       displayItems.push({
-        name: "MEDICINE CHARGES 1",
+        name: "MEDICINE CHARGES",
         subDesc: "",
         qty: 1,
         amount: effectiveMedAmt,
@@ -1119,9 +1125,11 @@ const InsuranceClaimSheet = ({
     const existingMedSum = (groups["MEDICINE / PHARMACY CHARGES"] || []).reduce(
       (s, it) => s + (parseFloat(it.amount) || 0), 0
     );
-    const totalMedForIns = pharmacyMedicines.length > 0
-      ? pharmacyMedicines.reduce((s, m) => s + (parseFloat(m.amount || m.calculated_price || 0)), 0)
-      : (medAmt > 0 ? medAmt : existingMedSum);
+    const totalMedForIns = medAmt > 0
+      ? medAmt
+      : (pharmacyMedicines.length > 0
+        ? pharmacyMedicines.reduce((s, m) => s + (parseFloat(m.amount || m.calculated_price || 0)), 0)
+        : existingMedSum);
 
     // Completely clear out any individual items under MEDICINE / PHARMACY CHARGES!
     groups["MEDICINE / PHARMACY CHARGES"] = [];
