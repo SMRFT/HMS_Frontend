@@ -318,7 +318,7 @@ const CheckboxGroup = styled.div`
     display: flex;
     flex-direction: column;
     gap: 8px;
-    max-height: 150px;
+    max-height: 220px;
     overflow-y: auto;
     border: 1px solid #e2e8f0;
     padding: 10px;
@@ -328,10 +328,17 @@ const CheckboxGroup = styled.div`
 const CheckboxLabel = styled.label`
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 8px;
     font-size: 0.85rem;
     cursor: pointer;
     color: #334155;
+    padding: 4px 6px;
+    border-radius: 6px;
+
+    &:hover {
+        background: #f8fafc;
+    }
 
     input {
         cursor: pointer;
@@ -362,6 +369,7 @@ const CashCounterManager = () => {
     const [billTypes, setBillTypes] = useState([]);
     const [outlets, setOutlets] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
+    const [billTypeSearch, setBillTypeSearch] = useState("");
     const [showModal, setShowModal] = useState(false);
     const [editingCounter, setEditingCounter] = useState(null);
     const [formData, setFormData] = useState({
@@ -433,6 +441,16 @@ const CashCounterManager = () => {
         return found?.outlet_name || found?.name || outletCode;
     };
 
+    const getBillTypeOutletName = (btItem) => {
+        if (!btItem) return "";
+        let code = btItem.outlet_code;
+        if (!code && btItem.bill_type != null) {
+            const master = billTypes.find(m => String(m.bill_type) === String(btItem.bill_type));
+            code = master?.outlet_code;
+        }
+        return code ? getOutletName(code) : "";
+    };
+
     const fetchEmployees = async () => {
         setEmpLoading(true);
         try {
@@ -497,12 +515,14 @@ const CashCounterManager = () => {
                 is_active: true
             });
         }
+        setBillTypeSearch("");
         setShowModal(true);
     };
 
     const handleCloseModal = () => {
         setShowModal(false);
         setEditingCounter(null);
+        setBillTypeSearch("");
     };
 
     const handleSubmit = async (e) => {
@@ -568,6 +588,19 @@ const CashCounterManager = () => {
                (emp.department && emp.department.toLowerCase().includes(q)) ||
                (emp.designation && emp.designation.toLowerCase().includes(q)) ||
                (emp.assigned_counter_name && emp.assigned_counter_name.toLowerCase().includes(q));
+    });
+
+    const filteredBillTypes = billTypes.filter(bt => {
+        if (!billTypeSearch.trim()) return true;
+        const q = billTypeSearch.trim().toLowerCase();
+        const oCode = String(bt.outlet_code || "").toLowerCase();
+        const oName = String(getOutletName(bt.outlet_code) || "").toLowerCase();
+        return (
+            String(bt.bill_name || "").toLowerCase().includes(q) ||
+            String(bt.billTypeNo || "").toLowerCase().includes(q) ||
+            oCode.includes(q) ||
+            oName.includes(q)
+        );
     });
 
     const activeCounters = counters.filter(c => c.is_active);
@@ -636,15 +669,28 @@ const CashCounterManager = () => {
                                     <Td style={{ fontWeight: '600', color: '#1e293b' }}>{getOutletName(c.outlet) || c.outlet_name || c.outlet || '-'}</Td>
                                     <Td>
                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                                            {Array.isArray(c.bill_type) ? c.bill_type.map(bt => (
-                                                <span key={bt.bill_type} style={{ 
-                                                    fontSize: '10px', 
-                                                    background: '#f1f5f9', 
-                                                    padding: '2px 6px', 
-                                                    borderRadius: '4px',
-                                                    border: '1px solid #e2e8f0'
-                                                }}>{bt.bill_name}</span>
-                                            )) : '-'}
+                                            {Array.isArray(c.bill_type) ? c.bill_type.map(bt => {
+                                                const btOutlet = getBillTypeOutletName(bt);
+                                                return (
+                                                    <span key={bt.bill_type} style={{ 
+                                                        fontSize: '10px', 
+                                                        background: '#f1f5f9', 
+                                                        padding: '2px 6px', 
+                                                        borderRadius: '4px',
+                                                        border: '1px solid #e2e8f0',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px'
+                                                    }}>
+                                                        <span>{bt.bill_name}</span>
+                                                        {btOutlet && btOutlet !== "-" && (
+                                                            <span style={{ color: '#0f766e', fontWeight: 700, fontSize: '9px' }}>
+                                                                ({btOutlet})
+                                                            </span>
+                                                        )}
+                                                    </span>
+                                                );
+                                            }) : '-'}
                                         </div>
                                     </Td>
                                     <Td>
@@ -851,33 +897,69 @@ const CashCounterManager = () => {
                             </FormGroup>
 
                             <FormGroup>
-                                <label>Allowed Bill Types</label>
+                                <label>
+                                    Allowed Bill Types{" "}
+                                    <span style={{ color: '#2563eb', fontWeight: 600 }}>
+                                        ({formData.bill_type.length} selected)
+                                    </span>
+                                </label>
+                                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                                    <FaSearch style={{ position: 'absolute', left: '10px', color: '#94a3b8', fontSize: '12px' }} />
+                                    <input
+                                        type="text"
+                                        placeholder="Search bill type or outlet..."
+                                        value={billTypeSearch}
+                                        onChange={e => setBillTypeSearch(e.target.value)}
+                                        style={{ width: '100%', paddingLeft: '30px' }}
+                                    />
+                                </div>
                                 <CheckboxGroup>
-                                    {billTypes.map(bt => {
+                                    {filteredBillTypes.length > 0 ? filteredBillTypes.map(bt => {
                                         const isChecked = formData.bill_type.some(item => item.bill_type === bt.bill_type);
+                                        const outletLabel = bt.outlet_code ? getOutletName(bt.outlet_code) : "";
                                         return (
                                             <CheckboxLabel key={bt.bill_type}>
-                                                <input 
-                                                    type="checkbox"
-                                                    checked={isChecked}
-                                                    onChange={e => {
-                                                        if (e.target.checked) {
-                                                            setFormData({
-                                                                ...formData,
-                                                                bill_type: [...formData.bill_type, { bill_type: bt.bill_type, bill_name: bt.bill_name }]
-                                                            });
-                                                        } else {
-                                                            setFormData({
-                                                                ...formData,
-                                                                bill_type: formData.bill_type.filter(item => item.bill_type !== bt.bill_type)
-                                                            });
-                                                        }
-                                                    }}
-                                                />
-                                                {bt.bill_name}
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <input 
+                                                        type="checkbox"
+                                                        checked={isChecked}
+                                                        onChange={e => {
+                                                            if (e.target.checked) {
+                                                                setFormData({
+                                                                    ...formData,
+                                                                    bill_type: [...formData.bill_type, { bill_type: bt.bill_type, bill_name: bt.bill_name, outlet_code: bt.outlet_code || "" }]
+                                                                });
+                                                            } else {
+                                                                setFormData({
+                                                                    ...formData,
+                                                                    bill_type: formData.bill_type.filter(item => item.bill_type !== bt.bill_type)
+                                                                });
+                                                            }
+                                                        }}
+                                                    />
+                                                    <span>{bt.bill_name}</span>
+                                                </span>
+                                                {outletLabel && outletLabel !== "-" && (
+                                                    <span style={{
+                                                        fontSize: '0.72rem',
+                                                        fontWeight: 600,
+                                                        color: '#0f766e',
+                                                        background: '#f0fdfa',
+                                                        border: '1px solid #99f6e4',
+                                                        padding: '2px 7px',
+                                                        borderRadius: '999px',
+                                                        whiteSpace: 'nowrap'
+                                                    }}>
+                                                        {outletLabel}
+                                                    </span>
+                                                )}
                                             </CheckboxLabel>
                                         );
-                                    })}
+                                    }) : (
+                                        <div style={{ textAlign: 'center', padding: '14px', color: '#94a3b8', fontSize: '0.82rem' }}>
+                                            No bill types match your search.
+                                        </div>
+                                    )}
                                 </CheckboxGroup>
                             </FormGroup>
 

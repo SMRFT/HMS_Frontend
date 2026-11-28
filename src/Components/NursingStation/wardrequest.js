@@ -407,6 +407,7 @@ const RoomCard = styled.div`
 `;
 
 const BedBox = styled.div`
+  position: relative;
   background: ${props => props.$bg || '#ecfdf5'};
   border: 1px solid ${props => props.$border || '#a7f3d0'};
   border-radius: 8px;
@@ -421,6 +422,64 @@ const BedBox = styled.div`
   &:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
+    z-index: 30;
+  }
+
+  &:hover .bed-tooltip {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .bed-tooltip {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    background: #0f172a;
+    color: #f8fafc;
+    padding: 8px 10px;
+    border-radius: 8px;
+    box-shadow: 0 10px 20px rgba(15, 23, 42, 0.25);
+    min-width: 195px;
+    max-width: 260px;
+    z-index: 60;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
+    font-size: 11px;
+    line-height: 1.45;
+    text-align: left;
+    white-space: normal;
+    word-break: break-word;
+
+    &::after {
+      content: "";
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border-width: 5px;
+      border-style: solid;
+      border-color: #0f172a transparent transparent transparent;
+    }
+
+    .tt-row {
+      display: flex;
+      gap: 4px;
+    }
+
+    .tt-label {
+      color: #94a3b8;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .tt-val {
+      color: #ffffff;
+      font-weight: 700;
+    }
   }
 
   .bed-top {
@@ -1072,6 +1131,30 @@ const getPatientFullName = (adm) => {
   const lname = getField(adm, "lastName");
   const full = [salutation, fname, lname].filter(Boolean).join(" ");
   return full || "Patient";
+};
+
+const formatAdmittedDate = (adm) => {
+  if (!adm) return "-";
+  if (adm?.admissionDate && adm?.admissionTime) {
+    return `${adm.admissionDate}, ${adm.admissionTime}`;
+  }
+  const admDateRaw = getField(adm, "admission_date") || getField(adm, "admissionDateTime");
+  if (!admDateRaw) return "-";
+  try {
+    const s = String(admDateRaw).trim();
+    const withZ = !s.endsWith("Z") && !s.includes("+") ? `${s}Z` : s;
+    const d = new Date(withZ);
+    if (!isNaN(d.getTime())) {
+      return (
+        d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" }) +
+        ", " +
+        d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" })
+      );
+    }
+    return String(admDateRaw);
+  } catch (e) {
+    return String(admDateRaw);
+  }
 };
 
 const getIsHighRisk = (adm) => {
@@ -2001,6 +2084,8 @@ const WardRequest = () => {
                     const isBlocked = Boolean(bed.is_blocked || (adm && getField(adm, "ward_status") === "Blocked"));
                     const isFree = !adm && !isBlocked;
                     const pName = isBlocked ? "Blocked" : (adm ? getPatientFullName(adm) : "Free");
+                    const ipNo = adm ? (adm.ipNumber || getField(adm, "ipNumber") || "-") : "";
+                    const admDateStr = adm ? formatAdmittedDate(adm) : "";
                     const wardStatus = isBlocked ? "Blocked" : (adm ? getField(adm, "ward_status") : "Available");
                     const isDischarged = adm ? getField(adm, "is_discharged") : false;
                     const statusConfig = isBlocked ? getStatusStyle("Blocked") : (isFree ? getStatusStyle("Available") : getStatusStyle(wardStatus, isDischarged));
@@ -2017,7 +2102,6 @@ const WardRequest = () => {
                           boxShadow: "0 0 0 1px rgba(239, 68, 68, 0.25), 0 2px 4px rgba(239, 68, 68, 0.12)",
                           background: "#fff5f5"
                         } : {}}
-                        title={isHighRisk ? `🚨 ISOLATION: ${hrReason || "Active Isolation Patient"}` : undefined}
                         onClick={() => {
                           if (adm) {
                             handleOpenActionModal(adm);
@@ -2058,6 +2142,22 @@ const WardRequest = () => {
                           </div>
                         )}
                         <div className="status-text">{statusConfig.label}</div>
+                        {adm && (
+                          <div className="bed-tooltip">
+                            <div className="tt-row">
+                              <span className="tt-label">Name:</span>
+                              <span className="tt-val">{pName}</span>
+                            </div>
+                            <div className="tt-row">
+                              <span className="tt-label">IP No:</span>
+                              <span className="tt-val">{ipNo}</span>
+                            </div>
+                            <div className="tt-row">
+                              <span className="tt-label">Admitted:</span>
+                              <span className="tt-val">{admDateStr}</span>
+                            </div>
+                          </div>
+                        )}
                       </BedBox>
                     );
                   })}
@@ -2115,24 +2215,7 @@ const WardRequest = () => {
                   const wardStatus = getField(adm, "ward_status");
                   const isDischarged = Boolean(getField(adm, "is_discharged"));
                   const statusConfig = getStatusStyle(wardStatus, isDischarged);
-                  const admDateRaw = getField(adm, "admission_date") || getField(adm, "admissionDateTime");
-                  let admDateStr = "-";
-                  if (adm?.admissionDate && adm?.admissionTime) {
-                    admDateStr = `${adm.admissionDate}, ${adm.admissionTime}`;
-                  } else if (admDateRaw) {
-                    try {
-                      const s = String(admDateRaw).trim();
-                      const withZ = !s.endsWith("Z") && !s.includes("+") ? `${s}Z` : s;
-                      const d = new Date(withZ);
-                      if (!isNaN(d.getTime())) {
-                        admDateStr = d.toLocaleDateString("en-GB", { day: '2-digit', month: 'short', timeZone: "Asia/Kolkata" }) + ", " + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: "Asia/Kolkata" });
-                      } else {
-                        admDateStr = String(admDateRaw);
-                      }
-                    } catch (e) {
-                      admDateStr = String(admDateRaw);
-                    }
-                  }
+                  const admDateStr = formatAdmittedDate(adm);
 
                   const disDateStr = adm?.dischargeDate
                     ? `${adm.dischargeDate}${adm.dischargeTime ? `, ${adm.dischargeTime}` : ""}`
