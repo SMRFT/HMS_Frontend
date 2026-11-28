@@ -308,6 +308,15 @@ const MedicineAbstractReport = ({ isOldReport = false }) => {
 
     // Query parameters
     const searchParams = new URLSearchParams(location.search);
+    const MIN_REPORT_DATE = dayjs('2026-11-15', 'YYYY-MM-DD');
+    const clampMinDate = (d) => (d && d.isValid() && d.isBefore(MIN_REPORT_DATE, 'day') ? MIN_REPORT_DATE : d);
+    const parseAdmDate = (str) => {
+        if (!str) return dayjs(NaN);
+        const s = String(str).trim().slice(0, 10);
+        const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+        return m ? dayjs(`${m[3]}-${m[2]}-${m[1]}`) : dayjs(s);
+    };
+
     const initialIp = searchParams.get('ip_number') || searchParams.get('ip_no') || '';
     const initialUhid = searchParams.get('uhid') || '';
     const initialFrom = searchParams.get('from_date') || (isOldReport ? '2026-09-13' : dayjs().subtract(60, 'day').format('YYYY-MM-DD'));
@@ -386,11 +395,11 @@ const MedicineAbstractReport = ({ isOldReport = false }) => {
                     let fD = fromDate;
                     let tD = toDate;
                     if (chosenAdm.admission_date) {
-                        const parsedStart = dayjs(chosenAdm.admission_date.slice(0, 10), 'DD/MM/YYYY');
+                        const parsedStart = parseAdmDate(chosenAdm.admission_date);
                         if (parsedStart.isValid()) {
-                            const parsedEnd = chosenAdm.discharge_date ? dayjs(chosenAdm.discharge_date.slice(0, 10), 'DD/MM/YYYY') : dayjs();
-                            fD = parsedStart;
-                            tD = parsedEnd.isValid() ? parsedEnd : dayjs();
+                            const parsedEnd = chosenAdm.discharge_date ? parseAdmDate(chosenAdm.discharge_date) : dayjs();
+                            fD = clampMinDate(parsedStart);
+                            tD = clampMinDate(parsedEnd.isValid() ? parsedEnd : dayjs());
                             setFromDate(fD);
                             setToDate(tD);
                         }
@@ -440,11 +449,11 @@ const MedicineAbstractReport = ({ isOldReport = false }) => {
         let fD = fromDate;
         let tD = toDate;
         if (adm.admission_date) {
-            const parsedStart = dayjs(adm.admission_date.slice(0, 10), 'DD/MM/YYYY');
+            const parsedStart = parseAdmDate(adm.admission_date);
             if (parsedStart.isValid()) {
-                const parsedEnd = adm.discharge_date ? dayjs(adm.discharge_date.slice(0, 10), 'DD/MM/YYYY') : dayjs();
-                fD = parsedStart;
-                tD = parsedEnd.isValid() ? parsedEnd : dayjs();
+                const parsedEnd = adm.discharge_date ? parseAdmDate(adm.discharge_date) : dayjs();
+                fD = clampMinDate(parsedStart);
+                tD = clampMinDate(parsedEnd.isValid() ? parsedEnd : dayjs());
                 setFromDate(fD);
                 setToDate(tD);
             }
@@ -597,12 +606,14 @@ const MedicineAbstractReport = ({ isOldReport = false }) => {
                     <DatePicker
                         value={fromDate}
                         format="DD/MM/YYYY"
+                        disabledDate={(current) => current && current.isBefore(MIN_REPORT_DATE, 'day')}
                         onChange={(d) => setFromDate(d || dayjs())}
                         style={{ height: 36, borderRadius: 8 }}
                     />
                     <DatePicker
                         value={toDate}
                         format="DD/MM/YYYY"
+                        disabledDate={(current) => current && current.isBefore(MIN_REPORT_DATE, 'day')}
                         onChange={(d) => setToDate(d || dayjs())}
                         style={{ height: 36, borderRadius: 8 }}
                     />

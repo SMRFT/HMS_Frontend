@@ -1087,11 +1087,13 @@ export const buildPrintBillHtml = (data) => {
     resolvedBillingMode.includes("WARD REQUEST") ||
     resolvedBillingMode.includes("OT REQUEST") ||
     Boolean(data && (data.is_ward_request || data.is_ot_request || data.isWardRequest || data.isOtRequest));
-  const isCreditBill = resolvedPaymentMode.toLowerCase().includes("credit") ||
-    resolvedBillingMode.includes("CREDIT") ||
-    resolvedBillingMode.includes("REQUEST") ||
-    resolvedBillingMode.includes("WARD") ||
-    resolvedBillingMode.includes("OT");
+  const pm = String(
+    resolvedPaymentMode ||
+    (data && (data.payment_mode || data.paymentMode || data.payment_method)) ||
+    paymentMode ||
+    ""
+  ).trim().toLowerCase();
+  const isCreditBill = pm === "credit";
   const billTypeHeader = isCreditBill ? "CREDIT BILL" : "CASH BILL";
 
   const resolveBillOutlet = () => {
@@ -1550,12 +1552,8 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
   const [qtyErrors, setQtyErrors] = useState({});
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedPaymentMode, setSelectedPaymentMode] = useState(() => {
-    const currentOutlet = String(
-      localStorage.getItem("selected_outlet") ||
-      localStorage.getItem("outlet_code") ||
-      ""
-    ).trim().toUpperCase();
-    return (currentOutlet === "OLET001" || currentOutlet === "1") ? "credit" : "cash";
+    const selectedOutlet = String(localStorage.getItem("selected_outlet") || "").trim().toUpperCase();
+    return selectedOutlet === "OLET001" ? "credit" : "cash";
   });
   const [pendingBillIntent, setPendingBillIntent] = useState(null);
   const [showPrintModal, setShowPrintModal] = useState(false);
@@ -3467,13 +3465,8 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
     if (intentStatus !== "Estimate") {
       setPendingBillIntent(intentStatus);
-      const currentOutlet = String(
-        localStorage.getItem("selected_outlet") ||
-        localStorage.getItem("outlet_code") ||
-        ""
-      ).trim().toUpperCase();
-
-      const isOlet001 = currentOutlet === "OLET001" || currentOutlet === "1" || currentOutlet.includes("OLET001") || currentOutlet.includes("IP PHARMACY");
+      const selectedOutlet = String(localStorage.getItem("selected_outlet") || "").trim().toUpperCase();
+      const isOlet001 = selectedOutlet === "OLET001";
       if (isOlet001) {
         setSelectedPaymentMode("credit");
       } else {
@@ -6270,7 +6263,7 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
             }}>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
                 <span style={{ fontSize: "0.72rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#64748b" }}>Total</span>
-                <span style={{ fontSize: "1.05rem", fontWeight: 700, color: "#0f766e" }}>₹{totalAmount.toFixed(2)}</span>
+                <span style={{ fontSize: "1.05rem", fontWeight: 700, color: "#0f766e" }}>₹{grossTotalAmount.toFixed(2)}</span>
               </div>
 
               <div style={{ width: 1, height: 40, background: "#cbd5e1" }} />
@@ -7391,22 +7384,18 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
 
       {/* ── Payment Mode Modal ── */}
       {showPaymentModal && (() => {
-        const activeOutlet = String(
-          localStorage.getItem("selected_outlet") ||
-          localStorage.getItem("outlet_code") ||
-          ""
-        ).trim().toUpperCase();
-
-        const isOlet001 = activeOutlet === "OLET001" || activeOutlet === "1" || activeOutlet.includes("OLET001") || activeOutlet.includes("IP PHARMACY");
+        const selectedOutlet = String(localStorage.getItem("selected_outlet") || "").trim().toUpperCase();
+        const isOlet001 = selectedOutlet === "OLET001";
 
         const paymentOptions = [
           { value: "cash", label: "Pay Now", desc: "Patient pays immediately (Cash / Card / UPI)" },
           { value: "credit", label: "Pay Later", desc: "Bill on credit — patient pays at a later date" },
         ].filter(opt => {
-          // OLET001 strictly has only Pay Later option (stores Credit)
+          // when selected_outlet OLET001 alone: paylater -display it
           if (isOlet001) {
             return opt.value === "credit";
           }
+          // when selected_outlet OLET002: payment mode paynow, paylater display it
           return true;
         });
 
@@ -7651,9 +7640,8 @@ const Pharmacy = ({ estimateToLoad, onEstimateLoaded, billToEdit, onBillEditLoad
                                   )}
                                   <div style={{ fontWeight: 800, fontSize: 11, letterSpacing: 0.5 }}>
                                     {(() => {
-                                      const pm = String(printBillData.payment_mode || printBillData.paymentMode || printBillData.payment_method || "").toLowerCase();
-                                      const bm = String(printBillData.billing_mode || printBillData.billingMode || "").toUpperCase();
-                                      const isCredit = pm.includes("credit") || bm.includes("CREDIT") || bm.includes("REQUEST") || bm.includes("WARD") || bm.includes("OT");
+                                      const pm = String(printBillData.payment_mode || printBillData.paymentMode || printBillData.payment_method || "").trim().toLowerCase();
+                                      const isCredit = pm === "credit";
                                       return isCredit ? "CREDIT BILL" : "CASH BILL";
                                     })()}
                                   </div>

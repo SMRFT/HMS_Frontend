@@ -1421,8 +1421,7 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
   const allowBillPrint = (b) => {
     if (!b) return false;
     const pm = String(b.payment_mode || b.payment_method || b.paymentMode || "").trim().toLowerCase();
-    const bm = String(b.billing_mode || b.billingMode || "").trim().toLowerCase();
-    const isCredit = pm === "credit" || bm.includes("credit");
+    const isCredit = pm === "credit";
 
     // Credit bills: always display print
     if (isCredit) return true;
@@ -2222,8 +2221,7 @@ export default function OPPharmacyViewBills({ onEditBill, onSwitchToPharmacy, ac
                               <div style={{ fontWeight: 800, fontSize: 11, letterSpacing: 0.5 }}>
                                 {(() => {
                                   const pm = String(printBill.payment_mode || printBill.payment_method || printBill.paymentMode || "").trim().toLowerCase();
-                                  const bm = String(printBill.billing_mode || printBill.billingMode || "").trim().toUpperCase();
-                                  const isCredit = pm.includes("credit") || bm.includes("CREDIT") || bm.includes("REQUEST") || bm.includes("WARD") || bm.includes("OT");
+                                  const isCredit = pm === "credit";
                                   return isCredit ? "CREDIT BILL" : "CASH BILL";
                                 })()}
                               </div>

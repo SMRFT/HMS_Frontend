@@ -357,6 +357,15 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false, isOldReport = false
     const navigate = useNavigate();
     const location = useLocation();
 
+    const MIN_REPORT_DATE = dayjs('2026-11-15', 'YYYY-MM-DD');
+    const clampMinDate = (d) => (d && d.isValid() && d.isBefore(MIN_REPORT_DATE, 'day') ? MIN_REPORT_DATE : d);
+    const parseAdmDate = (str) => {
+        if (!str) return dayjs(NaN);
+        const s = String(str).trim().slice(0, 10);
+        const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+        return m ? dayjs(`${m[3]}-${m[2]}-${m[1]}`) : dayjs(s);
+    };
+
     // Parse query params if any
     const queryParams = new URLSearchParams(location.search);
     const initialIp = queryParams.get('ip_number') || queryParams.get('ip_no') || '';
@@ -434,10 +443,10 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false, isOldReport = false
 
                     let newDates = dateRange;
                     if (chosenAdm.admission_date) {
-                        const parsedStart = dayjs(chosenAdm.admission_date.slice(0, 10), 'DD/MM/YYYY');
+                        const parsedStart = parseAdmDate(chosenAdm.admission_date);
                         if (parsedStart.isValid()) {
-                            const parsedEnd = chosenAdm.discharge_date ? dayjs(chosenAdm.discharge_date.slice(0, 10), 'DD/MM/YYYY') : dayjs();
-                            newDates = [parsedStart, parsedEnd.isValid() ? parsedEnd : dayjs()];
+                            const parsedEnd = chosenAdm.discharge_date ? parseAdmDate(chosenAdm.discharge_date) : dayjs();
+                            newDates = [clampMinDate(parsedStart), clampMinDate(parsedEnd.isValid() ? parsedEnd : dayjs())];
                             setDateRange(newDates);
                         }
                     }
@@ -483,10 +492,10 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false, isOldReport = false
 
         let newDates = dateRange;
         if (adm.admission_date) {
-            const parsedStart = dayjs(adm.admission_date.slice(0, 10), 'DD/MM/YYYY');
+            const parsedStart = parseAdmDate(adm.admission_date);
             if (parsedStart.isValid()) {
-                const parsedEnd = adm.discharge_date ? dayjs(adm.discharge_date.slice(0, 10), 'DD/MM/YYYY') : dayjs();
-                newDates = [parsedStart, parsedEnd.isValid() ? parsedEnd : dayjs()];
+                const parsedEnd = adm.discharge_date ? parseAdmDate(adm.discharge_date) : dayjs();
+                newDates = [clampMinDate(parsedStart), clampMinDate(parsedEnd.isValid() ? parsedEnd : dayjs())];
                 setDateRange(newDates);
             }
         }
@@ -569,17 +578,21 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false, isOldReport = false
                         'HSN': it.hsn,
                         'Batch': it.batch,
                         'Expiry': it.expiry,
-                        'MRP (Per Unit)': (() => {
-                            const q = Number(it.qty || 0);
-                            const a = Number(it.amount || 0);
-                            const u = Number(it.mrp ?? it.rate ?? it.price ?? (q > 0 ? a / q : 0));
-                            return (q > 1 && Math.abs(u - a) < 0.01 ? a / q : u).toFixed(2);
-                        })(),
-                        'CGST %': it.cgst_pct,
-                        'CGST': it.cgst_amt,
-                        'SGST %': it.sgst_pct,
-                        'SGST': it.sgst_amt,
-                        'Amount': it.amount
+                        ...(() => {
+                            const amt = Number(it.amount || 0);
+                            const cPct = Number(it.cgst_pct ?? 0);
+                            const sPct = Number(it.sgst_pct ?? 0);
+                            const taxPct = (cPct + sPct) / 100;
+                            const taxAmt = taxPct > 0 ? amt / (1 + taxPct) : amt;
+                            return {
+                                'Taxable Amt': taxAmt.toFixed(2),
+                                'CGST %': it.cgst_pct,
+                                'CGST': (taxAmt * (cPct / 100)).toFixed(2),
+                                'SGST %': it.sgst_pct,
+                                'SGST': (taxAmt * (sPct / 100)).toFixed(2),
+                                'Amount': amt.toFixed(2),
+                            };
+                        })()
                     });
                 });
             });
@@ -829,6 +842,7 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false, isOldReport = false
                         <DatePicker.RangePicker
                             value={dateRange}
                             onChange={(dates) => setDateRange(dates)}
+                            disabledDate={(current) => current && current.isBefore(MIN_REPORT_DATE, 'day')}
                             format="DD/MM/YYYY"
                             allowClear={true}
                             style={{ height: '36px', borderRadius: '8px' }}
@@ -913,7 +927,7 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false, isOldReport = false
                                 <th style={{ width: '70px', textAlign: 'center' }} className="text-center">HSN</th>
                                 <th style={{ width: '95px', textAlign: 'left' }} className="text-left">Batch</th>
                                 <th style={{ width: '85px', textAlign: 'center' }} className="text-center">Expiry</th>
-                                <th style={{ width: '95px', textAlign: 'right' }} className="text-right">MRP (Per Unit)</th>
+                                <th style={{ width: '95px', textAlign: 'right' }} className="text-right">Taxable Amt</th>
                                 <th style={{ width: '55px', textAlign: 'center' }} className="text-center">CGST %</th>
                                 <th style={{ width: '65px', textAlign: 'right' }} className="text-right">CGST</th>
                                 <th style={{ width: '55px', textAlign: 'center' }} className="text-center">SGST %</th>
@@ -957,12 +971,13 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false, isOldReport = false
                                             </tr>
 
                                             {Array.isArray(bill.items) && bill.items.map((it, iIdx) => {
-                                                const cgstVal = it.cgst_amt ?? it.cgst ?? 0;
-                                                const sgstVal = it.sgst_amt ?? it.sgst ?? 0;
                                                 const itAmt = Number(it.amount || 0);
-                                                const itQty = Number(it.qty || 0);
-                                                const rawUnit = Number(it.mrp ?? it.rate ?? it.price ?? (itQty > 0 ? itAmt / itQty : 0));
-                                                const unitRate = (itQty > 1 && Math.abs(rawUnit - itAmt) < 0.01) ? itAmt / itQty : rawUnit;
+                                                const cgstPct = Number(it.cgst_pct ?? 0);
+                                                const sgstPct = Number(it.sgst_pct ?? 0);
+                                                const totTaxPct = (cgstPct + sgstPct) / 100;
+                                                const taxableAmt = totTaxPct > 0 ? itAmt / (1 + totTaxPct) : itAmt;
+                                                const cgstVal = taxableAmt * (cgstPct / 100);
+                                                const sgstVal = taxableAmt * (sgstPct / 100);
                                                 return (
                                                     <tr key={iIdx}>
                                                         <td className="text-center" style={{ textAlign: 'center' }}>{it.qty}</td>
@@ -970,11 +985,11 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false, isOldReport = false
                                                         <td className="text-center" style={{ textAlign: 'center' }}>{it.hsn || '-'}</td>
                                                         <td className="text-left" style={{ textAlign: 'left' }}>{it.batch || '-'}</td>
                                                         <td className="text-center" style={{ textAlign: 'center' }}>{it.expiry || '-'}</td>
-                                                        <td className="text-right" style={{ textAlign: 'right', fontWeight: 800 }}>{unitRate.toFixed(2)}</td>
+                                                        <td className="text-right" style={{ textAlign: 'right', fontWeight: 800 }}>{taxableAmt.toFixed(2)}</td>
                                                         <td className="text-center" style={{ textAlign: 'center' }}>{it.cgst_pct ?? '-'}</td>
-                                                        <td className="text-right" style={{ textAlign: 'right', fontWeight: 800 }}>{Number(cgstVal || 0).toFixed(2)}</td>
+                                                        <td className="text-right" style={{ textAlign: 'right', fontWeight: 800 }}>{cgstVal.toFixed(2)}</td>
                                                         <td className="text-center" style={{ textAlign: 'center' }}>{it.sgst_pct ?? '-'}</td>
-                                                        <td className="text-right" style={{ textAlign: 'right', fontWeight: 800 }}>{Number(sgstVal || 0).toFixed(2)}</td>
+                                                        <td className="text-right" style={{ textAlign: 'right', fontWeight: 800 }}>{sgstVal.toFixed(2)}</td>
                                                         <td className="text-right" style={{ textAlign: 'right', fontWeight: 800, color: '#000000' }}>{itAmt.toFixed(2)}</td>
                                                     </tr>
                                                 );
