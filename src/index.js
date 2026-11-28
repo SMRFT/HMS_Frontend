@@ -164,7 +164,7 @@ function isPublicRoute() {
         const employeeId = userPayload.aud; // Using 'aud' field as ID
         const name = userPayload.name;
         const userEmail = userPayload.email;
-        const userRole = getUserRole(userPayload["allowed-actions"]);
+        const userRole = getUserRole(userPayload.allowedActions);
 
         if (employeeId && name) {
           localStorage.setItem("user_payload", JSON.stringify(userPayload));
