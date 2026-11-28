@@ -358,7 +358,7 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false, isOldReport = false
     const location = useLocation();
 
     const MIN_REPORT_DATE = dayjs('2026-11-15', 'YYYY-MM-DD');
-    const clampMinDate = (d) => (d && d.isValid() && d.isBefore(MIN_REPORT_DATE, 'day') ? MIN_REPORT_DATE : d);
+    const clampMinDate = (d) => (!isOldReport && d && d.isValid() && d.isBefore(MIN_REPORT_DATE, 'day') ? MIN_REPORT_DATE : d);
     const parseAdmDate = (str) => {
         if (!str) return dayjs(NaN);
         const s = String(str).trim().slice(0, 10);
@@ -541,7 +541,7 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false, isOldReport = false
 
     const handlePrint = () => {
         printInsuranceReport('printable-pharmacy-ip-sheet', {
-            reportTitle: isOldReport ? 'PHARMACY IP BILL (OLD)' : 'PHARMACY IP BILL',
+            reportTitle: isOldReport ? 'PHARMACY IP BILL' : 'PHARMACY IP BILL',
             patientInfo: {
                 uhid: patient.op_number || patient.uhid || uhid,
                 ip_number: patient.ip_number,
@@ -789,7 +789,7 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false, isOldReport = false
                             <ArrowLeft size={18} />
                         </button>
                         <div className="title-box">
-                            <h2>{isOldReport ? 'PATIENT WISE PHARMACY IP BILL DETAILED (OLD)' : 'PATIENT WISE PHARMACY IP BILL DETAILED'}</h2>
+                            <h2>{isOldReport ? 'PATIENT WISE PHARMACY IP BILL DETAILED' : 'PATIENT WISE PHARMACY IP BILL DETAILED'}</h2>
                             <p>{isOldReport ? 'Historical IP credit pharmacy invoices (Sep–Nov 2026 · old pharmacy billing)' : 'Itemized IP credit and ward medicine charges per invoice'}</p>
                         </div>
                     </div>
@@ -842,7 +842,7 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false, isOldReport = false
                         <DatePicker.RangePicker
                             value={dateRange}
                             onChange={(dates) => setDateRange(dates)}
-                            disabledDate={(current) => current && current.isBefore(MIN_REPORT_DATE, 'day')}
+                            disabledDate={isOldReport ? undefined : (current) => current && current.isBefore(MIN_REPORT_DATE, 'day')}
                             format="DD/MM/YYYY"
                             allowClear={true}
                             style={{ height: '36px', borderRadius: '8px' }}
@@ -875,7 +875,7 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false, isOldReport = false
                         <div className="main-title">SHANMUGA HOSPITAL LIMITED</div>
                         <div className="sub-address">51/24.Saradha College Road, Salem - 636007, ,</div>
                         <div className="tax-row">Dl No : TN-01-20-21-00202, TIN No : 33692663526  GSTIN : 33ABDCS8326A1ZP</div>
-                        <div className="report-banner">{isOldReport ? 'PHARMACY IP BILL (OLD)' : 'PHARMACY IP BILL'}</div>
+                        <div className="report-banner">{isOldReport ? 'PHARMACY IP BILL' : 'PHARMACY IP BILL'}</div>
                     </div>
 
                     {/* Patient Meta Data Box */}

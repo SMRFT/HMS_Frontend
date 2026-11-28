@@ -309,7 +309,7 @@ const MedicineAbstractReport = ({ isOldReport = false }) => {
     // Query parameters
     const searchParams = new URLSearchParams(location.search);
     const MIN_REPORT_DATE = dayjs('2026-11-15', 'YYYY-MM-DD');
-    const clampMinDate = (d) => (d && d.isValid() && d.isBefore(MIN_REPORT_DATE, 'day') ? MIN_REPORT_DATE : d);
+    const clampMinDate = (d) => (!isOldReport && d && d.isValid() && d.isBefore(MIN_REPORT_DATE, 'day') ? MIN_REPORT_DATE : d);
     const parseAdmDate = (str) => {
         if (!str) return dayjs(NaN);
         const s = String(str).trim().slice(0, 10);
@@ -606,14 +606,14 @@ const MedicineAbstractReport = ({ isOldReport = false }) => {
                     <DatePicker
                         value={fromDate}
                         format="DD/MM/YYYY"
-                        disabledDate={(current) => current && current.isBefore(MIN_REPORT_DATE, 'day')}
+                        disabledDate={isOldReport ? undefined : (current) => current && current.isBefore(MIN_REPORT_DATE, 'day')}
                         onChange={(d) => setFromDate(d || dayjs())}
                         style={{ height: 36, borderRadius: 8 }}
                     />
                     <DatePicker
                         value={toDate}
                         format="DD/MM/YYYY"
-                        disabledDate={(current) => current && current.isBefore(MIN_REPORT_DATE, 'day')}
+                        disabledDate={isOldReport ? undefined : (current) => current && current.isBefore(MIN_REPORT_DATE, 'day')}
                         onChange={(d) => setToDate(d || dayjs())}
                         style={{ height: 36, borderRadius: 8 }}
                     />

@@ -940,7 +940,7 @@ const INSURANCE_REPORTS = [
     },
     {
         id: 'patient_wise_pharmacy_ip_bill_old',
-        title: 'PATIENT WISE PHARMACY IP BILL DETAILED (OLD)',
+        title: 'PATIENT WISE PHARMACY IP BILL DETAILED (VIKAS)',
         description: 'Historical itemized IP pharmacy invoices (Sep–Nov 2026) from old pharmacy billing.',
         icon: Package,
         color: '#0d9488',
@@ -950,7 +950,7 @@ const INSURANCE_REPORTS = [
     },
     {
         id: 'medicine_abstract_old',
-        title: 'Medicine Abstract Report (OLD)',
+        title: 'Medicine Abstract Report (VIKAS)',
         description: 'Historical pharmaceutical dispensation abstract & GST ledger (Sep–Nov 2026) from old pharmacy billing.',
         icon: Package,
         color: '#047857',

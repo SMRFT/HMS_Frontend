@@ -97,3 +97,16 @@ export const fetchMyReportPermissions = async (employeeId) => {
   }
   return null;
 };
+
+/**
+ * Fetch all active employees (unfiltered, limit=0) for Copy / Transfer Report Permissions modal.
+ */
+export const fetchAllEmployeesForReportCopy = async () => {
+  const base = getBaseUrl();
+  const res = await apiRequest(`${base}/employee-master/?limit=0`, "GET");
+  if (res && res.success && res.data) {
+    const payload = res.data.data || res.data;
+    return Array.isArray(payload?.employees) ? payload.employees : [];
+  }
+  return [];
+};
