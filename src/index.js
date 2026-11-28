@@ -191,7 +191,7 @@ function isPublicRoute() {
           localStorage.setItem("role", userRole);
           localStorage.setItem(
             "allowedActions",
-            JSON.stringify(userPayload["allowed-actions"] || []),
+            JSON.stringify(userPayload.allowedActions),
           );
         }
       } catch (tokenErr) {
