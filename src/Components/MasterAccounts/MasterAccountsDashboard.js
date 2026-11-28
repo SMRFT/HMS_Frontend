@@ -52,6 +52,8 @@ const MasterDatewiseSummaryReport = lazy(() => import("./MasterDatewiseSummaryRe
 const MasterDepartmentWiseReport = lazy(() => import("./MasterDepartmentWiseReport"));
 const MasterBillTypeWiseReport = lazy(() => import("./MasterBillTypeWiseReport"));
 const MasterDoctorRevenueReport = lazy(() => import("./MasterDoctorRevenueReport"));
+const MasterDoctorWiseIPCollection = lazy(() => import("./MasterDoctorWiseIPCollection"));
+const MasterDoctorWiseOPCollection = lazy(() => import("./MasterDoctorWiseOPCollection"));
 const MasterAdvanceRegistration = lazy(() => import("./MasterAdvanceRegistration"));
 const MasterInsuranceAdvanceReport = lazy(() => import("./MasterInsuranceAdvanceReport"));
 const MasterIPAdvanceReport = lazy(() => import("./MasterIPAdvanceReport"));
@@ -713,6 +715,28 @@ const MasterAccountsDashboard = () => {
             color: "#6366f1",
             component: MasterDoctorRevenueReport,
             fullPageRoute: "/MasterDoctorRevenueReport"
+        },
+        {
+            id: "doctor_wise_ip_collection",
+            title: "Doctor Wise IP Collection",
+            category: "Digital & Dept",
+            cluster: "digital_dept",
+            description: "Doctor-wise IP discharge collection grouped by Particular Head with Bill Date, Bill/IP/OP Numbers, Amount, and Cash Bill flag.",
+            icon: <Stethoscope size={24} />,
+            color: "#0ea5e9",
+            component: MasterDoctorWiseIPCollection,
+            fullPageRoute: "/MasterDoctorWiseIPCollection"
+        },
+        {
+            id: "doctor_wise_op_collection",
+            title: "Doctor Wise OP Collection",
+            category: "Digital & Dept",
+            cluster: "digital_dept",
+            description: "Doctor-wise OP registration and consultation detailed report with patient demographics, Reg/Cons fees, and Company.",
+            icon: <Stethoscope size={24} />,
+            color: "#14b8a6",
+            component: MasterDoctorWiseOPCollection,
+            fullPageRoute: "/MasterDoctorWiseOPCollection"
         },
 
         // Cluster 3: IP Admissions & Advances

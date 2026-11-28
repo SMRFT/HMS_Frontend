@@ -12,7 +12,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import apiRequest from '../../Auth/apiRequest';
 import { PageWrapper } from '../GlobalStyles';
-import { printInsuranceReport } from './printInsuranceReport';
+import InsuranceDischargeBillPrintTemplate, { printDischargeBillTemplate } from './InsuranceDischargeBillPrintTemplate';
 
 const Container = styled(PageWrapper)`
   min-height: 100vh;
@@ -268,6 +268,7 @@ const InsuranceDischargeBillAllReport = ({ embedded = false }) => {
     const [ipNumber, setIpNumber] = useState(initialIp);
     const [uhid, setUhid] = useState(initialUhid);
     const [billNumber, setBillNumber] = useState(initialBillNumber);
+    const [withHeader, setWithHeader] = useState(true);
     const [loading, setLoading] = useState(false);
     const [payload, setPayload] = useState(null);
 
@@ -300,11 +301,7 @@ const InsuranceDischargeBillAllReport = ({ embedded = false }) => {
     }, [initialIp, initialUhid, initialBillNumber, loadData]);
 
     const handlePrint = () => {
-        printInsuranceReport('printable-discharge-bill-sheet', {
-            reportTitle: activeReportTitle,
-            patientInfo: null, // The sheet already contains Shanmuga Hospital patient & bill metadata columns
-            orientation: 'portrait'
-        });
+        printDischargeBillTemplate('printable-discharge-bill-sheet', activeReportTitle, { withHeader });
     };
 
     const handleExportExcel = () => {
@@ -386,17 +383,18 @@ const InsuranceDischargeBillAllReport = ({ embedded = false }) => {
                     }
                 }
             `}</style>
-            {!embedded && (
-                <ControlBar>
-                    <div className="left-side">
+            <ControlBar>
+                <div className="left-side">
+                    {!embedded && (
                         <button className="back-btn" onClick={() => navigate(-1)} title="Go back">
                             <ArrowLeft size={18} />
                         </button>
-                        <div className="title-box">
-                            <h2>{activeReportTitle}</h2>
-                            <p>Itemized inpatient hospital discharge claim bill statement with procedure, bed, investigation and pharmacy charges</p>
-                        </div>
+                    )}
+                    <div className="title-box">
+                        <h2>{activeReportTitle}</h2>
+                        <p>Itemized inpatient hospital discharge claim bill statement with procedure, bed, investigation and pharmacy charges</p>
                     </div>
+                </div>
 
                     <div className="filters-side">
                         <div className="filter-input">
@@ -440,12 +438,36 @@ const InsuranceDischargeBillAllReport = ({ embedded = false }) => {
                             <Download size={15} /> Export Excel
                         </button>
 
+                        <label
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                fontSize: '0.82rem',
+                                fontWeight: 600,
+                                color: '#334155',
+                                cursor: 'pointer',
+                                padding: '0 8px',
+                                height: '36px',
+                                border: '1px solid #cbd5e1',
+                                borderRadius: '8px',
+                                background: '#f8fafc',
+                                userSelect: 'none'
+                            }}
+                        >
+                            <input
+                                type="checkbox"
+                                checked={withHeader}
+                                onChange={(e) => setWithHeader(e.target.checked)}
+                            />
+                            With Header
+                        </label>
+
                         <button className="btn-print" onClick={handlePrint}>
                             <Printer size={15} /> Print
                         </button>
                     </div>
                 </ControlBar>
-            )}
 
             {loading ? (
                 <div style={{ textAlign: 'center', padding: '100px 0' }}>
@@ -453,149 +475,18 @@ const InsuranceDischargeBillAllReport = ({ embedded = false }) => {
                     <p style={{ marginTop: '14px', color: '#64748b', fontWeight: '500' }}>Loading discharge bill statement...</p>
                 </div>
             ) : (
-                <PrintableSheet id="printable-discharge-bill-sheet">
-                    {/* Official Shanmuga Hospital Ltd. Header matching image media_1795329956212_4709c03e.jpg */}
-                    <div className="sheet-hospital-header" style={{ marginBottom: '16px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                            <div style={{ textAlign: 'center', flex: 1, padding: '0 10px' }}>
-                                <h1 style={{ margin: '0 0 2px 0', fontSize: '24px', fontWeight: '900', color: '#166534', letterSpacing: '-0.3px', textTransform: 'none' }}>
-                                    Shanmuga Hospital Ltd.,
-                                </h1>
-                                <div style={{ fontSize: '8.5px', color: '#14532d', fontWeight: 600, margin: '2px 0' }}>
-                                    Approved Hospital for Central / State / TKT / TN. GOVT. EMPLOYESS / ECHS / ESI / BSNL / FCI / ALL INSURANCE COMPANIES / CASHLESS / REIMBURSEMENT
-                                </div>
-                                <div style={{ fontSize: '9.5px', color: '#000000', fontWeight: 500 }}>
-                                    24, Saradha College Road, SALEM - 636 007.
-                                </div>
-                                <div style={{ fontSize: '9.5px', color: '#000000', fontWeight: 700, marginTop: '1px' }}>
-                                    ☎ 0427-2706666 / 87540 33833
-                                </div>
-                            </div>
-                            <div style={{ textAlign: 'right', fontSize: '9px', fontWeight: 'bold', color: '#000000', minWidth: '130px' }}>
-                                CIN : L85110TZ2020PLC033974
-                            </div>
-                        </div>
-                        <div style={{ borderBottom: '2px solid #166534', marginTop: '8px', marginBottom: '8px' }}></div>
-                        <div style={{ textAlign: 'center', fontSize: '13px', fontWeight: '900', letterSpacing: '0.5px', textTransform: 'uppercase', color: '#166534', padding: '2px 0' }}>
-                            DISCHARGE BILL
-                        </div>
-                        <div style={{ borderBottom: '1px solid #166534', marginBottom: '14px' }}></div>
-                    </div>
-
-                    {/* Patient & Bill Metadata Two Columns */}
-                    <div className="meta-container">
-                        <div className="meta-col-left">
-                            <div className="meta-row">
-                                <span className="lbl">OP Number</span>
-                                <span className="val">: {pickVal(patient.op_number, patient.uhid, uhid)}</span>
-                            </div>
-                            <div className="meta-row">
-                                <span className="lbl">Name</span>
-                                <span className="val">: {pickVal(patient.name, patient.patient_name)} {pickVal(patient.age) !== '-' ? `${pickVal(patient.age)} Years` : ''}</span>
-                            </div>
-                            <div className="meta-row" style={{ alignItems: 'flex-start' }}>
-                                <span className="lbl">Address</span>
-                                <span className="val">: {pickVal(patient.address)}</span>
-                            </div>
-                            <div className="meta-row">
-                                <span className="lbl">Doctor</span>
-                                <span className="val">: {pickVal(patient.doctor, patient.doctor_name)}</span>
-                            </div>
-                            <div className="meta-row">
-                                <span className="lbl">Claim Intimation</span>
-                                <span className="val">: {pickVal(patient.claim_intimation, patient.claim_intimation_no)}</span>
-                            </div>
-                        </div>
-
-                        <div className="meta-col-right">
-                            <div className="meta-row">
-                                <span className="lbl">Bill Number</span>
-                                <span className="val">: {pickVal(billMeta.bill_number, billMeta.bill_no, patient.bill_no, patient.bill_number)}</span>
-                            </div>
-                            <div className="meta-row">
-                                <span className="lbl">Billdate</span>
-                                <span className="val">: {pickVal(billMeta.bill_date, patient.bill_date)}</span>
-                            </div>
-                            <div className="meta-row">
-                                <span className="lbl">Treatment start</span>
-                                <span className="val">: {pickVal(billMeta.treatment_start, billMeta.doa, patient.treatment_start, patient.doa, patient.admitted_date)}</span>
-                            </div>
-                            <div className="meta-row">
-                                <span className="lbl">Treatment end</span>
-                                <span className="val">: {pickVal(billMeta.treatment_end, billMeta.dod, patient.treatment_end, patient.dod, patient.discharge_date)}</span>
-                            </div>
-                            <div className="meta-row">
-                                <span className="lbl">Company</span>
-                                <span className="val">: {pickVal(billMeta.company, billMeta.company_name, patient.company_name, patient.insurance_company)}</span>
-                            </div>
-                            <div className="meta-row">
-                                <span className="lbl">REF ID</span>
-                                <span className="val">: {pickVal(billMeta.ref_id, billMeta.approval, patient.ref_id, patient.approval)}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="divider-line" />
-
-                    {/* Package Details */}
-                    <div style={{ display: 'flex', marginBottom: '8px', fontSize: '11px' }}>
-                        <div style={{ width: '130px', fontWeight: 'bold' }}>Package Details</div>
-                        <div style={{ flex: 1, fontWeight: 'bold' }}>
-                            {pickVal(payload?.package_details, billMeta.package_details, patient.package_details)}
-                        </div>
-                    </div>
-
-                    {/* Diagnosis */}
-                    <div style={{ display: 'flex', marginBottom: '14px', fontSize: '11px' }}>
-                        <div style={{ width: '130px', fontWeight: 'bold' }}>Diagnosis</div>
-                        <div style={{ flex: 1, fontWeight: 'bold' }}>
-                            {pickVal(payload?.diagnosis, billMeta.diagnosis, patient.diagnosis)}
-                        </div>
-                    </div>
-
-                    <div className="section-heading" style={{ marginTop: '14px', marginBottom: '8px' }}>Bill Details</div>
-
-                    <div className="bill-details-container">
-                        <table className="items-table">
-                            <tbody>
-                                {(!Array.isArray(details) || details.length === 0) ? (
-                                    <tr>
-                                        <td colSpan={2} style={{ textAlign: 'center', padding: '30px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>
-                                            No record found
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    <>
-                                        {details.map((d, idx) => (
-                                            <tr key={idx}>
-                                                <td className="item-title">{d.itemName || d.category || d.particulars}</td>
-                                                <td className="item-amount" style={{ fontWeight: 'bold' }}>{Number(d.amount || d.price || 0).toFixed(2)}</td>
-                                            </tr>
-                                        ))}
-
-                                        <tr className="total-row" style={{ borderTop: '1px solid #000', borderBottom: '3px double #000' }}>
-                                            <td className="item-title" style={{ textAlign: 'center', fontWeight: '900', fontSize: '12px' }}>Total</td>
-                                            <td className="item-amount" style={{ fontWeight: '900', fontSize: '12px' }}>{Number(totalAmount).toFixed(2)}</td>
-                                        </tr>
-                                    </>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {/* Footer Signatures: Designation ONLY */}
-                    <div className="signatures-block" style={{ display: 'flex', justifyContent: 'space-between', marginTop: '70px', paddingTop: '10px' }}>
-                        <div className="sig-col" style={{ textAlign: 'left', fontSize: '11px' }}>
-                            <div style={{ borderTop: '1px solid #000000', width: '180px', marginBottom: '6px' }}></div>
-                            <div className="sig-role" style={{ fontWeight: 'bold', fontSize: '11px', color: '#000000' }}>Insurance Executive</div>
-                        </div>
-
-                        <div className="sig-col" style={{ textAlign: 'right', fontSize: '11px' }}>
-                            <div style={{ borderTop: '1px solid #000000', width: '220px', marginBottom: '6px', marginLeft: 'auto' }}></div>
-                            <div className="sig-role" style={{ fontWeight: 'bold', fontSize: '11px', color: '#000000' }}>General Manager - Insurance</div>
-                        </div>
-                    </div>
-                </PrintableSheet>
+                <InsuranceDischargeBillPrintTemplate
+                    id="printable-discharge-bill-sheet"
+                    reportTitle={activeReportTitle}
+                    patient={patient}
+                    billMeta={billMeta}
+                    uhid={uhid}
+                    packageDetails={payload?.package_details}
+                    diagnosis={payload?.diagnosis}
+                    details={details}
+                    totalAmount={totalAmount}
+                    withHeader={withHeader}
+                />
             )}
         </Container>
     );

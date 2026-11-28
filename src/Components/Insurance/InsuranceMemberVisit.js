@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import styled from "styled-components";
+import { Select } from "antd";
 import { toast } from "react-toastify";
 import {
   Search,
@@ -486,11 +487,29 @@ const InsuranceMemberVisit = () => {
     referral_number: "",
     service_number: "",
     provisional_diagnosis: "",
+    bill_number: "",
+    package_scheme: "cm_scheme",
+    package_collection: "hospital_insurance_packages_cm_scheme",
+    package_code: "",
+    package_name: "",
+    package_details: "",
     admission: false,
     consultation: false,
     specified_services: false,
     services: false
   };
+
+  const PACKAGE_SCHEMES = [
+    { id: "cm_scheme", label: "CM Scheme", collection: "hospital_insurance_packages_cm_scheme" },
+    { id: "echs", label: "ECHS", collection: "hospital_insurance_packages_echs" },
+    { id: "general_gipsa", label: "General GIPSA", collection: "hospital_insurance_packages_general_gipsa" },
+    { id: "implants_and_specified", label: "Implants and Specified", collection: "hospital_insurance_packages_implants_and_specified" },
+    { id: "nhis", label: "NHIS", collection: "hospital_insurance_packages_nhis" },
+    { id: "railway_cghs_esi_esic", label: "Railway / CGHS / ESI / ESIC", collection: "hospital_insurance_packages_railway_cghs_esi_esic" },
+  ];
+
+  const [packageOptions, setPackageOptions] = useState([]);
+  const [packageLoading, setPackageLoading] = useState(false);
 
   const [formData, setFormData] = useState(initialFormState);
   const [isEditing, setIsEditing] = useState(false);
@@ -502,6 +521,26 @@ const InsuranceMemberVisit = () => {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [loading, setLoading] = useState(false);
+
+  // Load Insurance Packages for selected scheme
+  const fetchPackages = useCallback(async (schemeId, searchTerm = "") => {
+    if (!schemeId) return;
+    setPackageLoading(true);
+    try {
+      const url = `${HMS_URL}insurance-packages/items/?scheme=${encodeURIComponent(schemeId)}&status=active&limit=50${searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : ""}`;
+      const res = await apiRequest(url, "GET");
+      const items = res?.items || res?.data?.items || res?.data || [];
+      setPackageOptions(Array.isArray(items) ? items : []);
+    } catch (e) {
+      setPackageOptions([]);
+    } finally {
+      setPackageLoading(false);
+    }
+  }, [HMS_URL]);
+
+  useEffect(() => {
+    fetchPackages(formData.package_scheme || "cm_scheme", "");
+  }, [formData.package_scheme, fetchPackages]);
 
   // Load Doctor Schedule list
   useEffect(() => {
@@ -736,6 +775,12 @@ const InsuranceMemberVisit = () => {
       referral_number: v.referral_number || "",
       service_number: v.service_number || "",
       provisional_diagnosis: v.provisional_diagnosis || "",
+      bill_number: v.bill_number || "",
+      package_scheme: v.package_scheme || "cm_scheme",
+      package_collection: v.package_collection || "hospital_insurance_packages_cm_scheme",
+      package_code: v.package_code || "",
+      package_name: v.package_name || "",
+      package_details: v.package_details || "",
       admission: Boolean(v.admission),
       consultation: Boolean(v.consultation),
       specified_services: Boolean(v.specified_services),
@@ -1077,6 +1122,80 @@ const InsuranceMemberVisit = () => {
                       Services
                     </CheckboxLabel>
                   </CheckboxGroup>
+                </FormGroup>
+              </FormGrid>
+
+              {/* Row 4: Bill Number & Insurance Package */}
+              <FormGrid style={{ marginTop: 12 }}>
+                <FormGroup>
+                  <FieldLabel>Bill Number</FieldLabel>
+                  <TextInput
+                    type="text"
+                    placeholder="e.g. 2627/000193"
+                    value={formData.bill_number}
+                    onChange={(e) => setFormData({ ...formData, bill_number: e.target.value })}
+                  />
+                </FormGroup>
+
+                <FormGroup>
+                  <FieldLabel>Package Scheme</FieldLabel>
+                  <SelectInput
+                    value={formData.package_scheme}
+                    onChange={(e) => {
+                      const scId = e.target.value;
+                      const scObj = PACKAGE_SCHEMES.find((s) => s.id === scId);
+                      setFormData({
+                        ...formData,
+                        package_scheme: scId,
+                        package_collection: scObj ? scObj.collection : "",
+                        package_code: "",
+                        package_name: "",
+                        package_details: "",
+                      });
+                    }}
+                  >
+                    {PACKAGE_SCHEMES.map((s) => (
+                      <option key={s.id} value={s.id}>{s.label}</option>
+                    ))}
+                  </SelectInput>
+                </FormGroup>
+
+                <FormGroup $span={2}>
+                  <FieldLabel>Select Package</FieldLabel>
+                  <Select
+                    showSearch
+                    allowClear
+                    loading={packageLoading}
+                    filterOption={false}
+                    placeholder="Search package by name or code..."
+                    value={formData.package_details || undefined}
+                    onSearch={(val) => fetchPackages(formData.package_scheme, val)}
+                    onChange={(val, option) => {
+                      if (!val) {
+                        setFormData({ ...formData, package_code: "", package_name: "", package_details: "" });
+                        return;
+                      }
+                      const pkg = option?.pkg || {};
+                      setFormData({
+                        ...formData,
+                        package_code: pkg.nabh_code || "",
+                        package_name: pkg.name || pkg.itemName || val,
+                        package_details: val,
+                      });
+                    }}
+                    style={{ width: "100%" }}
+                  >
+                    {packageOptions.map((pkg, idx) => {
+                      const code = String(pkg.nabh_code || "").trim();
+                      const name = String(pkg.name || pkg.itemName || "").trim();
+                      const label = code ? `${code} : ${name}` : name;
+                      return (
+                        <Select.Option key={pkg.id || pkg._id || idx} value={label} pkg={pkg}>
+                          {label}
+                        </Select.Option>
+                      );
+                    })}
+                  </Select>
                 </FormGroup>
               </FormGrid>
             </FormBody>

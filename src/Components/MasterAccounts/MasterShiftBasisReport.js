@@ -945,10 +945,22 @@ const MasterShiftBasisReport = ({ isModalView = false, startDate, endDate, initi
                 )}
 
                 <PrintTemplate>
-                    <PrintSignatures>
-                        <div className="sig-box">Prepared By (Cashier)</div>
-                        <div className="sig-box">Accounts Officer</div>
-                        <div className="sig-box">Authorized Signatory</div>
+                    <PrintSignatures
+                        className="print-signatures"
+                        style={{
+                            marginTop: "48px",
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "flex-end",
+                            width: "100%",
+                            padding: "0 20px",
+                            boxSizing: "border-box",
+                            pageBreakInside: "avoid",
+                        }}
+                    >
+                        <div className="sig-box" style={{ borderTop: "1px solid #1e293b", paddingTop: "6px", width: "180px", textAlign: "center", fontWeight: 700, fontSize: "10px" }}>Prepared By (Cashier)</div>
+                        <div className="sig-box" style={{ borderTop: "1px solid #1e293b", paddingTop: "6px", width: "180px", textAlign: "center", fontWeight: 700, fontSize: "10px" }}>Accounts Officer</div>
+                        <div className="sig-box" style={{ borderTop: "1px solid #1e293b", paddingTop: "6px", width: "180px", textAlign: "center", fontWeight: 700, fontSize: "10px" }}>Authorized Signatory</div>
                     </PrintSignatures>
                 </PrintTemplate>
             </div>
@@ -956,7 +968,121 @@ const MasterShiftBasisReport = ({ isModalView = false, startDate, endDate, initi
             {/* ── SHIFT BILLS BREAKDOWN MODAL ── */}
             {selectedShiftBills && (
                 <Modal
-                    title={<h4 style={{ margin: 0, color: colors.primary }}>Shift Audit Breakdown — Shift: {selectedShiftBills.shiftno} ({selectedShiftBills.cashier})</h4>}
+                    title={
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingRight: "28px", gap: "12px", flexWrap: "wrap" }}>
+                            <h4 style={{ margin: 0, color: colors.primary }}>Shift Audit Breakdown — Shift: {selectedShiftBills.shiftno} ({selectedShiftBills.cashier})</h4>
+                            <Button
+                                type="button"
+                                onClick={() => {
+                                    const win = window.open("", "_blank", "width=1200,height=850");
+                                    if (!win) {
+                                        window.print();
+                                        return;
+                                    }
+                                    const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[c]));
+                                    const expenses = selectedShiftBills.expenses || [];
+                                    const allBills = selectedShiftBills.bills || [];
+                                    const isRet = (b) => b.is_sales_return || b.category === "Sales Return" || b.category === "REFUND" || cleanNum(b.return_amount) > 0 || cleanNum(b.sales_return) > 0 || cleanNum(b.refund_amount) > 0;
+                                    const returnBills = allBills.filter(isRet);
+                                    const incomeBills = allBills.filter((b) => !isRet(b));
+
+                                    const summaryHtml = `
+                                        <div class="sum-grid">
+                                            <div><span>Gross Cash</span><strong>&#8377;${formatINR(selectedShiftBills.gross_cash)}</strong></div>
+                                            <div><span>Expenses Paid</span><strong>${selectedShiftBills.expenses_paid > 0 ? `-&#8377;${formatINR(selectedShiftBills.expenses_paid)}` : "&#8377;0.00"}</strong></div>
+                                            <div><span>Sales Returns</span><strong>${selectedShiftBills.sales_return > 0 ? `-&#8377;${formatINR(selectedShiftBills.sales_return)}` : "&#8377;0.00"}</strong></div>
+                                            <div><span>Net Cash Handover</span><strong>&#8377;${formatINR(selectedShiftBills.closing_bal)}</strong></div>
+                                            <div><span>Card &amp; Bank</span><strong>&#8377;${formatINR(selectedShiftBills.card_coll || 0)}</strong></div>
+                                            <div><span>Credit / Scheme</span><strong>&#8377;${formatINR(selectedShiftBills.credit_coll || 0)}</strong></div>
+                                            <div><span>Total Revenue</span><strong>&#8377;${formatINR(selectedShiftBills.total_coll || 0)}</strong></div>
+                                        </div>
+                                    `;
+
+                                    let expHtml = "";
+                                    if (expenses.length > 0) {
+                                        expHtml = `
+                                            <h3>Counter Expense Payment Vouchers (${expenses.length})</h3>
+                                            <table>
+                                                <thead><tr><th>Voucher No</th><th>Date &amp; Time</th><th>Cashier</th><th>Account Head</th><th>Description</th><th class="num">Amount (&#8377;)</th></tr></thead>
+                                                <tbody>
+                                                    ${expenses.map((ev) => `<tr><td>${esc(ev.voucher_no)}</td><td>${esc(ev.date)}</td><td>${esc(ev.cashier_name || ev.cashier_id || selectedShiftBills.cashier)}</td><td><b>${esc(ev.account_head || "Counter Expense")}</b></td><td>${esc(ev.description || "Cashier Payment Voucher")}</td><td class="num">&#8377;${formatINR(ev.amount)}</td></tr>`).join("")}
+                                                </tbody>
+                                                <tfoot><tr><td colspan="5" class="num">Total Expenses Paid:</td><td class="num">&#8377;${formatINR(expenses.reduce((a, ev) => a + cleanNum(ev.amount), 0))}</td></tr></tfoot>
+                                            </table>
+                                        `;
+                                    }
+
+                                    let retHtml = "";
+                                    if (returnBills.length > 0 || selectedShiftBills.sales_return > 0) {
+                                        const retTotal = returnBills.length > 0
+                                            ? returnBills.reduce((a, rb) => a + cleanNum(rb.return_amount || rb.sales_return || rb.amount || Math.abs(rb.cash)), 0)
+                                            : selectedShiftBills.sales_return;
+                                        retHtml = `
+                                            <h3>Sales Return &amp; Refund Payouts (${returnBills.length})</h3>
+                                            <table>
+                                                <thead><tr><th>Return / Bill No</th><th>Date &amp; Time</th><th>UHID</th><th>Particulars / Patient</th><th>Payment Mode</th><th class="num">Return Amount (&#8377;)</th></tr></thead>
+                                                <tbody>
+                                                    ${returnBills.length > 0
+                                                        ? returnBills.map((rb) => `<tr><td>${esc(rb.bill_no)}</td><td>${esc(rb.date)}</td><td>${esc(rb.uhid || "-")}</td><td><b>${esc(rb.patient_name || "Sales Return - Pharmacy")}</b></td><td>${esc(rb.payment_mode || "Cash")}</td><td class="num">&#8377;${formatINR(cleanNum(rb.return_amount || rb.sales_return || rb.amount || Math.abs(rb.cash)))}</td></tr>`).join("")
+                                                        : `<tr><td colspan="5">Shift Sales Return Amount</td><td class="num">&#8377;${formatINR(selectedShiftBills.sales_return)}</td></tr>`
+                                                    }
+                                                </tbody>
+                                                <tfoot><tr><td colspan="5" class="num">Total Sales Returns Paid:</td><td class="num">&#8377;${formatINR(retTotal)}</td></tr></tfoot>
+                                            </table>
+                                        `;
+                                    }
+
+                                    const incHtml = `
+                                        <h3>Itemized Patient Collection Bills (${incomeBills.length})</h3>
+                                        <table>
+                                            <thead><tr><th>#</th><th>Bill No</th><th>Date &amp; Time</th><th>Category</th><th>UHID</th><th>Patient Name</th><th>Payment Mode</th><th class="num">Cash (&#8377;)</th><th class="num">Card / Bank (&#8377;)</th><th class="num">Credit (&#8377;)</th><th class="num">Gross Total (&#8377;)</th></tr></thead>
+                                            <tbody>
+                                                ${incomeBills.length > 0
+                                                    ? incomeBills.map((b, idx) => `<tr><td>${idx + 1}</td><td><b>${esc(b.bill_no)}</b></td><td>${esc(b.date)}</td><td>${esc(b.category)}</td><td>${esc(b.uhid || "-")}</td><td><b>${esc(b.patient_name || "General")}</b></td><td>${esc(b.payment_mode || "Cash")}</td><td class="num">${formatINR(b.cash)}</td><td class="num">${formatINR(b.bank)}</td><td class="num">${formatINR(b.credit)}</td><td class="num"><b>${formatINR(b.gross || b.net_amount)}</b></td></tr>`).join("")
+                                                    : `<tr><td colspan="11" style="text-align:center;">No itemized collection bills recorded under this shift.</td></tr>`
+                                                }
+                                            </tbody>
+                                            ${incomeBills.length > 0 ? `<tfoot><tr><td colspan="7" class="num">Total for Shift (${incomeBills.length} Bills):</td><td class="num">&#8377;${formatINR(incomeBills.reduce((a, b) => a + cleanNum(b.cash), 0))}</td><td class="num">&#8377;${formatINR(incomeBills.reduce((a, b) => a + cleanNum(b.bank), 0))}</td><td class="num">&#8377;${formatINR(incomeBills.reduce((a, b) => a + cleanNum(b.credit), 0))}</td><td class="num">&#8377;${formatINR(incomeBills.reduce((a, b) => a + cleanNum(b.gross || b.net_amount), 0))}</td></tr></tfoot>` : ""}
+                                        </table>
+                                    `;
+
+                                    win.document.write(`<!DOCTYPE html><html><head><title>Shift Audit Breakdown - ${esc(selectedShiftBills.shiftno)}</title><style>
+                                        @page { size: A4 landscape; margin: 10mm; }
+                                        body { font-family: Arial, Helvetica, sans-serif; color: #0f172a; margin: 0; font-size: 10px; }
+                                        .hdr { border-bottom: 2px solid #0f172a; padding-bottom: 6px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: flex-end; }
+                                        .hdr h1 { margin: 0; font-size: 15px; }
+                                        .hdr p { margin: 2px 0 0; font-size: 11px; color: #334155; }
+                                        .sum-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; background: #f8fafc; border: 1px solid #cbd5e1; padding: 8px 10px; border-radius: 6px; margin-bottom: 12px; }
+                                        .sum-grid div span { display: block; font-size: 8.5px; color: #475569; text-transform: uppercase; }
+                                        .sum-grid div strong { font-size: 11.5px; color: #0f172a; }
+                                        h3 { margin: 12px 0 5px; font-size: 11.5px; color: #0f172a; }
+                                        table { width: 100%; border-collapse: collapse; margin-bottom: 10px; page-break-inside: auto; }
+                                        thead { display: table-header-group; }
+                                        tr { page-break-inside: avoid; }
+                                        th, td { border: 1px solid #cbd5e1; padding: 4px 6px; font-size: 9.5px; text-align: left; }
+                                        th { background: #f1f5f9; font-weight: 700; }
+                                        tfoot td { background: #f8fafc; font-weight: 800; }
+                                        .num { text-align: right; font-variant-numeric: tabular-nums; }
+                                        .sigs { display: flex; justify-content: space-between; margin-top: 28px; padding: 0 20px; }
+                                        .sig { border-top: 1px solid #334155; padding-top: 4px; width: 170px; text-align: center; font-weight: 700; font-size: 10px; }
+                                    </style></head><body>
+                                        <div class="hdr">
+                                            <div><h1>SHANMUGA HOSPITAL LIMITED</h1><p>Shift Audit Breakdown — Shift: ${esc(selectedShiftBills.shiftno)} (${esc(selectedShiftBills.cashier)})</p></div>
+                                            <div>Printed: ${dayjs().format("DD/MM/YYYY HH:mm:ss")}</div>
+                                        </div>
+                                        ${summaryHtml}${expHtml}${retHtml}${incHtml}
+                                        <div class="sigs"><div class="sig">Prepared By (Cashier)</div><div class="sig">Accounts Officer</div><div class="sig">Authorized Signatory</div></div>
+                                    </body></html>`);
+                                    win.document.close();
+                                    win.focus();
+                                    setTimeout(() => { win.print(); win.close(); }, 300);
+                                }}
+                                style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "5px 12px", fontSize: "0.82rem" }}
+                            >
+                                <FaPrint /> Print
+                            </Button>
+                        </div>
+                    }
                     open={Boolean(selectedShiftBills)}
                     onCancel={() => setSelectedShiftBills(null)}
                     footer={null}

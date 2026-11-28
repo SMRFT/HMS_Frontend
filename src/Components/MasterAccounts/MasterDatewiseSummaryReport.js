@@ -713,10 +713,22 @@ const MasterDatewiseSummaryReport = ({
                         </table>
                     </DataTableWrapper>
 
-                    <PrintSignatures className="signatures">
-                        <div className="sig-box">Prepared By (Cashier)</div>
-                        <div className="sig-box">Accounts Officer</div>
-                        <div className="sig-box">Authorized Signatory</div>
+                    <PrintSignatures
+                        className="signatures print-signatures"
+                        style={{
+                            marginTop: "48px",
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "flex-end",
+                            width: "100%",
+                            padding: "0 20px",
+                            boxSizing: "border-box",
+                            pageBreakInside: "avoid",
+                        }}
+                    >
+                        <div className="sig-box" style={{ borderTop: "1px solid #1e293b", paddingTop: "6px", width: "180px", textAlign: "center", fontWeight: 700, fontSize: "10px" }}>Prepared By (Cashier)</div>
+                        <div className="sig-box" style={{ borderTop: "1px solid #1e293b", paddingTop: "6px", width: "180px", textAlign: "center", fontWeight: 700, fontSize: "10px" }}>Accounts Officer</div>
+                        <div className="sig-box" style={{ borderTop: "1px solid #1e293b", paddingTop: "6px", width: "180px", textAlign: "center", fontWeight: 700, fontSize: "10px" }}>Authorized Signatory</div>
                     </PrintSignatures>
                 </div>
             )}

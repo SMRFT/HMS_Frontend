@@ -978,7 +978,7 @@ const A4MultiPageViewer = ({
     ].includes(String(selectedReport?.id)) || [
         "/AdvanceRegistration", "/AdvanceRegistrationInsurence", "/IPAdvanceReport", "/DischargeBillsDetailed"
     ].includes(selectedReport?.route);
-    const isCategoryReport = ["bill_wise", "credit_card", "cash_bills", "discount_bills", "sales_tax_register", "sales_tax_reg", "daywise_sales_tax_register", "daywise_sales_tax", "collection_summary", "bill_cancel", "discharge_bills", "admission_vs_discharge", "misc_payment", "sales_return", "insurance_advance", "department_wise", "bill_type_wise", "doctor_revenue"].includes(selectedReport?.id);
+    const isCategoryReport = ["bill_wise", "credit_card", "cash_bills", "discount_bills", "sales_tax_register", "sales_tax_reg", "daywise_sales_tax_register", "daywise_sales_tax", "collection_summary", "bill_cancel", "discharge_bills", "admission_vs_discharge", "misc_payment", "sales_return", "insurance_advance", "department_wise", "bill_type_wise", "doctor_revenue", "doctor_wise_ip_collection"].includes(selectedReport?.id);
     const isCardReport = [
         "bill_wise", "credit_card", "cashier_wise_detailed", "cash_bills", "discharge_bills", "advance_reg", "unified_accounts", "shift_basis", "accounts_ledger"
     ].includes(String(selectedReport?.id)) || [
@@ -1175,7 +1175,7 @@ const A4MultiPageViewer = ({
                         </div>
                     )}
 
-                    {selectedReport?.id === "doctor_revenue" && (
+                    {["doctor_revenue", "doctor_wise_ip_collection", "doctor_wise_op_collection"].includes(selectedReport?.id) && (
                         <div className="filter-item">
                             <span className="filter-label">Doctor:</span>
                             <select

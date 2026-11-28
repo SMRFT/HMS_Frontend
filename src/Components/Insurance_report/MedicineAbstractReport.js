@@ -527,10 +527,14 @@ const MedicineAbstractReport = () => {
         if (!el) return;
         printInsuranceReport('medicine-abstract-sheet', {
             reportTitle: 'Medicine Abstract Report',
+            headerSubline: 'Dl No : TN-01-20-21-00202, TIN No : 33692663526  GSTIN : 33ABDCS8326A1ZP',
             patientInfo: {
                 uhid: patient?.op_number || patient?.uhid,
                 ip_number: patient?.ip_number || ipNumber,
                 patient_name: patient?.patient_name,
+                age_gender: patient?.age_gender,
+                admitted_date: patient?.admitted_date,
+                discharge_date: patient?.discharge_date,
                 doctor: patient?.doctor_name || patient?.doctor,
                 company: patient?.company || patient?.insurance_company || patient?.company_name || '-'
             },
