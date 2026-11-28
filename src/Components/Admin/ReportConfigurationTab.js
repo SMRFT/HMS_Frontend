@@ -24,7 +24,8 @@ import {
   deleteReportMaster,
   fetchEmployeeReportConfig,
   saveEmployeeReportConfig,
-  copyEmployeeReportConfig
+  copyEmployeeReportConfig,
+  fetchAllEmployeesForReportCopy
 } from "../../Auth/reportConfigApi";
 
 // ── Styled Components ────────────────────────────────────────────────────────
@@ -483,6 +484,8 @@ const ReportConfigurationTab = ({ selectedEmployee, employees = [] }) => {
   const [copyTargetEmpIds, setCopyTargetEmpIds] = useState([]);
   const [isTransferMode, setIsTransferMode] = useState(false);
   const [copySearchText, setCopySearchText] = useState("");
+  const [allEmployeesForCopy, setAllEmployeesForCopy] = useState([]);
+  const [loadingCopyEmployees, setLoadingCopyEmployees] = useState(false);
 
   const [showMasterModal, setShowMasterModal] = useState(false);
   const [newGroupTitle, setNewGroupTitle] = useState("");
@@ -675,11 +678,25 @@ const ReportConfigurationTab = ({ selectedEmployee, employees = [] }) => {
   };
 
   // Open Copy / Transfer modal
-  const openCopyModal = () => {
+  const openCopyModal = async () => {
     setCopySourceEmpId(empId || "");
     setCopyTargetEmpIds([]);
+    setCopySearchText("");
     setIsTransferMode(false);
     setShowCopyModal(true);
+    if (allEmployeesForCopy.length === 0) {
+      try {
+        setLoadingCopyEmployees(true);
+        const list = await fetchAllEmployeesForReportCopy();
+        if (list.length > 0) {
+          setAllEmployeesForCopy(list);
+        }
+      } catch (err) {
+        console.error("Failed to load full employee list for copy:", err);
+      } finally {
+        setLoadingCopyEmployees(false);
+      }
+    }
   };
 
   const handleApplyCopy = async () => {
@@ -866,15 +883,19 @@ const ReportConfigurationTab = ({ selectedEmployee, employees = [] }) => {
       .filter(Boolean);
   }, [reportMasters, searchTerm]);
 
+  const copyEmployeeList = useMemo(() => {
+    return allEmployeesForCopy.length > 0 ? allEmployeesForCopy : employees;
+  }, [allEmployeesForCopy, employees]);
+
   const filteredEmployeesForCopy = useMemo(() => {
-    if (!copySearchText.trim()) return employees;
+    if (!copySearchText.trim()) return copyEmployeeList;
     const q = copySearchText.trim().toLowerCase();
-    return employees.filter(emp =>
+    return copyEmployeeList.filter(emp =>
       (emp.employeeName || "").toLowerCase().includes(q) ||
       (emp.employeeId || "").toLowerCase().includes(q) ||
       (emp.department || "").toLowerCase().includes(q)
     );
-  }, [employees, copySearchText]);
+  }, [copyEmployeeList, copySearchText]);
 
   return (
     <TabContainer>
@@ -1103,7 +1124,7 @@ const ReportConfigurationTab = ({ selectedEmployee, employees = [] }) => {
                   style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1" }}
                 >
                   <option value="">-- Choose Source Employee --</option>
-                  {employees.map(emp => (
+                  {copyEmployeeList.map(emp => (
                     <option key={emp.employeeId} value={emp.employeeId}>
                       {emp.employeeName} ({emp.employeeId}) - {emp.department || "Staff"}
                     </option>
@@ -1126,8 +1147,12 @@ const ReportConfigurationTab = ({ selectedEmployee, employees = [] }) => {
                 />
 
                 <div style={{ maxHeight: "200px", overflowY: "auto", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "8px" }}>
-                  {filteredEmployeesForCopy
-                    .filter(emp => emp.employeeId !== copySourceEmpId)
+                  {loadingCopyEmployees && copyEmployeeList.length === 0 ? (
+                    <div style={{ padding: "16px", textAlign: "center", color: "#64748b", fontSize: "0.85rem" }}>
+                      Loading all employees...
+                    </div>
+                  ) : filteredEmployeesForCopy
+                    .filter(emp => String(emp.employeeId) !== String(copySourceEmpId))
                     .map(emp => {
                       const isSelected = copyTargetEmpIds.includes(emp.employeeId);
                       return (
