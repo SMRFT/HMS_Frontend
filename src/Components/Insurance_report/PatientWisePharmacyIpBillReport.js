@@ -353,12 +353,12 @@ const PrintableSheet = styled.div`
   }
 `;
 
-const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
+const PatientWisePharmacyIpBillReport = ({ embedded = false, isOldReport = false }) => {
     const navigate = useNavigate();
     const location = useLocation();
 
     const MIN_REPORT_DATE = dayjs('2026-11-15', 'YYYY-MM-DD');
-    const clampMinDate = (d) => (d && d.isValid() && d.isBefore(MIN_REPORT_DATE, 'day') ? MIN_REPORT_DATE : d);
+    const clampMinDate = (d) => (!isOldReport && d && d.isValid() && d.isBefore(MIN_REPORT_DATE, 'day') ? MIN_REPORT_DATE : d);
     const parseAdmDate = (str) => {
         if (!str) return dayjs(NaN);
         const s = String(str).trim().slice(0, 10);
@@ -370,10 +370,8 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
     const queryParams = new URLSearchParams(location.search);
     const initialIp = queryParams.get('ip_number') || queryParams.get('ip_no') || '';
     const initialUhid = queryParams.get('uhid') || '';
-    const rawInitialFrom = dayjs(queryParams.get('from_date') || dayjs().subtract(14, 'days').format('YYYY-MM-DD'));
-    const rawInitialTo = dayjs(queryParams.get('to_date') || dayjs().format('YYYY-MM-DD'));
-    const initialFrom = clampMinDate(rawInitialFrom).format('YYYY-MM-DD');
-    const initialTo = clampMinDate(rawInitialTo).format('YYYY-MM-DD');
+    const initialFrom = queryParams.get('from_date') || (isOldReport ? '2026-09-13' : dayjs().subtract(14, 'days').format('YYYY-MM-DD'));
+    const initialTo = queryParams.get('to_date') || (isOldReport ? '2026-11-14' : dayjs().format('YYYY-MM-DD'));
 
     const [uhid, setUhid] = useState(initialUhid);
     const [ipNumber, setIpNumber] = useState(initialIp);
@@ -398,7 +396,8 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
 
             const ipParam = targetIp ? targetIp.trim() : '';
             const uhidParam = targetUhid ? targetUhid.trim() : '';
-            const url = `${getBaseUrl.replace(/\/$/, '')}/report-patient-wise-pharmacy-ip-bill/?uhid=${encodeURIComponent(uhidParam)}&ip_number=${encodeURIComponent(ipParam)}&from_date=${fDate}&to_date=${tDate}`;
+            const endpoint = isOldReport ? 'report-patient-wise-pharmacy-ip-bill-old' : 'report-patient-wise-pharmacy-ip-bill';
+            const url = `${getBaseUrl.replace(/\/$/, '')}/${endpoint}/?uhid=${encodeURIComponent(uhidParam)}&ip_number=${encodeURIComponent(ipParam)}&from_date=${fDate}&to_date=${tDate}`;
             const res = await apiRequest(url, 'GET');
 
             if (res && res.success) {
@@ -544,6 +543,7 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
         printInsuranceReport('printable-pharmacy-ip-sheet', {
             reportTitle: 'PHARMACY IP BILL',
             headerSubline: 'Dl No : TN-01-20-21-00202, TIN No : 33692663526  GSTIN : 33ABDCS8326A1ZP',
+            reportTitle: isOldReport ? 'PHARMACY IP BILL' : 'PHARMACY IP BILL',
             patientInfo: {
                 uhid: patient.op_number || patient.uhid || uhid,
                 ip_number: patient.ip_number,
@@ -603,7 +603,8 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
             const ws = XLSX.utils.json_to_sheet(rows);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Pharmacy_IP_Bill');
-            XLSX.writeFile(wb, `Patient_Pharmacy_IP_Bill_${uhid.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`);
+            const prefix = isOldReport ? 'Patient_Pharmacy_IP_Bill_OLD' : 'Patient_Pharmacy_IP_Bill';
+            XLSX.writeFile(wb, `${prefix}_${uhid.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`);
         } catch (e) {
             console.error('Export error:', e);
             message.error('Export failed.');
@@ -791,8 +792,8 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
                             <ArrowLeft size={18} />
                         </button>
                         <div className="title-box">
-                            <h2>PATIENT WISE PHARMACY IP BILL DETAILED</h2>
-                            <p>Itemized IP credit and ward medicine charges per invoice</p>
+                            <h2>{isOldReport ? 'PATIENT WISE PHARMACY IP BILL DETAILED' : 'PATIENT WISE PHARMACY IP BILL DETAILED'}</h2>
+                            <p>{isOldReport ? 'Historical IP credit pharmacy invoices (Sep–Nov 2026 · old pharmacy billing)' : 'Itemized IP credit and ward medicine charges per invoice'}</p>
                         </div>
                     </div>
 
@@ -844,7 +845,7 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
                         <DatePicker.RangePicker
                             value={dateRange}
                             onChange={(dates) => setDateRange(dates)}
-                            disabledDate={(current) => current && current.isBefore(MIN_REPORT_DATE, 'day')}
+                            disabledDate={isOldReport ? undefined : (current) => current && current.isBefore(MIN_REPORT_DATE, 'day')}
                             format="DD/MM/YYYY"
                             allowClear={true}
                             style={{ height: '36px', borderRadius: '8px' }}
@@ -877,7 +878,7 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false }) => {
                         <div className="main-title">SHANMUGA HOSPITAL LIMITED</div>
                         <div className="sub-address">51/24.Saradha College Road, Salem - 636007, ,</div>
                         <div className="tax-row">Dl No : TN-01-20-21-00202, TIN No : 33692663526  GSTIN : 33ABDCS8326A1ZP</div>
-                        <div className="report-banner">PHARMACY IP BILL</div>
+                        <div className="report-banner">{isOldReport ? 'PHARMACY IP BILL' : 'PHARMACY IP BILL'}</div>
                     </div>
 
                     {/* Patient Meta Data Box */}

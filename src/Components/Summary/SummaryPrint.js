@@ -213,8 +213,8 @@ const GLOBAL_CSS = `
     padding-bottom: 3px; border-bottom: 1.5px solid #2563a8; text-decoration: underline;
   }
   .sp-date-header {
-    font-size: 12px; font-weight: 700; color: #ffffff; background: #2563a8;
-    letter-spacing: .5px; padding: 3px 10px; margin: 8px 0 0;
+    font-size: 12px; font-weight: 700; color: #1a3a6e;
+    padding: 3px 0; margin: 8px 0 0;
   }
   .sp-dept-header {
     font-size: 12px; font-weight: 700; color: #1a3a6e; background: #e8eef8;
