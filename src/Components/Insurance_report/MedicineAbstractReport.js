@@ -302,7 +302,7 @@ const PrintableSheet = styled.div`
   }
 `;
 
-const MedicineAbstractReport = () => {
+const MedicineAbstractReport = ({ isOldReport = false }) => {
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -319,8 +319,8 @@ const MedicineAbstractReport = () => {
 
     const initialIp = searchParams.get('ip_number') || searchParams.get('ip_no') || '';
     const initialUhid = searchParams.get('uhid') || '';
-    const initialFrom = clampMinDate(dayjs(searchParams.get('from_date') || dayjs().subtract(60, 'day').format('YYYY-MM-DD'))).format('YYYY-MM-DD');
-    const initialTo = clampMinDate(dayjs(searchParams.get('to_date') || dayjs().format('YYYY-MM-DD'))).format('YYYY-MM-DD');
+    const initialFrom = searchParams.get('from_date') || (isOldReport ? '2026-09-13' : dayjs().subtract(60, 'day').format('YYYY-MM-DD'));
+    const initialTo = searchParams.get('to_date') || (isOldReport ? '2026-11-14' : dayjs().format('YYYY-MM-DD'));
 
     const [uhid, setUhid] = useState(initialUhid);
     const [ipNumber, setIpNumber] = useState(initialIp);
@@ -346,7 +346,8 @@ const MedicineAbstractReport = () => {
             const toStr = tDate ? tDate.format('YYYY-MM-DD') : '';
             const ipParam = targetIp ? targetIp.trim() : '';
             const uhidParam = targetUhid ? targetUhid.trim() : '';
-            const url = `${getBaseUrl.replace(/\/$/, '')}/report-medicine-abstract/?ip_number=${encodeURIComponent(ipParam)}&uhid=${encodeURIComponent(uhidParam)}&from_date=${fromStr}&to_date=${toStr}`;
+            const endpoint = isOldReport ? 'report-medicine-abstract-old' : 'report-medicine-abstract';
+            const url = `${getBaseUrl.replace(/\/$/, '')}/${endpoint}/?ip_number=${encodeURIComponent(ipParam)}&uhid=${encodeURIComponent(uhidParam)}&from_date=${fromStr}&to_date=${toStr}`;
 
             const res = await apiRequest(url, 'GET');
             if (res && res.success) {
@@ -519,14 +520,15 @@ const MedicineAbstractReport = () => {
         const ws = XLSX.utils.json_to_sheet(excelRows);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, 'Medicine Abstract');
-        XLSX.writeFile(wb, `Medicine_Abstract_${reportData.patient_info?.ip_number || 'Report'}.xlsx`);
+        const prefix = isOldReport ? 'Medicine_Abstract_OLD' : 'Medicine_Abstract';
+        XLSX.writeFile(wb, `${prefix}_${reportData.patient_info?.ip_number || 'Report'}.xlsx`);
     };
 
     const handlePrint = () => {
         const el = document.getElementById('medicine-abstract-sheet');
         if (!el) return;
         printInsuranceReport('medicine-abstract-sheet', {
-            reportTitle: 'Medicine Abstract Report',
+            reportTitle: isOldReport ? 'Medicine Abstract Report (OLD)' : 'Medicine Abstract Report',
             patientInfo: {
                 uhid: patient?.op_number || patient?.uhid,
                 ip_number: patient?.ip_number || ipNumber,
@@ -551,8 +553,8 @@ const MedicineAbstractReport = () => {
                         <ArrowLeft size={18} />
                     </button>
                     <div className="title-box">
-                        <h2>Medicine Abstract Report</h2>
-                        <p>Specialized Insurance Inpatient Dispensation & GST Ledger</p>
+                        <h2>{isOldReport ? 'Medicine Abstract Report (OLD)' : 'Medicine Abstract Report'}</h2>
+                        <p>{isOldReport ? 'Historical Insurance Inpatient Dispensation & GST Ledger (Sep–Nov 2026)' : 'Specialized Insurance Inpatient Dispensation & GST Ledger'}</p>
                     </div>
                 </div>
 
@@ -635,7 +637,7 @@ const MedicineAbstractReport = () => {
                         <div className="hosp-name">SHANMUGA HOSPITAL LIMITED</div>
                         <div className="hosp-addr">51/24.Saradha College Road, Salem - 636007</div>
                         <div className="hosp-phone">04272706666</div>
-                        <div className="rep-name">Medicine Abstract Report</div>
+                        <div className="rep-name">{isOldReport ? 'Medicine Abstract Report (OLD)' : 'Medicine Abstract Report'}</div>
                     </div>
 
                     <div className="divider-line" />

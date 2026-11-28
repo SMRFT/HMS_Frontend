@@ -257,8 +257,10 @@ import InsuranceBillsDueList from "./Components/Insurance_report/InsuranceBillsD
 import InsuranceBillsStatus from "./Components/Insurance_report/InsuranceBillsStatus";
 import InsuranceBillsStatusReport from "./Components/Insurance_report/InsuranceBillsStatusReport";
 import PatientWisePharmacyIpBillReport from "./Components/Insurance_report/PatientWisePharmacyIpBillReport";
+import PatientWisePharmacyIpBillOldReport from "./Components/Insurance_report/PatientWisePharmacyIpBillOldReport";
 import LabAbstractReportDetailed from "./Components/Insurance_report/LabAbstractReportDetailed";
 import MedicineAbstractReport from "./Components/Insurance_report/MedicineAbstractReport";
+import MedicineAbstractOldReport from "./Components/Insurance_report/MedicineAbstractOldReport";
 import OccupancyListCompanyWiseReport from "./Components/Insurance_report/OccupancyListCompanyWiseReport";
 import InsuranceBillsStatusReportPage from "./Components/Insurance_report/InsuranceBillsStatusReportPage";
 import InsuranceBillsStatusBranchDuesReport from "./Components/Insurance_report/InsuranceBillsStatusBranchDuesReport";
@@ -630,8 +632,10 @@ function App() {
       "/InsuranceBillsStatus": "Insurance Bills Status",
       "/InsuranceBillsStatusReport": "Insurance Bills Status Report",
       "/PatientWisePharmacyIpBillReport": "Patient Wise Pharmacy IP Bill Detailed",
+      "/PatientWisePharmacyIpBillOldReport": "Patient Wise Pharmacy IP Bill Detailed (Old)",
       "/LabAbstractReportDetailed": "Lab Abstract Report Detailed",
       "/MedicineAbstractReport": "Medicine Abstract Report",
+      "/MedicineAbstractOldReport": "Medicine Abstract Report (Old)",
       "/OccupancyListCompanyWiseReport": "Current Occupancy List (Company Wise)",
       "/InsuranceBillsStatusReportPage": "Insurance Bills Status Report",
       "/InsuranceBillsStatusBranchDuesReport": "Insurance Bills Status (Branch Wise) Dues",
@@ -1911,9 +1915,12 @@ function App() {
               <Route path="/InsuranceBillsStatus" element={<InsuranceBillsStatus />} />
               <Route path="/InsuranceBillsStatusReport" element={<InsuranceBillsStatusReport />} />
               <Route path="/PatientWisePharmacyIpBillReport" element={<PatientWisePharmacyIpBillReport />} />
+              <Route path="/PatientWisePharmacyIpBillOldReport" element={<PatientWisePharmacyIpBillOldReport />} />
               <Route path="/LabAbstractReportDetailed" element={<LabAbstractReportDetailed />} />
               <Route path="/MedicineAbstractReport" element={<MedicineAbstractReport />} />
               <Route path="/medicineabstractreport" element={<MedicineAbstractReport />} />
+              <Route path="/MedicineAbstractOldReport" element={<MedicineAbstractOldReport />} />
+              <Route path="/medicineabstractoldreport" element={<MedicineAbstractOldReport />} />
               <Route path="/OccupancyListCompanyWiseReport" element={<OccupancyListCompanyWiseReport />} />
               <Route path="/InsuranceBillsStatusReportPage" element={<InsuranceBillsStatusReportPage />} />
               <Route path="/InsuranceBillsStatusBranchDuesReport" element={<InsuranceBillsStatusBranchDuesReport />} />
