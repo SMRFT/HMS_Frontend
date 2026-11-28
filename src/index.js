@@ -30,19 +30,6 @@ if (typeof performance !== 'undefined' && typeof performance.measure === 'functi
 
 // Access the redirect URL from environment variables
 const REDIRECT_URL = process.env.REACT_APP_LOGIN_REDIRECT_URL;
-// Set allowedActions from user_payload already stored in localStorage (set by login)
-const _storedPayload = localStorage.getItem("user_payload");
-if (_storedPayload) {
-  try {
-    const _parsedPayload = JSON.parse(_storedPayload);
-    localStorage.setItem(
-      "allowedActions",
-      JSON.stringify(_parsedPayload["permissions"] || _parsedPayload["allowed-actions"]),
-    );
-  } catch (e) {
-    // ignore parse errors
-  }
-}
 
 // console.log("=== HMS INDEX.JS DEBUG ===");
 // console.log("REDIRECT_URL:", REDIRECT_URL);
@@ -168,49 +155,50 @@ function isPublicRoute() {
     }
 
     // If token exists, validate it
-    if (false) {
-      if (accessToken && accessToken.trim() !== "") {
-        try {
-          const userPayload = validate(accessToken);
-          localStorage.setItem("access_token", accessToken);
-          const employeeId = userPayload.aud; // Using 'aud' field as ID
-          const name = userPayload.name;
-          const userEmail = userPayload.email;
-          const userRole = getUserRole(userPayload["allowed-actions"]);
-          if (employeeId && name) {
-            localStorage.setItem("user_payload", JSON.stringify(userPayload));
-            localStorage.setItem("employeeId", employeeId);
-            localStorage.setItem("name", name);
-            localStorage.setItem("userEmail", userEmail);
-            const hospitalCode = userPayload.hospital_code || "SH001";
-            localStorage.setItem("hospital_code", hospitalCode);
-            localStorage.setItem("selected_hospital", hospitalCode);
+    if (accessToken && accessToken.trim() !== "") {
+      try {
+        const userPayload = validate(accessToken);
+
+        localStorage.setItem("access_token", accessToken);
+
+        const employeeId = userPayload.aud; // Using 'aud' field as ID
+        const name = userPayload.name;
+        const userEmail = userPayload.email;
+        const userRole = getUserRole(userPayload["allowed-actions"]);
+
+        if (employeeId && name) {
+          localStorage.setItem("user_payload", JSON.stringify(userPayload));
+          localStorage.setItem("employeeId", employeeId);
+          localStorage.setItem("name", name);
+          localStorage.setItem("userEmail", userEmail);
+          const hospitalCode = userPayload.hospital_code || "SH001";
+          localStorage.setItem("hospital_code", hospitalCode);
+          localStorage.setItem("selected_hospital", hospitalCode);
+          localStorage.setItem(
+            "allowed-outlets",
+            JSON.stringify(userPayload["allowed-outlets"] || []),
+          );
+          localStorage.setItem(
+            "hms_pages",
+            JSON.stringify(userPayload["hms_pages"] || []),
+          );
+          if (userPayload["page_outlets"]) {
             localStorage.setItem(
-              "allowed-outlets",
-              JSON.stringify(userPayload["allowed-outlets"] || []),
-            );
-            localStorage.setItem(
-              "hms_pages",
-              JSON.stringify(userPayload["hms_pages"] || []),
-            );
-            if (userPayload["page_outlets"]) {
-              localStorage.setItem(
-                "page_outlets",
-                JSON.stringify(userPayload["page_outlets"] || {}),
-              );
-            }
-            localStorage.setItem("role", userRole);
-            localStorage.setItem(
-              "allowedActions",
-              JSON.stringify(userPayload["allowed-actions"] || []),
+              "page_outlets",
+              JSON.stringify(userPayload["page_outlets"] || {}),
             );
           }
-        } catch (tokenErr) {
-          console.error("❌ Token validation failed:", tokenErr.message);
-          if (!isPublic) {
-            redirectToLogin();
-            return;
-          }
+          localStorage.setItem("role", userRole);
+          localStorage.setItem(
+            "allowedActions",
+            JSON.stringify(userPayload["allowed-actions"] || []),
+          );
+        }
+      } catch (tokenErr) {
+        console.error("❌ Token validation failed:", tokenErr.message);
+        if (!isPublic) {
+          redirectToLogin();
+          return;
         }
       }
     }
