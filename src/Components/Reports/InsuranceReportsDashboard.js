@@ -33,6 +33,7 @@ import * as XLSX from 'xlsx';
 import apiRequest from '../../Auth/apiRequest';
 import { colors, PageWrapper, fadeIn } from '../GlobalStyles';
 import { printInsuranceReport } from '../Insurance_report/printInsuranceReport';
+import { printDischargeBillTemplate } from '../Insurance_report/InsuranceDischargeBillPrintTemplate';
 
 // Lazy-loaded specialized insurance reports
 const InsuranceBillsDueList = lazy(() => import('../Insurance_report/InsuranceBillsDueList'));
@@ -1246,6 +1247,10 @@ const InsuranceReportsDashboard = () => {
 
     // Print Report
     const handlePrint = () => {
+        if (activeReport?.category === 'Discharge Bills' && document.getElementById('printable-discharge-bill-sheet')) {
+            printDischargeBillTemplate('printable-discharge-bill-sheet', activeReport?.title || activeReport?.name || 'DISCHARGE BILL');
+            return;
+        }
         printInsuranceReport('insurance-modal-report-content', {
             reportTitle: activeReport?.title || activeReport?.name || 'Insurance Report',
             fromDate: modalDateRange?.[0]?.format('DD/MM/YYYY') || dateRange?.[0]?.format('DD/MM/YYYY'),

@@ -427,16 +427,20 @@ export const printInsuranceReport = (elementOrId, options = {}) => {
     const fromDate = options.fromDate || "";
     const toDate = options.toDate || "";
     const subtitle = options.subtitle || (fromDate && toDate ? `From ${formatDate(fromDate)} To ${formatDate(toDate)}` : "");
+    const headerSubline = options.headerSubline || "";
     const orientation = options.orientation || "landscape";
 
     // Extract patient info if available
     const patientInfo = options.patientInfo || null;
 
-    // Remove any existing in-clone hospital header so we don't duplicate
+    // Remove any existing in-clone hospital header / duplicate patient block so we don't duplicate
     const existingHeaders = clone.querySelectorAll(
-        "[class*='HospitalHeader'], [class*='report-header'], .report-header"
+        "[class*='HospitalHeader'], [class*='report-header'], .report-header, .hospital-header, .sheet-header, .header-block"
     );
     existingHeaders.forEach((h) => h.remove());
+    if (patientInfo) {
+        clone.querySelectorAll(".patient-meta-grid, .patient-bar").forEach((el) => el.remove());
+    }
 
     // Clean up tables in clone
     const tables = clone.querySelectorAll("table");
@@ -508,6 +512,7 @@ export const printInsuranceReport = (elementOrId, options = {}) => {
                     <div class="patient-meta-item"><strong>Discharge:</strong> <span>${formatDate(patientInfo.discharge_date) || "-"}</span></div>
                     <div class="patient-meta-item"><strong>Doctor:</strong> <span>${patientInfo.doctor || patientInfo.doctor_name || "-"}</span></div>
                     <div class="patient-meta-item"><strong>Company/TPA:</strong> <span>${patientInfo.company || patientInfo.insurance_company || "-"}</span></div>
+                    ${patientInfo.room_no ? `<div class="patient-meta-item"><strong>Room No:</strong> <span>${patientInfo.room_no}</span></div>` : ""}
                 </div>
             </div>
         `;
@@ -533,6 +538,7 @@ export const printInsuranceReport = (elementOrId, options = {}) => {
                 <div class="report-header">
                     <div class="hospital-name">${hospitalName}</div>
                     <div class="hospital-address">${hospitalAddress}</div>
+                    ${headerSubline ? `<div class="hospital-address" style="font-size: 8.5pt; font-weight: 600;">${headerSubline}</div>` : ""}
                     <div class="report-title">${reportTitle}</div>
                     ${subtitle ? `<div class="report-period">${subtitle}</div>` : ""}
                 </div>

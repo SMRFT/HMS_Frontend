@@ -541,6 +541,8 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false, isOldReport = false
 
     const handlePrint = () => {
         printInsuranceReport('printable-pharmacy-ip-sheet', {
+            reportTitle: 'PHARMACY IP BILL',
+            headerSubline: 'Dl No : TN-01-20-21-00202, TIN No : 33692663526  GSTIN : 33ABDCS8326A1ZP',
             reportTitle: isOldReport ? 'PHARMACY IP BILL' : 'PHARMACY IP BILL',
             patientInfo: {
                 uhid: patient.op_number || patient.uhid || uhid,
@@ -550,7 +552,8 @@ const PatientWisePharmacyIpBillReport = ({ embedded = false, isOldReport = false
                 admitted_date: patient.admitted_date,
                 discharge_date: patient.discharge_date,
                 doctor: resolvedDoctor,
-                company: patient.company || patient.insurance_company || patient.company_name || '-'
+                company: patient.company || patient.insurance_company || patient.company_name || '-',
+                room_no: patient.room_no || patient.room || patient.ward || '-'
             },
             orientation: 'portrait'
         });

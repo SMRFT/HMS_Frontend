@@ -232,6 +232,8 @@ import MasterDatewiseSummaryReport from "./Components/MasterAccounts/MasterDatew
 import MasterDepartmentWiseReport from "./Components/MasterAccounts/MasterDepartmentWiseReport";
 import MasterBillTypeWiseReport from "./Components/MasterAccounts/MasterBillTypeWiseReport";
 import MasterDoctorRevenueReport from "./Components/MasterAccounts/MasterDoctorRevenueReport";
+import MasterDoctorWiseIPCollection from "./Components/MasterAccounts/MasterDoctorWiseIPCollection";
+import MasterDoctorWiseOPCollection from "./Components/MasterAccounts/MasterDoctorWiseOPCollection";
 import MasterAdvanceRegistration from "./Components/MasterAccounts/MasterAdvanceRegistration";
 import MasterInsuranceAdvanceReport from "./Components/MasterAccounts/MasterInsuranceAdvanceReport";
 import MasterIPAdvanceReport from "./Components/MasterAccounts/MasterIPAdvanceReport";
@@ -1953,6 +1955,8 @@ function App() {
               <Route path="/MasterDepartmentWiseReport" element={<MasterDepartmentWiseReport />} />
               <Route path="/MasterBillTypeWiseReport" element={<MasterBillTypeWiseReport />} />
               <Route path="/MasterDoctorRevenueReport" element={<MasterDoctorRevenueReport />} />
+              <Route path="/MasterDoctorWiseIPCollection" element={<MasterDoctorWiseIPCollection />} />
+              <Route path="/MasterDoctorWiseOPCollection" element={<MasterDoctorWiseOPCollection />} />
               <Route path="/MasterAdvanceRegistration" element={<MasterAdvanceRegistration />} />
               <Route path="/MasterInsuranceAdvanceReport" element={<MasterInsuranceAdvanceReport />} />
               <Route path="/MasterIPAdvanceReport" element={<MasterIPAdvanceReport />} />
