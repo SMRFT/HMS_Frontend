@@ -38,8 +38,10 @@ import { printInsuranceReport } from '../Insurance_report/printInsuranceReport';
 const InsuranceBillsDueList = lazy(() => import('../Insurance_report/InsuranceBillsDueList'));
 const InsuranceBillsStatusReport = lazy(() => import('../Insurance_report/InsuranceBillsStatusReport'));
 const PatientWisePharmacyIpBillReport = lazy(() => import('../Insurance_report/PatientWisePharmacyIpBillReport'));
+const PatientWisePharmacyIpBillOldReport = lazy(() => import('../Insurance_report/PatientWisePharmacyIpBillOldReport'));
 const LabAbstractReportDetailed = lazy(() => import('../Insurance_report/LabAbstractReportDetailed'));
 const MedicineAbstractReport = lazy(() => import('../Insurance_report/MedicineAbstractReport'));
+const MedicineAbstractOldReport = lazy(() => import('../Insurance_report/MedicineAbstractOldReport'));
 const OccupancyListCompanyWiseReport = lazy(() => import('../Insurance_report/OccupancyListCompanyWiseReport'));
 const InsuranceBillsStatusReportPage = lazy(() => import('../Insurance_report/InsuranceBillsStatusReportPage'));
 const InsuranceBillsStatusBranchDuesReport = lazy(() => import('../Insurance_report/InsuranceBillsStatusBranchDuesReport'));
@@ -936,6 +938,26 @@ const INSURANCE_REPORTS = [
         route: '/MedicineAbstractReport',
         component: MedicineAbstractReport
     },
+    {
+        id: 'patient_wise_pharmacy_ip_bill_old',
+        title: 'PATIENT WISE PHARMACY IP BILL DETAILED (OLD)',
+        description: 'Historical itemized IP pharmacy invoices (Sep–Nov 2026) from old pharmacy billing.',
+        icon: Package,
+        color: '#0d9488',
+        category: 'Lab & Medicine',
+        route: '/PatientWisePharmacyIpBillOldReport',
+        component: PatientWisePharmacyIpBillOldReport
+    },
+    {
+        id: 'medicine_abstract_old',
+        title: 'Medicine Abstract Report (OLD)',
+        description: 'Historical pharmaceutical dispensation abstract & GST ledger (Sep–Nov 2026) from old pharmacy billing.',
+        icon: Package,
+        color: '#047857',
+        category: 'Lab & Medicine',
+        route: '/MedicineAbstractOldReport',
+        component: MedicineAbstractOldReport
+    },
 
     // 4. Registration & Occupancy
     {
@@ -1086,8 +1108,9 @@ const InsuranceReportsDashboard = () => {
         setModalSearchingIps(false);
         setModalCompanyName('ALL');
         setModalOutletName('ALL');
-        setModalFromDate(dateRange[0] || dayjs().subtract(30, 'days'));
-        setModalToDate(dateRange[1] || dayjs());
+        const isOldRep = ['patient_wise_pharmacy_ip_bill_old', 'medicine_abstract_old'].includes(report.id);
+        setModalFromDate(isOldRep ? dayjs('2026-09-13') : (dateRange[0] || dayjs().subtract(30, 'days')));
+        setModalToDate(isOldRep ? dayjs('2026-11-14') : (dateRange[1] || dayjs()));
         setFilterModalOpen(true);
     };
 
@@ -1108,7 +1131,7 @@ const InsuranceReportsDashboard = () => {
         ].includes(targetReport.id);
 
         const params = new URLSearchParams();
-        if (['patient_wise_pharmacy_ip_bill', 'lab_abstract', 'medicine_abstract'].includes(targetReport.id) || isDischarge) {
+        if (['patient_wise_pharmacy_ip_bill', 'patient_wise_pharmacy_ip_bill_old', 'lab_abstract', 'medicine_abstract', 'medicine_abstract_old'].includes(targetReport.id) || isDischarge) {
             if (modalBillNumber && modalBillNumber.trim()) {
                 params.append('bill_number', modalBillNumber.trim());
             }
@@ -1426,7 +1449,7 @@ const InsuranceReportsDashboard = () => {
                                         </div>
                                     </div>
 
-                                    {['patient_wise_pharmacy_ip_bill', 'lab_abstract', 'medicine_abstract', 'discharge_all', 'discharge_tkt', 'discharge_railway', 'discharge_tkt_surgery', 'discharge_all_company', 'discharge_tkt_op', 'discharge_tkt_railway'].includes(targetReport.id) && (
+                                    {['patient_wise_pharmacy_ip_bill', 'patient_wise_pharmacy_ip_bill_old', 'lab_abstract', 'medicine_abstract', 'medicine_abstract_old', 'discharge_all', 'discharge_tkt', 'discharge_railway', 'discharge_tkt_surgery', 'discharge_all_company', 'discharge_tkt_op', 'discharge_tkt_railway'].includes(targetReport.id) && (
                                         <>
                                             {['discharge_all', 'discharge_tkt', 'discharge_railway', 'discharge_tkt_surgery', 'discharge_all_company', 'discharge_tkt_op', 'discharge_tkt_railway'].includes(targetReport.id) && (
                                                 <div className="fields-row single">
