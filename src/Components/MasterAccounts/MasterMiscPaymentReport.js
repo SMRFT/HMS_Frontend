@@ -64,32 +64,55 @@ const SubtotalTr = styled.tr`
     }
 `;
 
+const FullWidthWrapper = styled(ReportPageWrapper)`
+    max-width: 100% !important;
+    width: 100% !important;
+    padding-left: ${(p) => (p.$isModal ? "4px" : "16px")} !important;
+    padding-right: ${(p) => (p.$isModal ? "4px" : "16px")} !important;
+`;
+
+const ResponsiveTableWrapper = styled(DataTableWrapper)`
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+
+    @media print {
+        overflow-x: visible !important;
+    }
+`;
+
 const MiscTable = styled.table`
     width: 100%;
+    min-width: 980px;
     border-collapse: collapse !important;
-    table-layout: fixed;
+    table-layout: auto;
+
+    @media print {
+        min-width: 100% !important;
+    }
 
     th {
         border: 1px solid #cbd5e1 !important;
-        padding: 7px 5px !important;
+        padding: 7px 6px !important;
         background: #f8fafc;
-        font-size: 0.80rem !important;
+        font-size: 0.78rem !important;
         text-align: left;
         color: #1e293b;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.02em;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        white-space: normal;
+        word-break: break-word;
     }
 
     td {
         border: 1px solid #cbd5e1 !important;
         padding: 6px 8px !important;
-        font-size: 0.84rem;
+        font-size: 0.82rem;
         vertical-align: middle;
-        overflow-wrap: break-word;
+        white-space: normal;
+        overflow-wrap: anywhere;
         word-break: break-word;
     }
 
@@ -401,7 +424,7 @@ const MasterMiscPaymentReport = ({
     };
 
     return (
-        <ReportPageWrapper $isModal={isModalView}>
+        <FullWidthWrapper $isModal={isModalView}>
             {!isModalView && (
                 <ControlCard>
                     <HeaderBar>
@@ -484,19 +507,19 @@ const MasterMiscPaymentReport = ({
                         </KPIGrid>
                     )}
 
-                    <DataTableWrapper>
+                    <ResponsiveTableWrapper>
                         <MiscTable>
                             <thead>
                                 <tr>
-                                    <th style={{ width: "45px", textAlign: "center" }}>SLNO</th>
-                                    <th style={{ width: "110px" }}>Voucher No</th>
-                                    <th style={{ width: "85px" }}>Time</th>
-                                    <th style={{ width: "120px" }}>Account Head</th>
-                                    <th style={{ width: "160px" }}>Party / Payee</th>
-                                    <th>Narration / Purpose</th>
-                                    <th style={{ width: "120px" }}>Cashier</th>
-                                    <th style={{ width: "110px", textAlign: "right" }}>Receipt (₹)</th>
-                                    <th style={{ width: "110px", textAlign: "right" }}>Payment / Return (₹)</th>
+                                    <th style={{ width: "4%", textAlign: "center" }}>SLNO</th>
+                                    <th style={{ width: "10%" }}>Voucher No</th>
+                                    <th style={{ width: "7%" }}>Time</th>
+                                    <th style={{ width: "11%" }}>Account Head</th>
+                                    <th style={{ width: "15%" }}>Party / Payee</th>
+                                    <th style={{ width: "25%" }}>Narration / Purpose</th>
+                                    <th style={{ width: "10%" }}>Cashier</th>
+                                    <th style={{ width: "9%", textAlign: "right" }}>Receipt (₹)</th>
+                                    <th style={{ width: "9%", textAlign: "right" }}>Payment / Return (₹)</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -530,44 +553,68 @@ const MasterMiscPaymentReport = ({
                                                         </td>
                                                     </SectionHeaderTr>
 
-                                                    {/* Vouchers inside this Type */}
-                                                    {sec.items.map((v) => (
-                                                        <tr 
-                                                            key={v.voucher_no || v.displaySlno}
-                                                            style={{
-                                                                background: v.is_sales_return ? "#fef2f2" : "inherit"
-                                                            }}
-                                                        >
-                                                            <td className="text-center font-mono">{v.displaySlno}</td>
-                                                            <td className="font-mono" style={{ fontWeight: 700 }}>{v.voucher_no}</td>
-                                                            <td style={{ color: "#475569" }}>{v.timeStr || "-"}</td>
-                                                            <td>
-                                                                {v.is_sales_return ? (
-                                                                    <span style={{ 
-                                                                        background: "#fee2e2", 
-                                                                        color: "#b91c1c", 
-                                                                        padding: "2px 6px", 
-                                                                        borderRadius: "4px", 
-                                                                        fontSize: "0.75rem", 
-                                                                        fontWeight: 700 
-                                                                    }}>
-                                                                        Sales Return
-                                                                    </span>
-                                                                ) : (
-                                                                    <strong>{v.account_head || "Sundry"}</strong>
-                                                                )}
-                                                            </td>
-                                                            <td style={{ wordBreak: "break-word" }}>{v.paid_to_or_received_from || "-"}</td>
-                                                            <td style={{ wordBreak: "break-word" }}>{cleanNarrationText(v.narration, v.paid_to_or_received_from)}</td>
-                                                            <td>{v.cashier_name || "Counter Staff"}</td>
-                                                            <td className="text-right font-mono" style={{ color: "#059669", fontWeight: v.isRec ? 700 : 400 }}>
-                                                                {v.isRec ? formatINR(v.amount) : "-"}
-                                                            </td>
-                                                            <td className="text-right font-mono" style={{ color: v.is_sales_return ? "#b91c1c" : "#dc2626", fontWeight: !v.isRec ? 700 : 400 }}>
-                                                                {!v.isRec ? formatINR(v.amount) : "-"}
+                                                    {sec.isSalesReturn ? (
+                                                        <tr>
+                                                            <td colSpan={9} style={{ padding: 0, border: "none" }}>
+                                                                <MiscTable style={{ margin: 0 }}>
+                                                                    <thead>
+                                                                        <tr>
+                                                                            <th style={{ width: "4%", textAlign: "center" }}>SLNO</th>
+                                                                            <th style={{ width: "12%" }}>Return Bill No</th>
+                                                                            <th style={{ width: "12%" }}>Original Bill No</th>
+                                                                            <th style={{ width: "7%", textAlign: "center" }}>Time</th>
+                                                                            <th style={{ width: "9%" }}>UHID</th>
+                                                                            <th style={{ width: "15%" }}>Patient Name</th>
+                                                                            <th style={{ width: "11%" }}>Requested By</th>
+                                                                            <th style={{ width: "10%" }}>Approved By</th>
+                                                                            <th style={{ width: "6%", textAlign: "center" }}>Details</th>
+                                                                            <th style={{ width: "5%", textAlign: "center" }}>Mode</th>
+                                                                            <th style={{ width: "9%", textAlign: "right" }}>Amount (₹)</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        {sec.items.map((v) => (
+                                                                            <tr key={v.voucher_no || v.displaySlno} style={{ background: "#fef2f2" }}>
+                                                                                <td className="text-center font-mono">{v.displaySlno}</td>
+                                                                                <td className="font-mono" style={{ fontWeight: 700 }}>{v.voucher_no}</td>
+                                                                                <td className="font-mono">{v.original_bill_no || "-"}</td>
+                                                                                <td className="text-center" style={{ color: "#475569", whiteSpace: "nowrap" }}>{v.timeStr || "-"}</td>
+                                                                                <td className="font-mono">{v.uhid || "-"}</td>
+                                                                                <td style={{ fontWeight: 700 }}>{v.paid_to_or_received_from || "Walk-in Patient"}</td>
+                                                                                <td>{v.requested_by || v.cashier_name || "-"}</td>
+                                                                                <td style={{ color: "#15803d", fontWeight: 600 }}>{v.approved_by || "-"}</td>
+                                                                                <td className="text-center" style={{ color: "#2563eb", fontSize: "0.78rem" }}>
+                                                                                    {v.items_count || 1} {(v.items_count || 1) === 1 ? "Item" : "Items"}
+                                                                                </td>
+                                                                                <td className="text-center">{v.payment_mode || "Cash"}</td>
+                                                                                <td className="text-right font-mono" style={{ color: "#b91c1c", fontWeight: 700, whiteSpace: "nowrap" }}>
+                                                                                    {formatINR(v.amount)}
+                                                                                </td>
+                                                                            </tr>
+                                                                        ))}
+                                                                    </tbody>
+                                                                </MiscTable>
                                                             </td>
                                                         </tr>
-                                                    ))}
+                                                    ) : (
+                                                        sec.items.map((v) => (
+                                                            <tr key={v.voucher_no || v.displaySlno}>
+                                                                <td className="text-center font-mono">{v.displaySlno}</td>
+                                                                <td className="font-mono" style={{ fontWeight: 700 }}>{v.voucher_no}</td>
+                                                                <td style={{ color: "#475569", whiteSpace: "nowrap" }}>{v.timeStr || "-"}</td>
+                                                                <td><strong>{v.account_head || "Sundry"}</strong></td>
+                                                                <td>{v.paid_to_or_received_from || "-"}</td>
+                                                                <td>{cleanNarrationText(v.narration, v.paid_to_or_received_from)}</td>
+                                                                <td>{v.cashier_name || "Counter Staff"}</td>
+                                                                <td className="text-right font-mono" style={{ color: "#059669", fontWeight: v.isRec ? 700 : 400, whiteSpace: "nowrap" }}>
+                                                                    {v.isRec ? formatINR(v.amount) : "-"}
+                                                                </td>
+                                                                <td className="text-right font-mono" style={{ color: "#dc2626", fontWeight: !v.isRec ? 700 : 400, whiteSpace: "nowrap" }}>
+                                                                    {!v.isRec ? formatINR(v.amount) : "-"}
+                                                                </td>
+                                                            </tr>
+                                                        ))
+                                                    )}
 
                                                     {/* Subtotal per Type */}
                                                     <SubtotalTr style={{
@@ -620,12 +667,12 @@ const MasterMiscPaymentReport = ({
                                 </tr>
                             </tbody>
                         </MiscTable>
-                    </DataTableWrapper>
+                    </ResponsiveTableWrapper>
 
                     <ReportPrintFooter />
                 </div>
             )}
-        </ReportPageWrapper>
+        </FullWidthWrapper>
     );
 };
 
